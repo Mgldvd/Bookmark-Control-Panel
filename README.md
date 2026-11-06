@@ -133,7 +133,7 @@ bookmarks/
   libre. Se recuerda y se aplica antes del primer pintado. En móvil la barra sigue siendo un cajón.
 - **Modo minimalista / página de inicio**: el botón de las cuatro esquinas (barra superior) deja
   solo el tablero de la **carpeta de inicio**; se ocultan buscador, paneles laterales, cabecera y
-  botones. Para salir, lleva el puntero a la esquina superior derecha (aparece el botón de salida).
+  botones. Para salir, usa el botón fijo de la esquina superior derecha.
   La carpeta de inicio se elige en Ajustes → Página de inicio (también vale «Todos», «Destacados»
   o «Recientes») o con clic derecho en una carpeta → «Usar como página de inicio». Dentro del modo,
   al abrir una subcarpeta aparece «Volver a …» (o `Esc`); no cambia la carpeta del dashboard normal.

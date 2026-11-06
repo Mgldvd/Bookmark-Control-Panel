@@ -1612,7 +1612,8 @@ h1 {
 
 /* ---------- Modo minimalista (página de inicio) ----------
    Solo queda el tablero de la carpeta de inicio; html.minimal lo pone
-   theme-init.js antes del primer pintado para que no se vea el resto. */
+   theme-init.js antes del primer pintado para que no se vea el resto.
+   El único control visible es el botón de salida, fijo arriba a la derecha. */
 .minimal .app { --sb-col: 0px; --gp-col: 0px; }
 .minimal .sidebar,
 .minimal .groups,
@@ -1620,7 +1621,7 @@ h1 {
 .minimal .topbar,
 .minimal #view-head,
 .minimal #folders-section { display: none; }
-.minimal .content-inner { padding-top: 32px; }
+.minimal .content-inner { padding-top: 64px; }
 
 .minimal-exit { display: none; }
 .minimal .minimal-exit {
@@ -1631,15 +1632,10 @@ h1 {
   z-index: 30;
   border: 1px solid var(--border);
   background: var(--surface);
-  box-shadow: var(--shadow-md);
-  opacity: 0;
-  transition: opacity 0.2s, background-color 0.15s, color 0.15s;
+  box-shadow: var(--shadow-sm);
 }
-/* Zona sensible algo mayor que el botón, para encontrarlo sin precisión. */
-.minimal-exit::before { content: ""; position: absolute; inset: -14px; }
-.minimal .minimal-exit:hover,
-.minimal .minimal-exit:focus-visible,
-.minimal .minimal-exit.is-hinted { opacity: 1; }
+.minimal .minimal-exit:hover { border-color: var(--border-strong); background: var(--surface); color: var(--accent); }
+.minimal .minimal-exit:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .home-bar { display: flex; align-items: center; gap: 12px; min-width: 0; margin: 0 0 18px; }
 .home-bar #home-back { flex: none; }
@@ -1737,7 +1733,6 @@ h1 {
   .group-remove,
   .board-head > .icon-btn,
   .board-row > .icon-btn { opacity: 1; }
-  .minimal .minimal-exit { opacity: 0.7; }
 }
 
 @media (prefers-reduced-motion: reduce) {

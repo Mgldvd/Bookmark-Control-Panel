@@ -802,10 +802,6 @@
     setPref('minimal', true);
     $('#content').scrollTop = 0;
     toast(t('toast.minimalOn'));
-    // El botón de salida se ve unos segundos para que se sepa dónde está.
-    const exit = $('#minimal-exit');
-    exit.classList.add('is-hinted');
-    setTimeout(() => exit.classList.remove('is-hinted'), 3500);
   }
 
   function exitMinimal() {
