@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title data-i18n="app.title">Bookmarks</title>
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+  <script src="theme-init.js"></script>
+  <script src="i18n.js" defer></script>
+  <link rel="stylesheet" href="dashboard.css">
+  <script src="dashboard.js" defer></script>
+</head>
+<body>
+  <!-- Icon sprite (own strokes, line style) -->
+  <svg class="sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9l-.8-1.2A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
+    <symbol id="i-folder-plus" viewBox="0 0 24 24"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9l-.8-1.2A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/><path d="M12 10v6M9 13h6"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+    <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 2.5 2.9 5.9 6.6 1-4.8 4.6 1.1 6.5L12 17.4l-5.8 3.1 1.1-6.5-4.8-4.6 6.6-1Z"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7.5"/><path d="m21 21-4.6-4.6"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
+    <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><path d="M12 6.5V12l3.5 2"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 2 10 5-10 5L2 7l10-5Z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></symbol>
+    <symbol id="i-move" viewBox="0 0 24 24"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9l-.8-1.2A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/><path d="M8 13h8M13 10l3 3-3 3"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+    <symbol id="i-external" viewBox="0 0 24 24"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></symbol>
+    <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="m19 21-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2Z"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15Z"/><path d="M6.5 17A2.5 2.5 0 0 0 4 19.5 2.5 2.5 0 0 0 6.5 22H20v-5"/></symbol>
+    <symbol id="i-toolbar" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/></symbol>
+    <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1Z"/></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5M12 16.5h.01"/></symbol>
+    <symbol id="i-tabs" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 9h20M8.5 4v5M15 4v5"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16M3 12a9 9 0 0 1 15.5-6.2L21 8"/><path d="M21 3v5h-5M3 21v-5h5"/></symbol>
+  </svg>
+
+  <div class="app">
+    <aside class="sidebar" id="sidebar" aria-label="Bookmark navigation" data-i18n-attr="aria-label:nav.sidebar">
+      <div class="sidebar-head">
+        <div class="brand">
+          <img src="icons/icon.svg" alt="" width="26" height="26">
+          <span>Bookmark Dashboard</span>
+        </div>
+        <button class="icon-btn only-mobile" id="drawer-close" type="button" aria-label="Close panel" data-i18n-attr="aria-label:nav.closePanel">
+          <svg class="icon"><use href="#i-close"/></svg>
+        </button>
+      </div>
+
+      <nav class="sidebar-scroll" aria-label="Views and folders" data-i18n-attr="aria-label:nav.viewsAndFolders">
+        <ul class="nav-list" id="views">
+          <li>
+            <button class="nav-item" type="button" data-view="view:all">
+              <svg class="icon"><use href="#i-layers"/></svg>
+              <span class="nav-label" data-i18n="view.all">All bookmarks</span>
+              <span class="count" id="count-all"></span>
+            </button>
+          </li>
+          <li>
+            <button class="nav-item" type="button" data-view="view:favorites">
+              <svg class="icon"><use href="#i-star"/></svg>
+              <span class="nav-label" data-i18n="view.favorites">Starred</span>
+              <span class="count" id="count-favorites"></span>
+            </button>
+          </li>
+          <li>
+            <button class="nav-item" type="button" data-view="view:recent">
+              <svg class="icon"><use href="#i-clock"/></svg>
+              <span class="nav-label" data-i18n="nav.recent">Recent</span>
+            </button>
+          </li>
+        </ul>
+
+        <div class="nav-heading">
+          <span data-i18n="nav.folders">Folders</span>
+          <button class="icon-btn icon-btn-sm" id="sidebar-new-folder" type="button" title="New folder" aria-label="New folder" data-i18n-attr="title:action.newFolder;aria-label:action.newFolder">
+            <svg class="icon"><use href="#i-folder-plus"/></svg>
+          </button>
+        </div>
+        <ul class="tree" id="tree"></ul>
+      </nav>
+
+      <div class="sidebar-foot">
+        <span class="live-dot" id="live" title="Synced in real time with your Firefox bookmarks" data-i18n-attr="title:live.title"></span>
+        <span id="stats">Loading…</span>
+      </div>
+    </aside>
+
+    <div class="scrim" id="scrim"></div>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="icon-btn only-mobile" id="drawer-open" type="button" aria-label="Show folders" data-i18n-attr="aria-label:nav.showFolders">
+          <svg class="icon"><use href="#i-menu"/></svg>
+        </button>
+
+        <div class="search" role="search">
+          <svg class="icon search-icon"><use href="#i-search"/></svg>
+          <input id="search" type="search" placeholder="Search by title, URL or folder…"
+                 autocomplete="off" spellcheck="false" aria-label="Search bookmarks"
+                 data-i18n-attr="placeholder:search.placeholder;aria-label:search.label">
+          <kbd class="search-kbd">/</kbd>
+        </div>
+
+        <div class="topbar-actions">
+          <button class="icon-btn" id="theme-btn" type="button"></button>
+          <button class="icon-btn" id="settings-btn" type="button" title="Settings" aria-label="Settings" data-i18n-attr="title:settings.title;aria-label:settings.title">
+            <svg class="icon"><use href="#i-settings"/></svg>
+          </button>
+          <button class="btn btn-primary" id="new-btn" type="button" aria-haspopup="menu">
+            <svg class="icon"><use href="#i-plus"/></svg>
+            <span data-i18n="action.new">New</span>
+          </button>
+        </div>
+      </header>
+
+      <div class="content" id="content">
+        <div class="content-inner">
+          <div class="view-head" id="view-head">
+            <nav class="breadcrumb" id="breadcrumb" aria-label="Folder path" data-i18n-attr="aria-label:breadcrumb.label" hidden></nav>
+            <div class="view-title-row">
+              <div class="view-title-wrap">
+                <span class="view-icon" id="view-icon"></span>
+                <div class="view-title-text">
+                  <h1 id="view-title" data-i18n="view.loading">Loading bookmarks…</h1>
+                  <p class="view-subtitle" id="view-subtitle"></p>
+                </div>
+              </div>
+              <div class="controls" id="controls">
+                <button class="btn" id="open-all-btn" type="button" hidden
+                        title="Open every bookmark in this view in new tabs" aria-label="Open every bookmark in this view in new tabs"
+                        data-i18n-attr="title:openAll.title;aria-label:openAll.title">
+                  <svg class="icon"><use href="#i-tabs"/></svg>
+                  <span data-i18n="openAll.button">Open all</span>
+                </button>
+                <label class="toggle-chip" id="subfolders-chip" hidden>
+                  <input type="checkbox" id="subfolders-toggle">
+                  <span data-i18n="controls.subfolders">Include subfolders</span>
+                </label>
+                <label class="select-wrap">
+                  <span class="visually-hidden" data-i18n="sort.label">Sort by</span>
+                  <select id="sort">
+                    <option value="manual" data-i18n="sort.manual">Original order</option>
+                    <option value="name-asc" data-i18n="sort.nameAsc">Name (A → Z)</option>
+                    <option value="name-desc" data-i18n="sort.nameDesc">Name (Z → A)</option>
+                    <option value="date-desc" data-i18n="sort.dateDesc">Newest first</option>
+                    <option value="date-asc" data-i18n="sort.dateAsc">Oldest first</option>
+                  </select>
+                  <svg class="icon"><use href="#i-chevron-down"/></svg>
+                </label>
+                <div class="segmented" role="group" aria-label="View type" data-i18n-attr="aria-label:viewMode.label">
+                  <button type="button" class="seg-btn" data-view-mode="grid" title="Grid view" aria-label="Grid view" data-i18n-attr="title:viewMode.grid;aria-label:viewMode.grid">
+                    <svg class="icon"><use href="#i-grid"/></svg>
+                  </button>
+                  <button type="button" class="seg-btn" data-view-mode="list" title="List view" aria-label="List view" data-i18n-attr="title:viewMode.list;aria-label:viewMode.list">
+                    <svg class="icon"><use href="#i-list"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <section class="section" id="folders-section" hidden>
+            <h2 class="section-title"><span data-i18n="section.folders">Folders</span> <span class="section-count" id="folders-count"></span></h2>
+            <div class="folder-grid" id="folder-grid"></div>
+          </section>
+
+          <section class="section" id="bookmarks-section" hidden>
+            <h2 class="section-title"><span data-i18n="section.bookmarks">Bookmarks</span> <span class="section-count" id="bookmarks-count"></span></h2>
+            <div class="cards" id="cards"></div>
+            <button class="btn load-more" id="load-more" type="button" hidden>Show more</button>
+          </section>
+
+          <div class="empty" id="empty" hidden></div>
+
+          <div class="skeleton" id="skeleton" aria-hidden="true">
+            <div></div><div></div><div></div><div></div><div></div><div></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div class="menu" id="menu" role="menu" hidden></div>
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <!-- Create / edit / move -->
+  <dialog class="dialog" id="edit-dialog" aria-labelledby="edit-heading">
+    <form id="edit-form" novalidate>
+      <header class="dialog-head">
+        <h2 id="edit-heading">Edit</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Close" data-i18n-attr="aria-label:dialog.close">
+          <svg class="icon"><use href="#i-close"/></svg>
+        </button>
+      </header>
+      <div class="dialog-body">
+        <label class="field">
+          <span data-i18n="edit.name">Name</span>
+          <input id="edit-name" type="text" autocomplete="off">
+        </label>
+        <label class="field" id="edit-url-row">
+          <span data-i18n="edit.url">URL</span>
+          <input id="edit-url" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://example.com" data-i18n-attr="placeholder:edit.urlPlaceholder">
+        </label>
+        <label class="field">
+          <span data-i18n="edit.folder">Folder</span>
+          <span class="select-wrap select-wrap-block">
+            <select id="edit-parent"></select>
+            <svg class="icon"><use href="#i-chevron-down"/></svg>
+          </span>
+        </label>
+        <p class="form-error" id="edit-error" role="alert" hidden></p>
+      </div>
+      <footer class="dialog-foot">
+        <button type="button" class="btn" data-close data-i18n="action.cancel">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="edit-submit">Save</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Confirmation -->
+  <dialog class="dialog dialog-sm" id="confirm-dialog" aria-labelledby="confirm-title">
+    <form method="dialog">
+      <div class="dialog-body confirm-body">
+        <div class="confirm-icon" id="confirm-icon"><svg class="icon"><use href="#i-trash"/></svg></div>
+        <div>
+          <h2 id="confirm-title"></h2>
+          <p id="confirm-message"></p>
+        </div>
+      </div>
+      <footer class="dialog-foot">
+        <button class="btn" value="cancel" id="confirm-cancel" data-i18n="action.cancel">Cancel</button>
+        <button class="btn btn-danger" value="confirm" id="confirm-ok">Delete</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Settings -->
+  <dialog class="dialog" id="settings-dialog" aria-labelledby="settings-heading">
+    <form id="settings-form" method="dialog">
+      <header class="dialog-head">
+        <h2 id="settings-heading" data-i18n="settings.title">Settings</h2>
+        <button type="submit" class="icon-btn" value="close" aria-label="Close" data-i18n-attr="aria-label:dialog.close">
+          <svg class="icon"><use href="#i-close"/></svg>
+        </button>
+      </header>
+      <div class="dialog-body settings-body">
+        <fieldset class="settings-group">
+          <legend data-i18n="settings.appearance">Appearance</legend>
+          <div class="theme-options">
+            <label class="theme-option"><input type="radio" name="theme" value="auto"><svg class="icon"><use href="#i-monitor"/></svg><span data-i18n="theme.auto">System</span></label>
+            <label class="theme-option"><input type="radio" name="theme" value="light"><svg class="icon"><use href="#i-sun"/></svg><span data-i18n="theme.light">Light</span></label>
+            <label class="theme-option"><input type="radio" name="theme" value="dark"><svg class="icon"><use href="#i-moon"/></svg><span data-i18n="theme.dark">Dark</span></label>
+          </div>
+        </fieldset>
+
+        <fieldset class="settings-group">
+          <legend data-i18n="settings.language">Language</legend>
+          <div class="theme-options lang-options">
+            <label class="theme-option"><input type="radio" name="lang" value="en"><span lang="en">English</span></label>
+            <label class="theme-option"><input type="radio" name="lang" value="es"><span lang="es">Español</span></label>
+          </div>
+        </fieldset>
+
+        <fieldset class="settings-group">
+          <legend data-i18n="settings.behavior">Behavior</legend>
+          <label class="switch-row">
+            <span class="switch-text">
+              <span data-i18n="opt.newtab">Open bookmarks in a new tab</span>
+              <small data-i18n="opt.newtabHint">When off, bookmarks open in the current tab.</small>
+            </span>
+            <input class="switch" type="checkbox" id="opt-newtab">
+          </label>
+          <label class="switch-row">
+            <span class="switch-text">
+              <span data-i18n="opt.subfolders">Include bookmarks from subfolders</span>
+              <small data-i18n="opt.subfoldersHint">When opening a folder, also show the bookmarks of all its subfolders.</small>
+            </span>
+            <input class="switch" type="checkbox" id="opt-subfolders">
+          </label>
+          <label class="switch-row">
+            <span class="switch-text">
+              <span data-i18n="opt.favicons">Show favicons</span>
+              <small data-i18n="opt.faviconsHint">Requested directly from each site (/favicon.ico), never from third-party services. Turn it off so the dashboard makes no network connections at all.</small>
+            </span>
+            <input class="switch" type="checkbox" id="opt-favicons">
+          </label>
+        </fieldset>
+
+        <fieldset class="settings-group">
+          <legend data-i18n="settings.shortcuts">Keyboard shortcuts</legend>
+          <dl class="shortcuts">
+            <dt><kbd>/</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></dt><dd data-i18n="shortcut.search">Search</dd>
+            <dt><kbd data-i18n="kbd.enter">Enter</kbd></dt><dd data-i18n="shortcut.enter">Open the first search result</dd>
+            <dt><kbd data-i18n="kbd.delete">Delete</kbd></dt><dd data-i18n="shortcut.delete">Delete the focused bookmark or folder</dd>
+            <dt><kbd>Esc</kbd></dt><dd data-i18n="shortcut.esc">Clear search / close menus</dd>
+            <dt><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd></dt><dd data-i18n="shortcut.open">Open the dashboard from any tab</dd>
+            <dt><kbd data-i18n="kbd.middleClick">Middle click</kbd></dt><dd data-i18n="shortcut.middleClick">On a folder: open its bookmarks in new tabs</dd>
+          </dl>
+        </fieldset>
+
+        <p class="privacy-note">
+          <svg class="icon"><use href="#i-check"/></svg>
+          <span data-i18n="privacy.note">Everything runs locally. Your bookmarks are read through the Firefox API and are never sent to any server. Starred items and preferences are stored only in this extension.</span>
+        </p>
+      </div>
+      <footer class="dialog-foot">
+        <button type="button" class="btn" id="resync-btn">
+          <svg class="icon"><use href="#i-refresh"/></svg>
+          <span data-i18n="resync.button">Reload bookmarks</span>
+        </button>
+        <button type="submit" class="btn btn-primary" value="close" data-i18n="action.done">Done</button>
+      </footer>
+    </form>
+  </dialog>
+</body>
+</html>
