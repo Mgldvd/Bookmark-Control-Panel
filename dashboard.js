@@ -70,6 +70,7 @@
   const DEFAULT_PREFS = Object.freeze({
     lang: DEFAULT_LANG,
     corners: 'round',
+    sidebarPanel: true,
     theme: 'auto',
     view: 'grid',
     sort: 'manual',
@@ -96,6 +97,7 @@
     prefs: {
       lang: DEFAULT_PREFS.lang,
       corners: DEFAULT_PREFS.corners,
+      sidebarPanel: DEFAULT_PREFS.sidebarPanel,
       theme: DEFAULT_PREFS.theme,
       view: DEFAULT_PREFS.view,
       sort: DEFAULT_PREFS.sort,
@@ -622,7 +624,7 @@
     }
     if (SORTS.includes(p.sort)) prefs.sort = p.sort;
     if (typeof p.lastFolder === 'string') prefs.lastFolder = p.lastFolder;
-    for (const key of ['openInNewTab', 'showFavicons', 'includeSubfolders', 'groupsPanel']) {
+    for (const key of ['openInNewTab', 'showFavicons', 'includeSubfolders', 'groupsPanel', 'sidebarPanel']) {
       if (typeof p[key] === 'boolean') prefs[key] = p[key];
     }
     if (Array.isArray(p.expanded)) state.expanded = new Set(p.expanded.filter((x) => typeof x === 'string'));
@@ -653,6 +655,7 @@
     savePrefs({ [key]: value });
     if (key === 'theme') applyTheme(true);
     if (key === 'corners') applyCorners();
+    if (key === 'sidebarPanel') applySidebar();
     if (key === 'lang') applyLanguage();
     if (key === 'groupsPanel') applyGroupsPanel();
     if (key === 'includeSubfolders') state.limit = PAGE_SIZE;
@@ -671,6 +674,7 @@
     applyPrefs(incoming);
     if (incoming.lang !== undefined) applyLanguage();
     applyCorners();
+    applySidebar();
     applyGroupsPanel();
     applyTheme();
     syncControls();
@@ -724,6 +728,18 @@
     document.documentElement.dataset.corners = corners;
     try {
       localStorage.setItem('bd-corners', corners);
+    } catch {
+      /* sin localStorage: solo afecta al primer pintado */
+    }
+  }
+
+  /** Muestra u oculta la barra lateral de carpetas en escritorio (en móvil es un cajón). */
+  function applySidebar() {
+    const visible = state.prefs.sidebarPanel;
+    document.documentElement.classList.toggle('sidebar-hidden', !visible);
+    $('#sidebar-btn').setAttribute('aria-pressed', String(visible));
+    try {
+      localStorage.setItem('bd-sidebar', visible ? '1' : '0');
     } catch {
       /* sin localStorage: solo afecta al primer pintado */
     }
@@ -2410,6 +2426,7 @@
     lang: (v) => LANGS.includes(v),
     theme: (v) => THEMES.includes(v),
     corners: (v) => CORNERS.includes(v),
+    sidebarPanel: (v) => typeof v === 'boolean',
     view: (v) => VIEW_MODES.includes(v),
     sort: (v) => SORTS.includes(v),
     openInNewTab: (v) => typeof v === 'boolean',
@@ -3122,7 +3139,8 @@
     });
     $('#sidebar-new-folder').addEventListener('click', () => openEditor({ mode: 'new-folder', parentId: defaultParentId() }));
 
-    // Panel lateral en móvil
+    // Barra lateral: botón para ocultarla en escritorio; cajón en móvil
+    $('#sidebar-btn').addEventListener('click', () => setPref('sidebarPanel', !state.prefs.sidebarPanel));
     $('#drawer-open').addEventListener('click', openDrawer);
     $('#drawer-close').addEventListener('click', closeDrawer);
     $('#scrim').addEventListener('click', closeDrawer);
@@ -3321,6 +3339,7 @@
     await loadPrefs();
     if (state.prefs.lang !== lang) applyLanguage();
     applyCorners();
+    applySidebar();
     applyGroupsPanel();
     applyTheme();
     syncControls();

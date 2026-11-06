@@ -127,6 +127,9 @@ bookmarks/
   agrupan por carpeta mostrando su ruta. Cada tarjeta enseña 10 enlaces («Mostrar más» para el
   resto), se puede contraer (se recuerda), su cabecera abre la carpeta (clic central: todo en
   pestañas) y acepta marcadores arrastrados (los mueve a esa carpeta en Firefox).
+- **Ocultar la barra lateral**: el botón de panel a la izquierda del buscador oculta o muestra el
+  árbol de carpetas (el de la derecha hace lo mismo con los grupos); el contenido ocupa el espacio
+  libre. Se recuerda y se aplica antes del primer pintado. En móvil la barra sigue siendo un cajón.
 - **Estilo de bordes** (Ajustes → Bordes): esquinas redondeadas, semi o rectas en toda la
   interfaz (tarjetas, botones, menús, diálogos, buscador…). Se aplica antes del primer pintado,
   como el tema, y se sincroniza entre pestañas.
