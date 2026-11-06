@@ -23,14 +23,18 @@ ZIP="dist/bookmark-dashboard-${VERSION}.zip"
 # Se firma exactamente el contenido del paquete (sin README, scripts ni .git).
 ./package.sh
 BUILD=$(mktemp -d)
-trap 'rm -rf "$BUILD"' EXIT INT TERM
+ARTIFACTS=$(mktemp -d)
+trap 'rm -rf "$BUILD" "$ARTIFACTS"' EXIT INT TERM
 unzip -q "$ZIP" -d "$BUILD"
 
 echo "Firmando la versión ${VERSION} en AMO (canal unlisted)…"
 npx --yes web-ext@10.8.0 sign \
   --channel=unlisted \
   --source-dir="$BUILD" \
-  --artifacts-dir="$PWD/dist"
+  --artifacts-dir="$ARTIFACTS"
 
-echo "Listo. .xpi firmado en dist/:"
-ls -1t dist/*.xpi | head -n 1
+# web-ext usa un nombre interno; se renombra a uno legible.
+SIGNED=$(ls -1t "$ARTIFACTS"/*.xpi | head -n 1)
+OUT="dist/bookmark-dashboard-${VERSION}-signed.xpi"
+mv "$SIGNED" "$OUT"
+echo "Listo. .xpi firmado: $OUT"
