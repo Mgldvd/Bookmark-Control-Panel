@@ -46,6 +46,13 @@
     <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
     <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5M12 16.5h.01"/></symbol>
     <symbol id="i-tabs" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 9h20M8.5 4v5M15 4v5"/></symbol>
+    <symbol id="i-panel-right" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/></symbol>
+    <symbol id="i-groups" viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="2"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="2"/><path d="M17.25 13.5v7.5M13.5 17.25h7.5"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+    <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
+    <symbol id="i-arrow-down" viewBox="0 0 24 24"><path d="M12 5v14M19 12l-7 7-7-7"/></symbol>
+    <symbol id="i-board" viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="18" rx="1.8"/><rect x="13.5" y="3" width="7.5" height="11" rx="1.8"/></symbol>
+    <symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 2.5a9.5 9.5 0 1 0 0 19c1.3 0 2-.9 2-1.9 0-1.2-.9-1.5-.9-2.6 0-1 .8-1.8 1.9-1.8H17a4.5 4.5 0 0 0 4.5-4.5C21.5 6.2 17.3 2.5 12 2.5Z"/><circle cx="7.5" cy="11.5" r="1.1"/><circle cx="10" cy="7.3" r="1.1"/><circle cx="15" cy="7.3" r="1.1"/></symbol>
     <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16M3 12a9 9 0 0 1 15.5-6.2L21 8"/><path d="M21 3v5h-5M3 21v-5h5"/></symbol>
   </svg>
 
@@ -117,6 +124,11 @@
         </div>
 
         <div class="topbar-actions">
+          <button class="icon-btn" id="groups-btn" type="button" aria-controls="groups-panel" aria-pressed="true"
+                  title="Show or hide groups" aria-label="Show or hide groups"
+                  data-i18n-attr="title:groups.toggle;aria-label:groups.toggle">
+            <svg class="icon"><use href="#i-panel-right"/></svg>
+          </button>
           <button class="icon-btn" id="theme-btn" type="button"></button>
           <button class="icon-btn" id="settings-btn" type="button" title="Settings" aria-label="Settings" data-i18n-attr="title:settings.title;aria-label:settings.title">
             <svg class="icon"><use href="#i-settings"/></svg>
@@ -169,6 +181,9 @@
                   <button type="button" class="seg-btn" data-view-mode="list" title="List view" aria-label="List view" data-i18n-attr="title:viewMode.list;aria-label:viewMode.list">
                     <svg class="icon"><use href="#i-list"/></svg>
                   </button>
+                  <button type="button" class="seg-btn" data-view-mode="board" title="Board view" aria-label="Board view" data-i18n-attr="title:viewMode.board;aria-label:viewMode.board">
+                    <svg class="icon"><use href="#i-board"/></svg>
+                  </button>
                 </div>
               </div>
             </div>
@@ -193,6 +208,26 @@
         </div>
       </div>
     </main>
+
+    <!-- Grupos locales (columna derecha) -->
+    <aside class="groups" id="groups-panel" aria-labelledby="groups-heading">
+      <div class="groups-head">
+        <h2 id="groups-heading" data-i18n="groups.title">Groups</h2>
+        <span class="count" id="groups-count"></span>
+        <button class="icon-btn icon-btn-sm" id="group-new" type="button" title="New group" aria-label="New group"
+                data-i18n-attr="title:groups.new;aria-label:groups.new">
+          <svg class="icon"><use href="#i-plus"/></svg>
+        </button>
+        <button class="icon-btn icon-btn-sm groups-close" id="groups-close" type="button" title="Close groups" aria-label="Close groups"
+                data-i18n-attr="title:groups.close;aria-label:groups.close">
+          <svg class="icon"><use href="#i-close"/></svg>
+        </button>
+      </div>
+      <div class="groups-scroll">
+        <ul class="group-list" id="group-list"></ul>
+      </div>
+      <p class="groups-foot" data-i18n="groups.hint">Drag bookmarks onto a group to add them. Groups are saved only in this extension and don’t change your Firefox bookmarks.</p>
+    </aside>
   </div>
 
   <div class="menu" id="menu" role="menu" hidden></div>
@@ -228,6 +263,34 @@
       <footer class="dialog-foot">
         <button type="button" class="btn" data-close data-i18n="action.cancel">Cancel</button>
         <button type="submit" class="btn btn-primary" id="edit-submit">Save</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- Crear / editar grupo -->
+  <dialog class="dialog dialog-sm" id="group-dialog" aria-labelledby="group-heading">
+    <form id="group-form" novalidate>
+      <header class="dialog-head">
+        <h2 id="group-heading">New group</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Close" data-i18n-attr="aria-label:dialog.close">
+          <svg class="icon"><use href="#i-close"/></svg>
+        </button>
+      </header>
+      <div class="dialog-body">
+        <label class="field">
+          <span data-i18n="edit.name">Name</span>
+          <input id="group-name" type="text" maxlength="60" autocomplete="off"
+                 placeholder="e.g. Work, Reading list…" data-i18n-attr="placeholder:group.namePlaceholder">
+        </label>
+        <fieldset class="field color-field">
+          <legend data-i18n="group.color">Color</legend>
+          <div class="swatches" id="group-colors"></div>
+        </fieldset>
+        <p class="form-error" id="group-error" role="alert" hidden></p>
+      </div>
+      <footer class="dialog-foot">
+        <button type="button" class="btn" data-close data-i18n="action.cancel">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="group-submit">Create</button>
       </footer>
     </form>
   </dialog>

@@ -52,6 +52,13 @@
   const THEMES = ['auto', 'light', 'dark'];
   const LANGS = ['en', 'es'];
   const DEFAULT_LANG = 'en';
+  const GROUP_COLORS = ['indigo', 'blue', 'teal', 'green', 'amber', 'orange', 'red', 'pink', 'violet', 'slate'];
+  const GROUP_NAME_MAX = 60;
+  const VIEW_MODES = ['grid', 'list', 'board'];
+  const BOARD_ROWS = 10; // enlaces visibles por tarjeta antes de «Mostrar más»
+  const BOARD_PAGE = 40; // tarjetas por página en la vista de tablero
+  // Por debajo de este ancho el panel de grupos flota sobre el contenido.
+  const GROUPS_OVERLAY = window.matchMedia('(max-width: 1200px)');
   const SORTS = ['manual', 'name-asc', 'name-desc', 'date-desc', 'date-asc'];
   const THEME_META = {
     auto: { icon: 'monitor', label: 'themeBtn.auto' },
@@ -68,6 +75,10 @@
     openInNewTab: false,
     showFavicons: true,
     includeSubfolders: false,
+    groupsPanel: true,
+    groups: [],
+    boardCollapsed: [],
+    folderColors: {},
     expanded: ['menu________', 'toolbar_____', 'unfiled_____'],
     favorites: [],
   });
@@ -89,6 +100,7 @@
       openInNewTab: DEFAULT_PREFS.openInNewTab,
       showFavicons: DEFAULT_PREFS.showFavicons,
       includeSubfolders: DEFAULT_PREFS.includeSubfolders,
+      groupsPanel: DEFAULT_PREFS.groupsPanel,
     },
     expanded: new Set(DEFAULT_PREFS.expanded),
     favorites: new Set(),
@@ -110,6 +122,18 @@
     dropTimer: 0,
     menuReturnFocus: null,
     editor: { mode: null, nodeId: null },
+    groups: [],
+    groupIndex: new Map(),
+    groupsSig: '',
+    groupEditor: { id: null, addBookmarkId: null },
+    newGroupItem: null,
+    dragFromGroup: null,
+    menuAnchor: null,
+    rowEls: new Map(),
+    boardCollapsed: new Set(),
+    boardShowAll: new Set(),
+    boardPages: 1,
+    folderColors: Object.create(null),
   };
 
   // ---------------------------------------------------------------------------
@@ -506,6 +530,7 @@
       for (const rid of removed) {
         state.nodes.delete(rid);
         state.cardEls.delete(rid);
+        state.rowEls.delete(rid);
       }
       if (removed.has(state.selected)) {
         state.selected = parent && parent.id !== state.rootId ? parent.id : VIEW_ALL;
@@ -584,14 +609,21 @@
     const prefs = state.prefs;
     if (LANGS.includes(p.lang)) prefs.lang = p.lang;
     if (THEMES.includes(p.theme)) prefs.theme = p.theme;
-    if (p.view === 'grid' || p.view === 'list') prefs.view = p.view;
+    if (VIEW_MODES.includes(p.view)) prefs.view = p.view;
+    if (Array.isArray(p.boardCollapsed)) state.boardCollapsed = new Set(p.boardCollapsed.filter((x) => typeof x === 'string'));
+    if (p.folderColors && typeof p.folderColors === 'object' && !Array.isArray(p.folderColors)) {
+      const colors = Object.create(null);
+      for (const [id, color] of Object.entries(p.folderColors)) if (GROUP_COLORS.includes(color)) colors[id] = color;
+      state.folderColors = colors;
+    }
     if (SORTS.includes(p.sort)) prefs.sort = p.sort;
     if (typeof p.lastFolder === 'string') prefs.lastFolder = p.lastFolder;
-    for (const key of ['openInNewTab', 'showFavicons', 'includeSubfolders']) {
+    for (const key of ['openInNewTab', 'showFavicons', 'includeSubfolders', 'groupsPanel']) {
       if (typeof p[key] === 'boolean') prefs[key] = p[key];
     }
     if (Array.isArray(p.expanded)) state.expanded = new Set(p.expanded.filter((x) => typeof x === 'string'));
     if (Array.isArray(p.favorites)) state.favorites = new Set(p.favorites.filter((x) => typeof x === 'string'));
+    if (Array.isArray(p.groups)) state.groups = sanitizeGroups(p.groups);
   }
 
   async function loadPrefs() {
@@ -617,6 +649,7 @@
     savePrefs({ [key]: value });
     if (key === 'theme') applyTheme(true);
     if (key === 'lang') applyLanguage();
+    if (key === 'groupsPanel') applyGroupsPanel();
     if (key === 'includeSubfolders') state.limit = PAGE_SIZE;
     syncControls();
     scheduleRender();
@@ -632,6 +665,7 @@
     if (!Object.keys(incoming).length) return;
     applyPrefs(incoming);
     if (incoming.lang !== undefined) applyLanguage();
+    applyGroupsPanel();
     applyTheme();
     syncControls();
     scheduleRender();
@@ -848,8 +882,10 @@
 
   function render() {
     if (!state.ready) return;
+    buildGroupIndex();
     renderSidebar();
     renderMain();
+    renderGroups();
   }
 
   // ----- Sidebar -----
@@ -896,6 +932,7 @@
       dataset: { id: folder.id, dropId: folder.id, dragId: builtin ? null : folder.id },
     });
     row.style.setProperty('--depth', depth);
+    paintFolder(row, folder.id);
 
     const toggle = subfolders.length
       ? el(
@@ -1074,6 +1111,7 @@
     const viewIcon = $('#view-icon');
     viewIcon.replaceChildren(icon(view.icon));
     viewIcon.classList.toggle('is-folder', view.kind === 'folder');
+    paintFolder(viewIcon, view.kind === 'folder' ? view.folder.id : null);
     $('#view-title').textContent = view.title;
     $('#view-subtitle').textContent = subtitleFor(view);
 
@@ -1092,24 +1130,44 @@
 
     $('#content').dataset.dropId = view.kind === 'folder' ? view.folder.id : '';
 
-    // Carpetas
-    const folderGrid = $('#folder-grid');
-    $('#folders-section').hidden = view.folders.length === 0;
-    $('#folders-count').textContent = numberFmt.format(view.folders.length);
-    folderGrid.replaceChildren(...view.folders.map((f) => folderTile(f, view)));
+    const board = state.prefs.view === 'board';
 
-    // Marcadores (y separadores, si la vista los incluye)
-    const rows = view.rows || view.items;
-    const visible = rows.slice(0, state.limit);
-    $('#bookmarks-section').hidden = view.items.length === 0;
-    $('#bookmarks-count').textContent = numberFmt.format(view.items.length);
+    // Carpetas (en el tablero cada carpeta es una tarjeta propia)
+    const folderGrid = $('#folder-grid');
+    $('#folders-section').hidden = board || view.folders.length === 0;
+    $('#folders-count').textContent = numberFmt.format(view.folders.length);
+    folderGrid.replaceChildren(...(board ? [] : view.folders.map((f) => folderTile(f, view))));
+
     const cards = $('#cards');
+    const section = $('#bookmarks-section');
     cards.classList.toggle('is-list', state.prefs.view === 'list');
-    reconcileCards(cards, visible, view);
+    cards.classList.toggle('is-board', board);
+    section.classList.toggle('is-board-section', board);
+    let remaining;
+
+    if (board) {
+      const sections = boardSections(view);
+      const shown = sections.slice(0, Math.ceil(state.limit / PAGE_SIZE) * BOARD_PAGE);
+      section.hidden = sections.length === 0;
+      $('#bookmarks-count').textContent = numberFmt.format(view.items.length);
+      state.cardEls.clear();
+      const seen = new Set();
+      cards.replaceChildren(...shown.map((s) => boardCard(s, view, seen)));
+      for (const id of state.rowEls.keys()) if (!seen.has(id)) state.rowEls.delete(id);
+      remaining = sections.length - shown.length;
+    } else {
+      // Marcadores (y separadores, si la vista los incluye)
+      const rows = view.rows || view.items;
+      const visible = rows.slice(0, state.limit);
+      section.hidden = view.items.length === 0;
+      $('#bookmarks-count').textContent = numberFmt.format(view.items.length);
+      state.rowEls.clear();
+      reconcileCards(cards, visible, view);
+      remaining = view.items.length - visible.filter(isBookmark).length;
+    }
 
     // Paginación incremental
     const more = $('#load-more');
-    const remaining = view.items.length - visible.filter(isBookmark).length;
     loadMoreObserver.unobserve(more);
     more.hidden = remaining <= 0;
     if (remaining > 0) {
@@ -1127,6 +1185,245 @@
 
     renderEmpty(view);
     state.newIds.clear();
+  }
+
+  // ----- Vista de tablero: una tarjeta por carpeta con sus enlaces debajo -----
+
+  /** Filas de una carpeta: marcadores directos (con separadores si el orden es el original). */
+  function boardRowsOf(folder) {
+    const children = folder.children.map(get);
+    if (state.prefs.sort === 'manual') return withSeparators(children);
+    return sortNodes(children.filter(isBookmark), bookmarkTitle);
+  }
+
+  function boardSections(view) {
+    if (view.kind === 'folder') {
+      const self = view.folder;
+      const sections = [];
+      const own = boardRowsOf(self);
+      if (own.length) sections.push({ folder: self, rows: own, subfolders: [] });
+      const folders = state.prefs.includeSubfolders ? sortNodes(collectFolders(self.id), folderName) : view.folders;
+      for (const f of folders) {
+        sections.push({
+          folder: f,
+          rows: boardRowsOf(f),
+          // Las sub-subcarpetas se muestran como accesos dentro de la tarjeta.
+          subfolders: state.prefs.includeSubfolders ? [] : f.children.map(get).filter(isFolder),
+        });
+      }
+      return sections;
+    }
+
+    // Todos, destacados, recientes y búsqueda: los marcadores agrupados por carpeta.
+    const byParent = new Map();
+    for (const n of view.items) {
+      if (!byParent.has(n.parentId)) byParent.set(n.parentId, []);
+      byParent.get(n.parentId).push(n);
+    }
+    const sections = [];
+    for (const [pid, rows] of byParent) {
+      const folder = get(pid);
+      if (isFolder(folder)) sections.push({ folder, rows, subfolders: [], showPath: true });
+    }
+    if (view.kind === 'search') {
+      for (const f of view.folders) {
+        if (!byParent.has(f.id)) sections.push({ folder: f, rows: boardRowsOf(f), subfolders: [], showPath: true });
+      }
+    }
+    return sections;
+  }
+
+  /** Enlace de un marcador: abre http(s); el resto copia la URL (Firefox no deja abrirlos). */
+  function bookmarkLink(n, className, title) {
+    const openable = isOpenable(n.url);
+    const link = el(
+      'a',
+      { class: openable ? className : `${className} is-blocked`, draggable: 'false', title: n.url ? `${title}\n${n.url}` : title },
+      highlight(title),
+    );
+    if (openable) {
+      link.href = n.url;
+      link.referrerPolicy = 'no-referrer';
+      if (state.prefs.openInNewTab) {
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+      }
+    } else {
+      link.href = '#';
+      link.dataset.action = 'open-blocked';
+    }
+    return link;
+  }
+
+  function groupDots(n) {
+    const groups = state.groupIndex.get(n.id);
+    if (!groups?.length) return null;
+    return el(
+      'span',
+      { class: 'card-groups', title: t('card.groups', { names: groups.map((g) => g.name).join(', ') }) },
+      ...groups.slice(0, 6).map((g) => el('span', { class: 'group-dot', dataset: { color: g.color } })),
+    );
+  }
+
+  /** Fila reutilizable por id (como las tarjetas): un cambio no recarga los favicons. */
+  function boardRowEl(n) {
+    if (isSeparator(n)) return el('li', { class: 'board-sep', role: 'separator', 'aria-label': t('separator.label'), dataset: { id: n.id } });
+    const groups = state.groupIndex.get(n.id) || [];
+    const sig = [
+      n.title,
+      n.url,
+      state.terms.join(' '),
+      state.prefs.openInNewTab,
+      state.prefs.showFavicons,
+      lang,
+      groups.map((g) => `${g.id}:${g.color}:${g.name}`).join(','),
+    ].join('\u0001');
+    let li = state.rowEls.get(n.id);
+    if (li && li._sig === sig) return li;
+    if (!li) {
+      li = el('li', { class: 'board-row', draggable: 'true', dataset: { id: n.id, dragId: n.id } });
+      state.rowEls.set(n.id, li);
+    }
+    li._sig = sig;
+    const title = bookmarkTitle(n);
+    const parts = [
+      faviconEl(n, title),
+      bookmarkLink(n, 'board-link', title),
+      groupDots(n),
+      el(
+        'button',
+        { class: 'icon-btn icon-btn-sm', type: 'button', title: t('action.more'), 'aria-label': t('action.more'), 'aria-haspopup': 'menu', dataset: { action: 'more' } },
+        icon('more'),
+      ),
+    ];
+    li.replaceChildren(...parts.filter(Boolean));
+    if (state.newIds.has(n.id)) markNew(li);
+    return li;
+  }
+
+  function boardCard(s, view, seen) {
+    const f = s.folder;
+    const bookmarks = s.rows.filter(isBookmark);
+    const collapsed = view.kind !== 'search' && state.boardCollapsed.has(f.id);
+    const showAll = state.boardShowAll.has(f.id);
+
+    // Recorta a BOARD_ROWS enlaces (sin dejar un separador colgando al final).
+    const rows = [];
+    let count = 0;
+    for (const row of s.rows) {
+      if (isBookmark(row)) {
+        if (!showAll && count >= BOARD_ROWS) break;
+        count++;
+      }
+      rows.push(row);
+    }
+    while (rows.length && isSeparator(rows[rows.length - 1])) rows.pop();
+    const hidden = bookmarks.length - count;
+
+    const name = folderName(f);
+    const path = s.showPath ? pathText(f.id) : '';
+    const head = el(
+      'div',
+      { class: 'board-head', dataset: { id: f.id } },
+      el(
+        'button',
+        {
+          class: 'board-toggle',
+          type: 'button',
+          'aria-expanded': String(!collapsed),
+          title: t(collapsed ? 'board.expand' : 'board.collapse'),
+          'aria-label': t(collapsed ? 'board.expand' : 'board.collapse'),
+          dataset: { action: 'board-toggle' },
+        },
+        icon('chevron', 'group-chevron'),
+      ),
+      el(
+        'button',
+        { class: 'board-title', type: 'button', title: t('folder.open', { name }), dataset: { action: 'open-folder' } },
+        el('span', { class: 'board-icon' }, icon(folderIcon(f))),
+        el(
+          'span',
+          { class: 'board-name-wrap' },
+          el('span', { class: 'board-name' }, highlight(name)),
+          path ? el('span', { class: 'board-path', text: path }) : null,
+        ),
+      ),
+      el('span', { class: 'board-count', text: numberFmt.format(bookmarks.length) }),
+      el(
+        'button',
+        { class: 'icon-btn icon-btn-sm', type: 'button', title: t('action.more'), 'aria-label': t('action.more'), 'aria-haspopup': 'menu', dataset: { action: 'folder-more' } },
+        icon('more'),
+      ),
+    );
+
+    const inner = el('div', { class: 'board-inner' });
+    if (rows.length) {
+      inner.append(
+        el(
+          'ul',
+          { class: 'board-rows' },
+          ...rows.map((row) => {
+            seen.add(row.id);
+            return boardRowEl(row);
+          }),
+        ),
+      );
+    }
+    if (hidden > 0 || (showAll && bookmarks.length > BOARD_ROWS)) {
+      inner.append(
+        el(
+          'button',
+          { class: 'board-more-rows', type: 'button', dataset: { action: 'board-rows', target: f.id } },
+          showAll ? t('board.showLess') : tn('board.showMore', hidden),
+        ),
+      );
+    }
+    if (s.subfolders.length) {
+      inner.append(
+        el(
+          'div',
+          { class: 'board-subs' },
+          ...s.subfolders.map((sub) =>
+            paintFolder(el(
+              'button',
+              { class: 'board-sub', type: 'button', title: t('folder.open', { name: folderName(sub) }), dataset: { action: 'goto', target: sub.id } },
+              icon(folderIcon(sub)),
+              el('span', { class: 'board-sub-name', text: folderName(sub) }),
+              el('span', { class: 'board-sub-count', text: numberFmt.format(getCounts().get(sub.id) || 0) }),
+            ), sub.id),
+          ),
+        ),
+      );
+    }
+    if (!rows.length && !s.subfolders.length) inner.append(el('p', { class: 'board-empty', text: t('board.empty') }));
+
+    const card = el(
+      'article',
+      { class: collapsed ? 'board-card is-collapsed' : 'board-card', dataset: { dropId: f.id, folderId: f.id } },
+      head,
+      el('div', { class: 'board-body' }, inner),
+    );
+    paintFolder(card, f.id);
+    if (state.newIds.has(f.id)) markNew(card);
+    return card;
+  }
+
+  const saveBoardCollapsed = debounce(() => savePrefs({ boardCollapsed: [...state.boardCollapsed] }), 300);
+
+  function toggleBoardCollapsed(id, card) {
+    const collapse = !state.boardCollapsed.has(id);
+    if (collapse) state.boardCollapsed.add(id);
+    else state.boardCollapsed.delete(id);
+    // Se cambia el DOM directamente para que la animación se vea.
+    card?.classList.toggle('is-collapsed', collapse);
+    const btn = card?.querySelector('.board-toggle');
+    if (btn) {
+      const label = t(collapse ? 'board.expand' : 'board.collapse');
+      btn.setAttribute('aria-expanded', String(!collapse));
+      btn.title = label;
+      btn.setAttribute('aria-label', label);
+    }
+    saveBoardCollapsed();
   }
 
   function animateEntering(container) {
@@ -1186,6 +1483,7 @@
       state.prefs.openInNewTab,
       state.prefs.showFavicons,
       lang,
+      (state.groupIndex.get(n.id) || []).map((g) => `${g.id}:${g.color}:${g.name}`).join(','),
     ].join('\u0001');
     if (card._sig !== sig) {
       card._sig = sig;
@@ -1233,6 +1531,16 @@
           { class: 'chip', type: 'button', title: t('card.goto', { path: pathText(n.id) }), dataset: { action: 'goto', target: n.parentId } },
           icon(folderIcon(parent)),
           el('span', {}, highlight(folderName(parent))),
+        ),
+      );
+    }
+    const groups = state.groupIndex.get(n.id);
+    if (groups?.length) {
+      meta.append(
+        el(
+          'span',
+          { class: 'card-groups', title: t('card.groups', { names: groups.map((g) => g.name).join(', ') }) },
+          ...groups.slice(0, 6).map((g) => el('span', { class: 'group-dot', dataset: { color: g.color } })),
         ),
       );
     }
@@ -1325,6 +1633,7 @@
       ),
       el('button', { class: 'icon-btn', type: 'button', title: t('action.more'), 'aria-label': t('action.more'), 'aria-haspopup': 'menu', dataset: { action: 'folder-more' } }, icon('more')),
     );
+    paintFolder(tile, folder.id);
     if (state.newIds.has(folder.id)) markNew(tile);
     return tile;
   }
@@ -1667,6 +1976,389 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Grupos locales (panel derecho). Solo guardan ids de marcadores en
+  // browser.storage.local: nunca crean, mueven ni borran marcadores de Firefox.
+  // ---------------------------------------------------------------------------
+
+  function sanitizeGroups(raw) {
+    const out = [];
+    const seen = new Set();
+    for (const g of raw) {
+      if (!g || typeof g !== 'object' || typeof g.id !== 'string' || !g.id || seen.has(g.id)) continue;
+      seen.add(g.id);
+      const name = typeof g.name === 'string' ? g.name.trim().slice(0, GROUP_NAME_MAX) : '';
+      out.push({
+        id: g.id,
+        name: name || '…',
+        color: GROUP_COLORS.includes(g.color) ? g.color : GROUP_COLORS[0],
+        items: Array.isArray(g.items) ? [...new Set(g.items.filter((x) => typeof x === 'string'))] : [],
+        collapsed: g.collapsed === true,
+      });
+    }
+    return out;
+  }
+
+  const getGroup = (gid) => (gid ? state.groups.find((g) => g.id === gid) || null : null);
+  // Los ids de marcadores borrados se conservan (como los destacados) por si se deshace el borrado.
+  const groupBookmarks = (g) => g.items.map(get).filter(isBookmark);
+  const serializeGroups = () => state.groups.map((g) => ({ id: g.id, name: g.name, color: g.color, items: [...g.items], collapsed: g.collapsed }));
+
+  function saveGroups({ render = true } = {}) {
+    savePrefs({ groups: serializeGroups() });
+    if (render) scheduleRender();
+  }
+
+  function buildGroupIndex() {
+    const index = new Map();
+    for (const g of state.groups) {
+      for (const id of g.items) {
+        if (!index.has(id)) index.set(id, []);
+        index.get(id).push(g);
+      }
+    }
+    state.groupIndex = index;
+  }
+
+  function nextGroupColor() {
+    const used = new Set(state.groups.map((g) => g.color));
+    return GROUP_COLORS.find((c) => !used.has(c)) || GROUP_COLORS[state.groups.length % GROUP_COLORS.length];
+  }
+
+  const newGroupId = () => `g${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+
+  /** Añade un marcador a un grupo; si viene arrastrado desde otro grupo, lo mueve. */
+  function addToGroup(gid, bookmarkId, fromGid = null) {
+    const g = getGroup(gid);
+    if (!g || !isBookmark(get(bookmarkId)) || fromGid === gid) return;
+    const already = g.items.includes(bookmarkId);
+    const from = getGroup(fromGid);
+    if (already && !from) {
+      toast(t('toast.alreadyInGroup', { name: g.name }));
+      return;
+    }
+    if (!already) g.items.push(bookmarkId);
+    if (from) removeFromArray(from.items, bookmarkId);
+    g.collapsed = false;
+    state.newGroupItem = `${g.id}|${bookmarkId}`;
+    saveGroups();
+    toast(t(from ? 'toast.movedToGroup' : 'toast.addedToGroup', { name: g.name }));
+  }
+
+  function removeFromGroup(gid, bookmarkId) {
+    const g = getGroup(gid);
+    if (!g || !g.items.includes(bookmarkId)) return;
+    removeFromArray(g.items, bookmarkId);
+    saveGroups();
+    toast(t('toast.removedFromGroup', { name: g.name }));
+  }
+
+  function toggleGroupCollapsed(gid) {
+    const g = getGroup(gid);
+    if (!g) return;
+    g.collapsed = !g.collapsed;
+    syncGroupCollapsed(g); // sin recrear el DOM, para que se anime
+    saveGroups({ render: false });
+  }
+
+  function moveGroup(gid, delta) {
+    const i = state.groups.findIndex((g) => g.id === gid);
+    const j = i + delta;
+    if (i < 0 || j < 0 || j >= state.groups.length) return;
+    const [g] = state.groups.splice(i, 1);
+    state.groups.splice(j, 0, g);
+    saveGroups();
+  }
+
+  async function confirmDeleteGroup(gid) {
+    const g = getGroup(gid);
+    if (!g) return;
+    const ok = await confirmDialog({
+      title: t('delete.group.title'),
+      message: t('delete.group.message', { name: g.name }),
+      confirmLabel: t('action.delete'),
+    });
+    if (!ok) return;
+    state.groups = state.groups.filter((x) => x.id !== gid);
+    saveGroups();
+    toast(t('toast.groupDeleted'));
+  }
+
+  function openGroupInTabs(gid) {
+    const g = getGroup(gid);
+    if (g) openAllInTabs(groupBookmarks(g), g.name);
+  }
+
+  // ----- Diálogo de grupo (crear / editar) -----
+
+  function setGroupError(message) {
+    const box = $('#group-error');
+    box.textContent = message;
+    box.hidden = !message;
+  }
+
+  function openGroupDialog({ group = null, addBookmarkId = null } = {}) {
+    if (!state.ready) return;
+    closeMenu();
+    state.groupEditor = { id: group?.id ?? null, addBookmarkId };
+    $('#group-heading').textContent = t(group ? 'group.edit' : 'groups.new');
+    $('#group-submit').textContent = t(group ? 'action.save' : 'editor.submitCreate');
+    const nameInput = $('#group-name');
+    nameInput.value = group ? group.name : '';
+    const current = group ? group.color : nextGroupColor();
+    $('#group-colors').replaceChildren(
+      ...GROUP_COLORS.map((c) =>
+        el(
+          'label',
+          { class: 'swatch', title: t(`color.${c}`), dataset: { color: c } },
+          el('input', { type: 'radio', name: 'group-color', value: c, checked: c === current, 'aria-label': t(`color.${c}`) }),
+          el('span', { class: 'swatch-dot' }, icon('check')),
+        ),
+      ),
+    );
+    setGroupError('');
+    $('#group-dialog').showModal();
+    nameInput.focus();
+    nameInput.select();
+  }
+
+  function submitGroupDialog(event) {
+    event.preventDefault();
+    const dlg = $('#group-dialog');
+    const name = $('#group-name').value.trim().slice(0, GROUP_NAME_MAX);
+    const picked = $('#group-form').querySelector('input[name="group-color"]:checked')?.value;
+    const color = GROUP_COLORS.includes(picked) ? picked : nextGroupColor();
+    if (!name) {
+      setGroupError(t('group.needName'));
+      $('#group-name').focus();
+      return;
+    }
+    const { id, addBookmarkId } = state.groupEditor;
+    if (id) {
+      const g = getGroup(id);
+      dlg.close();
+      if (!g) {
+        toast(t('editor.gone'), 'error');
+        return;
+      }
+      g.name = name;
+      g.color = color;
+      saveGroups();
+      toast(t('toast.groupSaved'));
+      return;
+    }
+    const g = { id: newGroupId(), name, color, items: [], collapsed: false };
+    if (addBookmarkId && isBookmark(get(addBookmarkId))) {
+      g.items.push(addBookmarkId);
+      state.newGroupItem = `${g.id}|${addBookmarkId}`;
+    }
+    state.groups.push(g);
+    saveGroups();
+    dlg.close();
+    showGroupsPanel();
+    toast(t('toast.groupCreated', { name }));
+  }
+
+  // ----- Panel: visibilidad -----
+
+  const isGroupsOverlay = () => GROUPS_OVERLAY.matches;
+
+  function groupsVisible() {
+    return isGroupsOverlay() ? document.body.classList.contains('groups-open') : state.prefs.groupsPanel;
+  }
+
+  function updateGroupsBtn() {
+    $('#groups-btn').setAttribute('aria-pressed', String(groupsVisible()));
+  }
+
+  function applyGroupsPanel() {
+    document.body.classList.toggle('groups-hidden', !state.prefs.groupsPanel);
+    updateGroupsBtn();
+  }
+
+  function toggleGroupsPanel() {
+    if (isGroupsOverlay()) {
+      document.body.classList.toggle('groups-open');
+      updateGroupsBtn();
+    } else {
+      setPref('groupsPanel', !state.prefs.groupsPanel);
+    }
+  }
+
+  function showGroupsPanel() {
+    if (isGroupsOverlay()) {
+      document.body.classList.add('groups-open');
+      updateGroupsBtn();
+    } else if (!state.prefs.groupsPanel) {
+      setPref('groupsPanel', true);
+    }
+  }
+
+  function closeGroupsOverlay() {
+    document.body.classList.remove('groups-open');
+    updateGroupsBtn();
+  }
+
+  // ----- Panel: render -----
+
+  function renderGroups() {
+    $('#groups-count').textContent = state.groups.length ? numberFmt.format(state.groups.length) : '';
+    // El estado contraído no forma parte de la firma: se aplica sin recrear el DOM.
+    const sig = [
+      lang,
+      state.prefs.showFavicons,
+      state.prefs.openInNewTab,
+      ...state.groups.map((g) => [g.id, g.name, g.color, ...groupBookmarks(g).map((n) => `${n.id}\u0003${n.title}\u0003${n.url}`)].join('\u0002')),
+    ].join('\u0001');
+    if (sig !== state.groupsSig) {
+      state.groupsSig = sig;
+      const list = $('#group-list');
+      const children = state.groups.map(groupEl);
+      if (!state.groups.length) children.push(groupsEmpty());
+      children.push(
+        el(
+          'li',
+          {},
+          el(
+            'button',
+            { class: 'group-add', type: 'button', dataset: { action: 'group-create', groupDrop: 'new' } },
+            icon('plus'),
+            el('span', { text: t('groups.new') }),
+          ),
+        ),
+      );
+      list.replaceChildren(...children);
+    }
+    state.newGroupItem = null;
+    for (const g of state.groups) syncGroupCollapsed(g);
+  }
+
+  function groupEl(g) {
+    const items = groupBookmarks(g);
+    const li = el('li', { class: 'group', dataset: { groupId: g.id, groupDrop: g.id, color: g.color } });
+    const head = el(
+      'div',
+      { class: 'group-head' },
+      el(
+        'button',
+        { class: 'group-toggle', type: 'button', dataset: { action: 'group-toggle' } },
+        icon('chevron', 'group-chevron'),
+        el('span', { class: 'group-dot' }),
+        el('span', { class: 'group-name', text: g.name }),
+        el('span', { class: 'group-count', text: numberFmt.format(items.length) }),
+      ),
+      el(
+        'button',
+        { class: 'icon-btn icon-btn-sm', type: 'button', title: t('action.more'), 'aria-label': t('action.more'), 'aria-haspopup': 'menu', dataset: { action: 'group-more' } },
+        icon('more'),
+      ),
+    );
+    const list = el('ul', { class: 'group-items' });
+    if (items.length) for (const n of items) list.append(groupItemEl(n, g));
+    else list.append(el('li', { class: 'group-empty', text: t('group.dropHere') }));
+    li.append(head, el('div', { class: 'group-collapse' }, list));
+    return li;
+  }
+
+  function groupItemEl(n, g) {
+    const title = bookmarkTitle(n);
+    const openable = isOpenable(n.url);
+    const link = el('a', { class: openable ? 'group-link' : 'group-link is-blocked', draggable: 'false', title: n.url ? `${title}\n${n.url}` : title }, title);
+    if (openable) {
+      link.href = n.url;
+      link.referrerPolicy = 'no-referrer';
+      if (state.prefs.openInNewTab) {
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+      }
+    } else {
+      link.href = '#';
+      link.dataset.action = 'open-blocked';
+    }
+    const li = el(
+      'li',
+      { class: 'group-item', draggable: 'true', dataset: { id: n.id, dragId: n.id, fromGroup: g.id } },
+      faviconEl(n, title),
+      link,
+      el(
+        'button',
+        { class: 'icon-btn icon-btn-sm group-remove', type: 'button', title: t('group.remove'), 'aria-label': t('group.remove'), dataset: { action: 'group-remove' } },
+        icon('close'),
+      ),
+    );
+    if (state.newGroupItem === `${g.id}|${n.id}`) markNew(li);
+    return li;
+  }
+
+  function groupsEmpty() {
+    return el(
+      'li',
+      { class: 'groups-empty' },
+      el('div', { class: 'empty-icon' }, icon('groups')),
+      el('strong', { text: t('groups.empty.title') }),
+      el('p', { text: t('groups.empty.text') }),
+    );
+  }
+
+  function syncGroupCollapsed(g) {
+    const li = $(`#group-list .group[data-group-id="${CSS.escape(g.id)}"]`);
+    if (!li) return;
+    li.classList.toggle('is-collapsed', g.collapsed);
+    const btn = li.querySelector('.group-toggle');
+    btn.setAttribute('aria-expanded', String(!g.collapsed));
+    btn.title = t(g.collapsed ? 'group.expand' : 'group.collapse');
+  }
+
+  // ----- Panel: menús -----
+
+  function groupMenu(g) {
+    const items = groupBookmarks(g);
+    const i = state.groups.findIndex((x) => x.id === g.id);
+    return [
+      items.some((n) => isOpenable(n.url)) && { label: t('menu.openAll'), icon: 'tabs', run: () => openGroupInTabs(g.id) },
+      { label: t('menu.editGroup'), icon: 'edit', run: () => openGroupDialog({ group: getGroup(g.id) }) },
+      i > 0 && { label: t('menu.moveUp'), icon: 'arrow-up', run: () => moveGroup(g.id, -1) },
+      i < state.groups.length - 1 && { label: t('menu.moveDown'), icon: 'arrow-down', run: () => moveGroup(g.id, 1) },
+      '-',
+      { label: t('menu.deleteGroup'), icon: 'trash', danger: true, run: () => confirmDeleteGroup(g.id) },
+    ];
+  }
+
+  function groupItemMenu(n, g) {
+    const openable = isOpenable(n.url);
+    return [
+      openable && { label: t('menu.open'), icon: 'link', run: () => openUrl(n.url, state.prefs.openInNewTab) },
+      openable && { label: t('menu.openNewTab'), icon: 'external', run: () => openUrl(n.url, true) },
+      { label: t('menu.copyUrl'), icon: 'copy', run: () => copyUrl(n) },
+      { label: t('menu.gotoFolder'), icon: 'folder', run: () => selectView(n.parentId) },
+      '-',
+      { label: t('group.remove'), icon: 'minus', run: () => removeFromGroup(g.id, n.id) },
+    ];
+  }
+
+  /** Submenú «Añadir a un grupo»: marca los grupos que ya lo contienen (clic = quitar). */
+  function openAddToGroupMenu(n, anchor) {
+    if (!state.groups.length) {
+      openGroupDialog({ addBookmarkId: n.id });
+      return;
+    }
+    const inGroups = new Set((state.groupIndex.get(n.id) || []).map((g) => g.id));
+    const fallback = { x: innerWidth / 2, y: innerHeight / 3 };
+    openMenu(
+      [
+        ...state.groups.map((g) => ({
+          label: g.name,
+          dot: g.color,
+          checked: inGroups.has(g.id),
+          run: () => (inGroups.has(g.id) ? removeFromGroup(g.id, n.id) : addToGroup(g.id, n.id)),
+        })),
+        '-',
+        { label: t('menu.newGroup'), icon: 'plus', run: () => openGroupDialog({ addBookmarkId: n.id }) },
+      ],
+      anchor instanceof Element ? (anchor.isConnected ? anchor : fallback) : anchor || fallback,
+    );
+  }
+
+  // ---------------------------------------------------------------------------
   // Menú contextual
   // ---------------------------------------------------------------------------
 
@@ -1682,9 +2374,41 @@
       { label: t('menu.edit'), icon: 'edit', run: () => openEditor({ mode: 'edit', node: n }) },
       { label: t('menu.moveTo'), icon: 'move', run: () => openEditor({ mode: 'edit', node: n, focus: 'folder' }) },
       state.selected !== n.parentId && { label: t('menu.gotoFolder'), icon: 'folder', run: () => selectView(n.parentId) },
+      { label: t('menu.addToGroup'), icon: 'groups', run: () => openAddToGroupMenu(n, state.menuAnchor) },
       '-',
       { label: t('menu.delete'), icon: 'trash', danger: true, run: () => confirmDelete(n) },
     ];
+  }
+
+  // ----- Color propio de cada carpeta (solo en esta extensión; Firefox no guarda colores) -----
+
+  /** Aplica el color elegido para la carpeta `id` a un elemento (o quita el que tuviera). */
+  function paintFolder(node, id) {
+    const color = id ? state.folderColors[id] : undefined;
+    node.classList.toggle('has-color', !!color);
+    if (color) node.dataset.color = color;
+    else delete node.dataset.color;
+    return node;
+  }
+
+  function setFolderColor(id, color) {
+    if (GROUP_COLORS.includes(color)) state.folderColors[id] = color;
+    else delete state.folderColors[id];
+    savePrefs({ folderColors: { ...state.folderColors } });
+    scheduleRender();
+  }
+
+  function openFolderColorMenu(id, anchor) {
+    const current = state.folderColors[id] || null;
+    const fallback = { x: innerWidth / 2, y: innerHeight / 3 };
+    openMenu(
+      [
+        ...GROUP_COLORS.map((c) => ({ label: t(`color.${c}`), dot: c, checked: current === c, run: () => setFolderColor(id, c) })),
+        '-',
+        { label: t('color.default'), dot: 'default', checked: !current, run: () => setFolderColor(id, null) },
+      ],
+      anchor instanceof Element ? (anchor.isConnected ? anchor : fallback) : anchor || fallback,
+    );
   }
 
   function folderMenu(f) {
@@ -1695,6 +2419,7 @@
       direct.some((n) => isOpenable(n.url)) && { label: t('menu.openAll'), icon: 'tabs', run: () => openFolderInTabs(f.id) },
       { label: t('menu.newBookmarkHere'), icon: 'bookmark', run: () => openEditor({ mode: 'new-bookmark', parentId: f.id }) },
       { label: t('menu.newSubfolder'), icon: 'folder-plus', run: () => openEditor({ mode: 'new-folder', parentId: f.id }) },
+      { label: t('menu.folderColor'), icon: 'palette', run: () => openFolderColorMenu(f.id, state.menuAnchor) },
       !builtin && '-',
       !builtin && { label: t('menu.rename'), icon: 'edit', run: () => openEditor({ mode: 'edit', node: f }) },
       !builtin && { label: t('menu.moveTo'), icon: 'move', run: () => openEditor({ mode: 'edit', node: f, focus: 'folder' }) },
@@ -1716,6 +2441,7 @@
   function openMenu(items, anchor) {
     const menu = $('#menu');
     state.menuReturnFocus = document.activeElement;
+    state.menuAnchor = anchor;
     const entries = items.filter(Boolean);
     menu.replaceChildren(
       ...entries.map((item) =>
@@ -1726,14 +2452,16 @@
               {
                 class: item.danger ? 'menu-item is-danger' : 'menu-item',
                 type: 'button',
-                role: 'menuitem',
+                role: 'checked' in item ? 'menuitemcheckbox' : 'menuitem',
+                'aria-checked': 'checked' in item ? String(!!item.checked) : null,
                 onclick: () => {
                   closeMenu();
                   item.run();
                 },
               },
-              icon(item.icon),
-              el('span', { text: item.label }),
+              item.dot ? el('span', { class: 'menu-dot', dataset: { color: item.dot } }) : icon(item.icon),
+              el('span', { class: 'menu-label', text: item.label }),
+              item.checked ? icon('check', 'menu-check') : null,
             ),
       ),
     );
@@ -1838,6 +2566,7 @@
 
   function endDrag() {
     state.dragId = null;
+    state.dragFromGroup = null;
     document.body.classList.remove('is-dragging');
     for (const node of document.querySelectorAll('.is-drag-source')) node.classList.remove('is-drag-source');
     setDropTarget(null);
@@ -1854,6 +2583,7 @@
       }
       closeMenu();
       state.dragId = n.id;
+      state.dragFromGroup = source.dataset.fromGroup || null;
       const dt = event.dataTransfer;
       dt.effectAllowed = 'copyMove';
       dt.setData(DND_TYPE, n.id);
@@ -1871,8 +2601,29 @@
 
     document.addEventListener('dragend', endDrag);
 
-    document.addEventListener('dragover', (event) => {
+    // Soltar un marcador sobre un grupo (o sobre «Nuevo grupo») del panel derecho.
+    const draggedBookmark = () => (state.dragId && isBookmark(get(state.dragId)) ? state.dragId : null);
+    // Un elemento arrastrado desde un grupo solo se mueve en Firefox si se suelta
+    // sobre una carpeta concreta, no sobre el fondo del contenido.
+    const folderDropTarget = (event) => {
       const target = event.target.closest?.('[data-drop-id]');
+      if (target?.id === 'content' && state.dragFromGroup) return null;
+      return target;
+    };
+
+    document.addEventListener('dragover', (event) => {
+      const groupTarget = event.target.closest?.('[data-group-drop]');
+      if (groupTarget) {
+        if (!draggedBookmark()) {
+          setDropTarget(null);
+          return;
+        }
+        event.preventDefault();
+        event.dataTransfer.dropEffect = state.dragFromGroup ? 'move' : 'copy';
+        setDropTarget(groupTarget);
+        return;
+      }
+      const target = folderDropTarget(event);
       const targetId = target?.dataset.dropId;
       if (!canDropOn(targetId, event.dataTransfer)) {
         setDropTarget(null);
@@ -1889,7 +2640,19 @@
     });
 
     document.addEventListener('drop', async (event) => {
-      const target = event.target.closest?.('[data-drop-id]');
+      const groupTarget = event.target.closest?.('[data-group-drop]');
+      if (groupTarget) {
+        const bookmarkId = draggedBookmark();
+        const fromGroup = state.dragFromGroup;
+        endDrag();
+        if (!bookmarkId) return;
+        event.preventDefault();
+        const gid = groupTarget.dataset.groupDrop;
+        if (gid === 'new') openGroupDialog({ addBookmarkId: bookmarkId });
+        else addToGroup(gid, bookmarkId, fromGroup);
+        return;
+      }
+      const target = folderDropTarget(event);
       const targetId = target?.dataset.dropId;
       const dragId = state.dragId;
       if (!canDropOn(targetId, event.dataTransfer)) {
@@ -1972,9 +2735,9 @@
       } else if (event.key === 'Enter') {
         event.preventDefault();
         applyQuery(search.value);
-        $('#cards .card-link')?.click();
+        $('#cards .card-link, #cards .board-link')?.click();
       } else if (event.key === 'ArrowDown') {
-        const first = $('#folder-grid .folder-open') || $('#cards .card-link');
+        const first = $('#folder-grid .folder-open') || $('#cards .card-link, #cards .board-link');
         if (first) {
           event.preventDefault();
           first.focus();
@@ -2006,17 +2769,25 @@
     tree.addEventListener('keydown', handleTreeKeys);
 
     // Clic central en una carpeta (árbol, bloque o ruta): abre sus marcadores en pestañas.
-    const FOLDER_TARGETS = '.tree-row, .folder-tile, .crumb';
+    const FOLDER_TARGETS = '.tree-row, .folder-tile, .crumb, .board-head, .board-sub';
     const folderIdFrom = (target) => {
       const host = target.closest?.(FOLDER_TARGETS);
       return host ? host.dataset.id || host.dataset.target : null;
     };
+    const groupHeadFrom = (target) => target.closest?.('.group-head');
     document.addEventListener('mousedown', (event) => {
-      // Evita el desplazamiento automático del botón central sobre carpetas.
-      if (event.button === 1 && folderIdFrom(event.target)) event.preventDefault();
+      // Evita el desplazamiento automático del botón central sobre carpetas y grupos.
+      if (event.button === 1 && (folderIdFrom(event.target) || groupHeadFrom(event.target))) event.preventDefault();
     });
     document.addEventListener('auxclick', (event) => {
       if (event.button !== 1) return;
+      const head = groupHeadFrom(event.target);
+      if (head) {
+        event.preventDefault();
+        closeMenu();
+        openGroupInTabs(head.closest('.group')?.dataset.groupId);
+        return;
+      }
       const id = folderIdFrom(event.target);
       if (!id) return;
       event.preventDefault();
@@ -2027,7 +2798,16 @@
     // Menú contextual (clic derecho) en carpetas y tarjetas
     document.addEventListener('contextmenu', (event) => {
       if (event.target.closest('input, textarea, select, dialog')) return;
-      const host = event.target.closest('.tree-row, .folder-tile, .card, .card-sep');
+      const groupHost = event.target.closest('.group-item, .group-head');
+      if (groupHost) {
+        const g = getGroup(groupHost.closest('.group')?.dataset.groupId);
+        if (!g) return;
+        event.preventDefault();
+        const item = groupHost.classList.contains('group-item') ? get(groupHost.dataset.id) : null;
+        openMenu(item ? groupItemMenu(item, g) : groupMenu(g), { x: event.clientX, y: event.clientY });
+        return;
+      }
+      const host = event.target.closest('.tree-row, .folder-tile, .card, .card-sep, .board-row, .board-sep, .board-head');
       const n = get(host?.dataset.id);
       if (!n) return;
       event.preventDefault();
@@ -2057,6 +2837,16 @@
         case 'open-folder':
           if (n) selectView(n.id);
           break;
+        case 'board-toggle':
+          if (n) toggleBoardCollapsed(n.id, actionEl.closest('.board-card'));
+          break;
+        case 'board-rows': {
+          const id = actionEl.dataset.target;
+          if (state.boardShowAll.has(id)) state.boardShowAll.delete(id);
+          else state.boardShowAll.add(id);
+          renderMain();
+          break;
+        }
         case 'goto':
         case 'crumb':
           selectView(actionEl.dataset.target);
@@ -2090,6 +2880,7 @@
         [
           { label: t('action.newBookmark'), icon: 'bookmark', run: () => openEditor({ mode: 'new-bookmark', parentId }) },
           { label: t('action.newFolder'), icon: 'folder-plus', run: () => openEditor({ mode: 'new-folder', parentId }) },
+          { label: t('groups.new'), icon: 'groups', run: () => openGroupDialog() },
         ],
         event.currentTarget,
       );
@@ -2110,6 +2901,42 @@
     document.addEventListener('scroll', () => closeMenu(), true);
     window.addEventListener('resize', () => closeMenu());
     window.addEventListener('blur', () => closeMenu());
+
+    // Panel de grupos
+    $('#groups-btn').addEventListener('click', toggleGroupsPanel);
+    $('#groups-close').addEventListener('click', () => (isGroupsOverlay() ? closeGroupsOverlay() : setPref('groupsPanel', false)));
+    $('#group-new').addEventListener('click', () => openGroupDialog());
+    GROUPS_OVERLAY.addEventListener('change', updateGroupsBtn);
+    $('#groups-panel').addEventListener('click', (event) => {
+      const actionEl = event.target.closest('[data-action]');
+      if (!actionEl) return;
+      const g = getGroup(actionEl.closest('.group')?.dataset.groupId);
+      const n = get(actionEl.closest('.group-item')?.dataset.id);
+      switch (actionEl.dataset.action) {
+        case 'group-toggle':
+          if (g) toggleGroupCollapsed(g.id);
+          break;
+        case 'group-more':
+          if (g) openMenu(groupMenu(g), actionEl);
+          break;
+        case 'group-remove':
+          if (g && n) removeFromGroup(g.id, n.id);
+          break;
+        case 'group-create':
+          openGroupDialog();
+          break;
+        case 'open-blocked':
+          event.preventDefault();
+          if (n) copyUrl(n, t('toast.blocked'));
+          break;
+        default:
+          break;
+      }
+    });
+    $('#group-form').addEventListener('submit', submitGroupDialog);
+    for (const btn of document.querySelectorAll('#group-dialog [data-close]')) {
+      btn.addEventListener('click', () => $('#group-dialog').close());
+    }
 
     // Diálogo de edición
     $('#edit-form').addEventListener('submit', submitEditor);
@@ -2140,7 +2967,7 @@
         search.focus();
         search.select();
       } else if (event.key === 'Delete' && !typing) {
-        const host = event.target.closest?.('.card, .folder-tile, .tree-row');
+        const host = event.target.closest?.('.card, .folder-tile, .tree-row, .board-row');
         const n = get(host?.dataset.id);
         if (n) {
           event.preventDefault();
@@ -2149,6 +2976,7 @@
       } else if (event.key === 'Escape') {
         if (!menu.hidden) closeMenu(true);
         else if (document.body.classList.contains('nav-open')) closeDrawer();
+        else if (document.body.classList.contains('groups-open')) closeGroupsOverlay();
       }
     });
 
@@ -2246,6 +3074,7 @@
     api.storage.onChanged.addListener(handleStorageChange);
     await loadPrefs();
     if (state.prefs.lang !== lang) applyLanguage();
+    applyGroupsPanel();
     applyTheme();
     syncControls();
     await start();

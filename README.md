@@ -120,6 +120,27 @@ bookmarks/
 - **Separadores** de Firefox en la **vista de lista** (con «Orden original» y sin «Incluir
   subcarpetas», que es cuando tienen sentido). Se actualizan en vivo y se pueden eliminar con
   clic derecho. No se muestran separadores al principio, al final ni repetidos.
+- **Vista de tablero** (tercer botón junto a cuadrícula y lista): cada carpeta es una tarjeta con
+  su nombre arriba y sus enlaces debajo, con el mismo formato que los grupos. En una carpeta se ve
+  una tarjeta para sus propios marcadores y otra por cada subcarpeta (con accesos a sus
+  sub-subcarpetas); en «Todos», «Destacados», «Recientes» y en la búsqueda, los marcadores se
+  agrupan por carpeta mostrando su ruta. Cada tarjeta enseña 10 enlaces («Mostrar más» para el
+  resto), se puede contraer (se recuerda), su cabecera abre la carpeta (clic central: todo en
+  pestañas) y acepta marcadores arrastrados (los mueve a esa carpeta en Firefox).
+- **Color por carpeta**: menú de cualquier carpeta (clic derecho o `⋯`) → «Color…» → uno de los 10
+  colores o «Predeterminado». Se aplica al icono de la barra lateral, al bloque de carpeta, a la
+  tarjeta del tablero (franja, cabecera y contador), a los accesos de subcarpeta y a la cabecera de
+  la vista. Se guarda solo en `browser.storage.local` (Firefox no admite colores en carpetas) y se
+  sincroniza entre pestañas del dashboard.
+- **Grupos** (columna derecha): crea grupos con nombre y un color característico (10 colores) y
+  **arrastra marcadores** sobre ellos para añadirlos. Un marcador puede estar en varios grupos y
+  sus tarjetas muestran un punto del color de cada grupo. Arrastrar un elemento de un grupo a otro
+  lo mueve; soltar sobre «New group» crea un grupo con ese marcador. También hay «Add to group…»
+  en el menú de cada marcador. Cada grupo se puede contraer, renombrar, cambiar de color,
+  reordenar, abrir entero en pestañas (menú o clic central en su cabecera) y eliminar (con
+  confirmación). Los grupos se guardan solo en `browser.storage.local`: **no crean, mueven ni
+  borran marcadores de Firefox**. Por debajo de 1200 px el panel flota sobre el contenido y se
+  abre con el botón de panel de la barra superior.
 - **Idioma**: inglés por defecto; español opcional en Ajustes → Language / Idioma. Se aplica al
   instante, se guarda en `browser.storage.local` y se sincroniza entre pestañas del dashboard.
 - Tema claro / oscuro / del sistema, vista cuadrícula/lista, orden (original, nombre A→Z / Z→A,
