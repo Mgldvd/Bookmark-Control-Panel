@@ -141,6 +141,9 @@ bookmarks/
   al abrir una subcarpeta aparece «Volver a …» (o `Esc`); se conserva al recargar la pestaña, las
   pestañas nuevas empiezan en la carpeta de inicio y no cambia la carpeta del dashboard normal.
   El modo se recuerda (también en las pestañas nuevas) y se aplica antes del primer pintado.
+  Entrar y salir es una transición animada (View Transitions API): los paneles salen por su borde,
+  las tarjetas vuelan escalonadas a su nueva posición y el botón de salida entra girando. Con
+  «reducir movimiento» en el sistema, o sin soporte de la API, el cambio es instantáneo.
   La dirección `moz-extension://…/dashboard.html?home` abre siempre el modo minimalista sin
   cambiar el ajuste: está en Ajustes → Página de inicio, con botón «Copiar».
 - **Ajustes rediseñados**: diálogo con pestañas a la izquierda (Apariencia, General, Página de

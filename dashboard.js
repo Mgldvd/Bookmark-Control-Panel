@@ -60,6 +60,8 @@
   const STRIPE_COLORS = ['auto', ...GROUP_COLORS];
   const STRIPE_WIDTHS = [2, 3, 5, 8];
   const SETTINGS_TABS = ['appearance', 'general', 'home', 'backup', 'shortcuts'];
+  const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const VT_MAX_CARDS = 60; // tarjetas que vuelan a su sitio en la transición (las visibles)
   const BOARD_ROWS = 10; // enlaces visibles por tarjeta antes de «Mostrar más»
   const BOARD_PAGE = 40; // tarjetas por página en la vista de tablero
   const HOME_NAV_KEY = 'bd-home-nav'; // subcarpeta abierta en el modo minimalista (por pestaña)
@@ -140,6 +142,10 @@
     homeNav: readHomeNav(),
     minimalOn: null,
     settingsTab: 'appearance',
+    // Transición animada en curso: los renders se aplazan para no sustituir
+    // las tarjetas que se están animando.
+    vtActive: false,
+    renderPending: false,
     query: '',
     terms: [],
     limit: PAGE_SIZE,
@@ -855,33 +861,119 @@
     }
   }
 
+  // ----- Transición animada entre el dashboard y el modo minimalista -----
+  // View Transitions API: el navegador captura el estado anterior y el nuevo y
+  // anima la diferencia. Los paneles salen por su borde, las tarjetas vuelan a
+  // su nueva posición (escalonadas) y las que aparecen o desaparecen se funden.
+  // Sin la API, o con «reducir movimiento», el cambio es instantáneo.
+
+  /** Da un nombre de transición a cada tarjeta visible (hasta VT_MAX_CARDS). */
+  function nameTransitionCards() {
+    const names = [];
+    const used = new Set();
+    for (const card of document.querySelectorAll('#cards > .board-card, #cards > .card, #folder-grid > .folder-tile')) {
+      card.style.viewTransitionName = '';
+      const id = card.dataset.folderId || card.dataset.id;
+      if (!id || names.length >= VT_MAX_CARDS) continue;
+      const r = card.getBoundingClientRect();
+      if (!r.width || r.bottom < 0 || r.top > window.innerHeight) continue;
+      // El mismo id en una baldosa de carpeta y en una tarjeta del tablero: una se transforma en la otra.
+      const name = `bd-c-${id.replace(/[^A-Za-z0-9_-]/g, '_')}`;
+      if (used.has(name)) continue;
+      used.add(name);
+      names.push(name);
+      card.style.viewTransitionName = name;
+    }
+    return names;
+  }
+
+  /** Retrasos escalonados y animaciones de entrada y salida para cada tarjeta. */
+  function writeTransitionStyle(before, after) {
+    const had = new Set(before);
+    const has = new Set(after);
+    const rules = [];
+    after.forEach((name, i) => {
+      const delay = Math.min(i * 22, 320);
+      rules.push(`::view-transition-group(${name}) { animation-delay: ${delay}ms; }`);
+      if (!had.has(name)) rules.push(`::view-transition-new(${name}) { animation: bd-vt-card-in 0.5s var(--vt-ease) ${delay}ms both; }`);
+    });
+    for (const name of before) {
+      if (!has.has(name)) rules.push(`::view-transition-old(${name}) { animation: bd-vt-card-out 0.28s ease both; }`);
+    }
+    let style = $('#vt-style');
+    if (!style) {
+      style = el('style', { id: 'vt-style' });
+      document.head.append(style);
+    }
+    style.textContent = rules.join('\n');
+  }
+
+  function animateMinimalSwitch(update) {
+    if (!state.ready || state.vtActive || typeof document.startViewTransition !== 'function' || REDUCED_MOTION.matches) {
+      update();
+      return;
+    }
+    const root = document.documentElement;
+    root.classList.add('vt-minimal'); // nombra paneles, cabecera y botón de salida (ver CSS)
+    const before = nameTransitionCards();
+    state.vtActive = true;
+    const finish = () => {
+      root.classList.remove('vt-minimal');
+      for (const node of document.querySelectorAll('#cards > *, #folder-grid > *')) node.style.viewTransitionName = '';
+      $('#vt-style')?.remove();
+      state.vtActive = false;
+      if (state.renderPending) {
+        state.renderPending = false;
+        scheduleRender();
+      }
+    };
+    let transition;
+    try {
+      transition = document.startViewTransition(() => {
+        update();
+        render(); // el estado nuevo tiene que estar en el DOM al terminar esta función
+        writeTransitionStyle(before, nameTransitionCards());
+      });
+    } catch {
+      finish();
+      update();
+      return;
+    }
+    transition.ready.catch(() => {}); // si se omite, el cambio ya está aplicado igualmente
+    transition.finished.finally(finish);
+  }
+
   function enterMinimal() {
     closeMenu();
     if ($('#settings-dialog').open) $('#settings-dialog').close();
     // Se entra mostrando la carpeta (o vista) en la que se estaba, no la de inicio.
     const from = state.ready ? state.selected : null;
-    setPref('minimal', true);
-    if (from && from !== homeId() && isShowable(from)) setHomeNav(from);
-    $('#content').scrollTop = 0;
+    animateMinimalSwitch(() => {
+      setPref('minimal', true);
+      if (from && from !== homeId() && isShowable(from)) setHomeNav(from);
+      $('#content').scrollTop = 0;
+    });
     toast(t('toast.minimalOn'));
   }
 
   function exitMinimal() {
     // Al salir, el dashboard normal se queda en lo que se estaba viendo.
     const at = state.ready ? minimalSelection() : null;
-    if (state.forceHome) {
-      state.forceHome = false;
-      const url = new URL(location.href);
-      url.searchParams.delete('home');
-      history.replaceState(history.state, '', url);
-    }
-    if (state.prefs.minimal) setPref('minimal', false);
-    else {
-      applyMinimal();
-      scheduleRender();
-    }
-    if (at && at !== state.selected) selectView(at);
-    $('#content').scrollTop = 0;
+    animateMinimalSwitch(() => {
+      if (state.forceHome) {
+        state.forceHome = false;
+        const url = new URL(location.href);
+        url.searchParams.delete('home');
+        history.replaceState(history.state, '', url);
+      }
+      if (state.prefs.minimal) setPref('minimal', false);
+      else {
+        applyMinimal();
+        scheduleRender();
+      }
+      if (at && at !== state.selected) selectView(at);
+      $('#content').scrollTop = 0;
+    });
   }
 
   function setHomeFolder(id) {
@@ -1157,11 +1249,16 @@
   // ---------------------------------------------------------------------------
 
   function scheduleRender() {
+    if (state.vtActive) {
+      state.renderPending = true;
+      return;
+    }
     if (state.renderQueued) return;
     state.renderQueued = true;
     requestAnimationFrame(() => {
       state.renderQueued = false;
-      render();
+      if (state.vtActive) state.renderPending = true;
+      else render();
     });
   }
 
@@ -1465,8 +1562,11 @@
     const viewKey = `${view.key}|${viewMode()}`;
     if (viewKey !== state.lastViewKey) {
       state.lastViewKey = viewKey;
-      animateEntering(folderGrid);
-      animateEntering(cards);
+      // Durante la transición animada las tarjetas ya se mueven solas.
+      if (!state.vtActive) {
+        animateEntering(folderGrid);
+        animateEntering(cards);
+      }
     }
 
     renderEmpty(view);

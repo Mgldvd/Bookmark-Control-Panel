@@ -1801,6 +1801,53 @@ label.set-row { cursor: pointer; }
 }
 .home-url input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--focus-ring); }
 
+/* ---------- Transición animada al modo minimalista (View Transitions) ----------
+   dashboard.js añade .vt-minimal mientras dura la transición y nombra cada
+   tarjeta visible (bd-c-…); aquí se nombran los paneles y se definen los
+   movimientos. Fuera de la transición nada de esto se aplica. */
+:root { --vt-ease: cubic-bezier(0.22, 1, 0.36, 1); --vt-time: 0.56s; }
+.vt-minimal .sidebar { view-transition-name: bd-sidebar; }
+.vt-minimal .topbar { view-transition-name: bd-topbar; }
+.vt-minimal .groups { view-transition-name: bd-groups; }
+.vt-minimal #view-head { view-transition-name: bd-head; }
+.vt-minimal #home-bar { view-transition-name: bd-homebar; }
+.vt-minimal .minimal-exit { view-transition-name: bd-exit; }
+
+/* Las tarjetas que siguen en pantalla se deslizan y cambian de tamaño hasta su sitio. */
+::view-transition-group(*) { animation-duration: var(--vt-time); animation-timing-function: var(--vt-ease); }
+::view-transition-old(root),
+::view-transition-new(root) { animation-duration: 0.32s; }
+
+/* Paneles: cada uno sale (o entra) por su borde */
+::view-transition-old(bd-sidebar) { animation: bd-vt-out-left 0.42s var(--vt-ease) both; }
+::view-transition-new(bd-sidebar) { animation: bd-vt-in-left var(--vt-time) var(--vt-ease) both; }
+::view-transition-old(bd-groups) { animation: bd-vt-out-right 0.42s var(--vt-ease) both; }
+::view-transition-new(bd-groups) { animation: bd-vt-in-right var(--vt-time) var(--vt-ease) both; }
+::view-transition-old(bd-topbar) { animation: bd-vt-out-up 0.38s var(--vt-ease) both; }
+::view-transition-new(bd-topbar) { animation: bd-vt-in-up var(--vt-time) var(--vt-ease) both; }
+/* Cabecera de la vista y barra «Volver a»: se desvanecen con desenfoque */
+::view-transition-old(bd-head),
+::view-transition-old(bd-homebar) { animation: bd-vt-fade-out 0.3s ease both; }
+::view-transition-new(bd-head),
+::view-transition-new(bd-homebar) { animation: bd-vt-fade-in 0.45s var(--vt-ease) 0.12s both; }
+/* Botón de salida: entra girando */
+::view-transition-new(bd-exit) { animation: bd-vt-pop-in 0.6s var(--vt-ease) 0.18s both; }
+::view-transition-old(bd-exit) { animation: bd-vt-pop-out 0.25s ease both; }
+
+@keyframes bd-vt-out-left { to { transform: translateX(-100%); opacity: 0; } }
+@keyframes bd-vt-in-left { from { transform: translateX(-100%); opacity: 0; } }
+@keyframes bd-vt-out-right { to { transform: translateX(100%); opacity: 0; } }
+@keyframes bd-vt-in-right { from { transform: translateX(100%); opacity: 0; } }
+@keyframes bd-vt-out-up { to { transform: translateY(-100%); opacity: 0; } }
+@keyframes bd-vt-in-up { from { transform: translateY(-100%); opacity: 0; } }
+@keyframes bd-vt-fade-out { to { opacity: 0; transform: translateY(-10px) scale(0.98); filter: blur(6px); } }
+@keyframes bd-vt-fade-in { from { opacity: 0; transform: translateY(-10px) scale(0.98); filter: blur(6px); } }
+@keyframes bd-vt-pop-in { from { opacity: 0; transform: scale(0.3) rotate(-120deg); } }
+@keyframes bd-vt-pop-out { to { opacity: 0; transform: scale(0.3) rotate(90deg); } }
+/* Tarjetas que aparecen o desaparecen (reglas por tarjeta en #vt-style) */
+@keyframes bd-vt-card-in { from { opacity: 0; transform: translateY(18px) scale(0.96); filter: blur(6px); } }
+@keyframes bd-vt-card-out { to { opacity: 0; transform: scale(0.96); filter: blur(4px); } }
+
 /* ---------- Responsive ---------- */
 @media (max-width: 900px) {
   .app { --sb-col: 0px; }
