@@ -24,6 +24,8 @@ try {
   if (['2', '3', '5', '8'].includes(stripeWidth)) {
     document.documentElement.style.setProperty('--stripe-w', `${stripeWidth}px`);
   }
+  const width = localStorage.getItem('bd-content-width');
+  if (width === 'wide' || width === 'full') document.documentElement.dataset.contentWidth = width;
   const cols = localStorage.getItem('bd-board-cols');
   if (['1', '2', '3', '4', '5', '6'].includes(cols)) {
     document.documentElement.dataset.boardCols = cols;

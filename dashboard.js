@@ -60,6 +60,7 @@
   const STRIPE_COLORS = ['auto', ...GROUP_COLORS];
   const STRIPE_WIDTHS = [2, 3, 5, 8];
   const BOARD_COLUMNS = ['auto', 1, 2, 3, 4, 5, 6]; // máximo de columnas del tablero
+  const CONTENT_WIDTHS = ['normal', 'wide', 'full']; // ancho máximo del contenido
   const SETTINGS_TABS = ['appearance', 'general', 'home', 'backup', 'shortcuts'];
   const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)');
   const VT_MAX_CARDS = 60; // tarjetas que vuelan a su sitio en la transición (las visibles)
@@ -92,6 +93,7 @@
     stripeColor: 'auto',
     stripeWidth: 3,
     boardColumns: 'auto',
+    contentWidth: 'normal',
     theme: 'auto',
     view: 'grid',
     sort: 'manual',
@@ -125,6 +127,7 @@
       stripeColor: DEFAULT_PREFS.stripeColor,
       stripeWidth: DEFAULT_PREFS.stripeWidth,
       boardColumns: DEFAULT_PREFS.boardColumns,
+      contentWidth: DEFAULT_PREFS.contentWidth,
       theme: DEFAULT_PREFS.theme,
       view: DEFAULT_PREFS.view,
       sort: DEFAULT_PREFS.sort,
@@ -667,6 +670,7 @@
     if (STRIPE_COLORS.includes(p.stripeColor)) prefs.stripeColor = p.stripeColor;
     if (STRIPE_WIDTHS.includes(p.stripeWidth)) prefs.stripeWidth = p.stripeWidth;
     if (BOARD_COLUMNS.includes(p.boardColumns)) prefs.boardColumns = p.boardColumns;
+    if (CONTENT_WIDTHS.includes(p.contentWidth)) prefs.contentWidth = p.contentWidth;
     for (const key of ['openInNewTab', 'showFavicons', 'includeSubfolders', 'groupsPanel', 'sidebarPanel', 'minimal', 'stripe']) {
       if (typeof p[key] === 'boolean') prefs[key] = p[key];
     }
@@ -701,7 +705,7 @@
     if (key === 'sidebarPanel') applySidebar();
     if (key === 'minimal' || key === 'homeFolder') applyMinimal();
     if (key === 'stripe' || key === 'stripeColor' || key === 'stripeWidth') applyStripe();
-    if (key === 'boardColumns') applyBoardColumns();
+    if (key === 'boardColumns' || key === 'contentWidth') applyBoardColumns();
     if (key === 'lang') applyLanguage();
     if (key === 'groupsPanel') applyGroupsPanel();
     if (key === 'includeSubfolders') state.limit = PAGE_SIZE;
@@ -797,10 +801,13 @@
     }
   }
 
-  /** Máximo de columnas del tablero ('auto' = según el ancho, como siempre). */
+  /** Diseño: máximo de columnas del tablero ('auto' = según el ancho) y ancho del contenido. */
   function applyBoardColumns() {
     const cols = state.prefs.boardColumns;
+    const width = state.prefs.contentWidth;
     const root = document.documentElement;
+    if (width === 'normal') delete root.dataset.contentWidth;
+    else root.dataset.contentWidth = width;
     if (cols === 'auto') {
       delete root.dataset.boardCols;
       root.style.removeProperty('--board-cols');
@@ -810,6 +817,7 @@
     }
     try {
       localStorage.setItem('bd-board-cols', String(cols));
+      localStorage.setItem('bd-content-width', width);
     } catch {
       /* sin localStorage: solo afecta al primer pintado */
     }
@@ -1054,6 +1062,7 @@
     $('#opt-favicons').checked = state.prefs.showFavicons;
     $('#opt-stripe').checked = state.prefs.stripe;
     for (const radio of form.querySelectorAll('input[name="board-cols"]')) radio.checked = radio.value === String(state.prefs.boardColumns);
+    for (const radio of form.querySelectorAll('input[name="content-width"]')) radio.checked = radio.value === state.prefs.contentWidth;
     for (const radio of form.querySelectorAll('input[name="stripe-color"]')) radio.checked = radio.value === state.prefs.stripeColor;
     // «Ninguno» (0) equivale al interruptor apagado; el grosor elegido se conserva.
     const width = state.prefs.stripe ? state.prefs.stripeWidth : 0;
@@ -2809,6 +2818,7 @@
     stripeColor: (v) => STRIPE_COLORS.includes(v),
     stripeWidth: (v) => STRIPE_WIDTHS.includes(v),
     boardColumns: (v) => BOARD_COLUMNS.includes(v),
+    contentWidth: (v) => CONTENT_WIDTHS.includes(v),
     view: (v) => VIEW_MODES.includes(v),
     sort: (v) => SORTS.includes(v),
     openInNewTab: (v) => typeof v === 'boolean',
@@ -3618,6 +3628,7 @@
       else if (input.id === 'opt-stripe') setPref('stripe', input.checked);
       else if (input.name === 'stripe-color') setPref('stripeColor', input.value);
       else if (input.name === 'stripe-width') setStripeWidth(Number(input.value));
+      else if (input.name === 'content-width') setPref('contentWidth', input.value);
       else if (input.name === 'board-cols') setPref('boardColumns', input.value === 'auto' ? 'auto' : Number(input.value));
       else if (input.id === 'opt-newtab') setPref('openInNewTab', input.checked);
       else if (input.id === 'opt-subfolders') setPref('includeSubfolders', input.checked);

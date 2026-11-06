@@ -398,8 +398,19 @@
             </div>
           </div>
 
-          <h4 class="set-heading" data-i18n="settings.board">Board view</h4>
+          <h4 class="set-heading" data-i18n="settings.layout">Layout</h4>
           <div class="set-group">
+            <div class="set-row">
+              <span class="set-text">
+                <span data-i18n="width.label">Content width</span>
+                <small data-i18n="width.hint">How much of the window the cards use. “Full” fills all the available space.</small>
+              </span>
+              <div class="choice-group" role="radiogroup" aria-label="Content width" data-i18n-attr="aria-label:width.label">
+                <label class="choice"><input type="radio" name="content-width" value="normal"><span class="width-icon" data-w="normal"></span><span data-i18n="width.normal">Normal</span></label>
+                <label class="choice"><input type="radio" name="content-width" value="wide"><span class="width-icon" data-w="wide"></span><span data-i18n="width.wide">Wide</span></label>
+                <label class="choice"><input type="radio" name="content-width" value="full"><span class="width-icon" data-w="full"></span><span data-i18n="width.full">Full</span></label>
+              </div>
+            </div>
             <div class="set-row">
               <span class="set-text">
                 <span data-i18n="cols.label">Columns</span>
