@@ -63,6 +63,7 @@
     <symbol id="i-focus" viewBox="0 0 24 24"><path d="M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/></symbol>
     <symbol id="i-focus-exit" viewBox="0 0 24 24"><path d="M8 3v3a2 2 0 0 1-2 2H3M21 8h-3a2 2 0 0 1-2-2V3M16 21v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></symbol>
     <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></symbol>
+    <symbol id="i-keyboard" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 12.5h.01M18 12.5h.01M10 12.5h4M7 16h10"/></symbol>
     <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16M3 12a9 9 0 0 1 15.5-6.2L21 8"/><path d="M21 3v5h-5M3 21v-5h5"/></symbol>
   </svg>
 
@@ -347,133 +348,232 @@
   </dialog>
 
   <!-- Settings -->
-  <dialog class="dialog" id="settings-dialog" aria-labelledby="settings-heading">
-    <form id="settings-form" method="dialog">
-      <header class="dialog-head">
-        <h2 id="settings-heading" data-i18n="settings.title">Settings</h2>
-        <button type="submit" class="icon-btn" value="close" aria-label="Close" data-i18n-attr="aria-label:dialog.close">
+  <dialog class="dialog settings-dialog" id="settings-dialog" aria-labelledby="settings-heading">
+    <form id="settings-form" class="settings-form" method="dialog">
+      <nav class="settings-nav">
+        <h2 id="settings-heading" class="settings-title" data-i18n="settings.title">Settings</h2>
+        <div class="settings-tabs" id="settings-tabs" role="tablist" aria-orientation="vertical" aria-labelledby="settings-heading">
+          <button type="button" class="settings-tab" role="tab" id="stab-appearance" data-tab="appearance" aria-controls="spanel-appearance" aria-selected="true">
+            <svg class="icon"><use href="#i-palette"/></svg><span data-i18n="settings.appearance">Appearance</span>
+          </button>
+          <button type="button" class="settings-tab" role="tab" id="stab-general" data-tab="general" aria-controls="spanel-general" aria-selected="false" tabindex="-1">
+            <svg class="icon"><use href="#i-settings"/></svg><span data-i18n="settings.general">General</span>
+          </button>
+          <button type="button" class="settings-tab" role="tab" id="stab-home" data-tab="home" aria-controls="spanel-home" aria-selected="false" tabindex="-1">
+            <svg class="icon"><use href="#i-home"/></svg><span data-i18n="home.title">Home page</span>
+          </button>
+          <button type="button" class="settings-tab" role="tab" id="stab-backup" data-tab="backup" aria-controls="spanel-backup" aria-selected="false" tabindex="-1">
+            <svg class="icon"><use href="#i-download"/></svg><span data-i18n="backup.title">Backup</span>
+          </button>
+          <button type="button" class="settings-tab" role="tab" id="stab-shortcuts" data-tab="shortcuts" aria-controls="spanel-shortcuts" aria-selected="false" tabindex="-1">
+            <svg class="icon"><use href="#i-keyboard"/></svg><span data-i18n="settings.shortcuts">Keyboard shortcuts</span>
+          </button>
+        </div>
+      </nav>
+
+      <div class="settings-main">
+        <button type="submit" class="icon-btn settings-close" value="close" aria-label="Close" data-i18n-attr="aria-label:dialog.close;title:dialog.close">
           <svg class="icon"><use href="#i-close"/></svg>
         </button>
-      </header>
-      <div class="dialog-body settings-body">
-        <fieldset class="settings-group">
-          <legend data-i18n="settings.appearance">Appearance</legend>
-          <div class="theme-options">
-            <label class="theme-option"><input type="radio" name="theme" value="auto"><svg class="icon"><use href="#i-monitor"/></svg><span data-i18n="theme.auto">System</span></label>
-            <label class="theme-option"><input type="radio" name="theme" value="light"><svg class="icon"><use href="#i-sun"/></svg><span data-i18n="theme.light">Light</span></label>
-            <label class="theme-option"><input type="radio" name="theme" value="dark"><svg class="icon"><use href="#i-moon"/></svg><span data-i18n="theme.dark">Dark</span></label>
+
+        <!-- Apariencia -->
+        <section class="settings-panel" role="tabpanel" id="spanel-appearance" aria-labelledby="stab-appearance">
+          <h3 class="panel-title" data-i18n="settings.appearance">Appearance</h3>
+          <div class="set-group">
+            <div class="set-row">
+              <span class="set-text"><span data-i18n="settings.theme">Theme</span></span>
+              <div class="choice-group" role="radiogroup" aria-label="Theme" data-i18n-attr="aria-label:settings.theme">
+                <label class="choice"><input type="radio" name="theme" value="auto"><svg class="icon"><use href="#i-monitor"/></svg><span data-i18n="theme.auto">System</span></label>
+                <label class="choice"><input type="radio" name="theme" value="light"><svg class="icon"><use href="#i-sun"/></svg><span data-i18n="theme.light">Light</span></label>
+                <label class="choice"><input type="radio" name="theme" value="dark"><svg class="icon"><use href="#i-moon"/></svg><span data-i18n="theme.dark">Dark</span></label>
+              </div>
+            </div>
+            <div class="set-row">
+              <span class="set-text"><span data-i18n="settings.corners">Corners</span></span>
+              <div class="choice-group" role="radiogroup" aria-label="Corners" data-i18n-attr="aria-label:settings.corners">
+                <label class="choice"><input type="radio" name="corners" value="round"><svg class="icon corner-icon"><use href="#i-corner-round"/></svg><span data-i18n="corners.round">Rounded</span></label>
+                <label class="choice"><input type="radio" name="corners" value="semi"><svg class="icon corner-icon"><use href="#i-corner-semi"/></svg><span data-i18n="corners.semi">Semi-rounded</span></label>
+                <label class="choice"><input type="radio" name="corners" value="square"><svg class="icon corner-icon"><use href="#i-corner-square"/></svg><span data-i18n="corners.square">Square</span></label>
+              </div>
+            </div>
           </div>
-        </fieldset>
 
-        <fieldset class="settings-group">
-          <legend data-i18n="settings.corners">Corners</legend>
-          <div class="theme-options">
-            <label class="theme-option"><input type="radio" name="corners" value="round"><svg class="icon corner-icon"><use href="#i-corner-round"/></svg><span data-i18n="corners.round">Rounded</span></label>
-            <label class="theme-option"><input type="radio" name="corners" value="semi"><svg class="icon corner-icon"><use href="#i-corner-semi"/></svg><span data-i18n="corners.semi">Semi-rounded</span></label>
-            <label class="theme-option"><input type="radio" name="corners" value="square"><svg class="icon corner-icon"><use href="#i-corner-square"/></svg><span data-i18n="corners.square">Square</span></label>
+          <h4 class="set-heading" data-i18n="settings.cardBorder">Card border</h4>
+          <div class="set-group">
+            <div class="stripe-preview" aria-hidden="true">
+              <div class="board-card preview-card">
+                <div class="preview-head">
+                  <span class="board-icon"><svg class="icon"><use href="#i-folder"/></svg></span>
+                  <span class="preview-name" data-i18n="preview.folder">Folder</span>
+                  <span class="board-count">3</span>
+                </div>
+                <div class="preview-lines"><span></span><span></span><span></span></div>
+              </div>
+              <div class="board-card preview-card has-color" data-color="red">
+                <div class="preview-head">
+                  <span class="board-icon"><svg class="icon"><use href="#i-folder"/></svg></span>
+                  <span class="preview-name" data-i18n="preview.colored">With its own color</span>
+                  <span class="board-count">2</span>
+                </div>
+                <div class="preview-lines"><span></span><span></span></div>
+              </div>
+            </div>
+            <label class="set-row">
+              <span class="set-text">
+                <span data-i18n="stripe.show">Colored left border</span>
+                <small data-i18n="stripe.showHint">The color stripe on the left of folder cards (board view) and groups.</small>
+              </span>
+              <input class="switch" type="checkbox" id="opt-stripe">
+            </label>
+            <div class="set-row set-row-stack" id="stripe-color-row">
+              <span class="set-text">
+                <span data-i18n="stripe.color">Color</span>
+                <small data-i18n="stripe.colorHint">“Folder color” uses the usual color. Folders with their own color keep it.</small>
+              </span>
+              <div class="swatches swatches-inline" id="stripe-colors" role="radiogroup" aria-label="Color" data-i18n-attr="aria-label:stripe.color"></div>
+            </div>
+            <div class="set-row" id="stripe-width-row">
+              <span class="set-text"><span data-i18n="stripe.width">Thickness</span></span>
+              <div class="choice-group" role="radiogroup" aria-label="Thickness" data-i18n-attr="aria-label:stripe.width">
+                <label class="choice"><input type="radio" name="stripe-width" value="2"><span class="w-bar" data-w="2"></span><span data-i18n="stripe.thin">Thin</span></label>
+                <label class="choice"><input type="radio" name="stripe-width" value="3"><span class="w-bar" data-w="3"></span><span data-i18n="stripe.normal">Normal</span></label>
+                <label class="choice"><input type="radio" name="stripe-width" value="5"><span class="w-bar" data-w="5"></span><span data-i18n="stripe.thick">Thick</span></label>
+                <label class="choice"><input type="radio" name="stripe-width" value="8"><span class="w-bar" data-w="8"></span><span data-i18n="stripe.extra">Extra</span></label>
+              </div>
+            </div>
           </div>
-        </fieldset>
+        </section>
 
-        <fieldset class="settings-group">
-          <legend data-i18n="settings.language">Language</legend>
-          <div class="theme-options lang-options">
-            <label class="theme-option"><input type="radio" name="lang" value="en"><span lang="en">English</span></label>
-            <label class="theme-option"><input type="radio" name="lang" value="es"><span lang="es">Español</span></label>
+        <!-- General -->
+        <section class="settings-panel" role="tabpanel" id="spanel-general" aria-labelledby="stab-general" hidden>
+          <h3 class="panel-title" data-i18n="settings.general">General</h3>
+          <div class="set-group">
+            <div class="set-row">
+              <span class="set-text"><span data-i18n="settings.language">Language</span></span>
+              <div class="choice-group" role="radiogroup" aria-label="Language" data-i18n-attr="aria-label:settings.language">
+                <label class="choice"><input type="radio" name="lang" value="en"><span lang="en">English</span></label>
+                <label class="choice"><input type="radio" name="lang" value="es"><span lang="es">Español</span></label>
+              </div>
+            </div>
           </div>
-        </fieldset>
 
-        <fieldset class="settings-group">
-          <legend data-i18n="home.title">Home page</legend>
-          <label class="switch-row">
-            <span class="switch-text">
-              <span data-i18n="opt.minimal">Minimal mode</span>
-              <small data-i18n="opt.minimalHint">Shows only the board of the home folder: search, side panels and buttons are hidden. To exit, use the button in the top-right corner.</small>
-            </span>
-            <input class="switch" type="checkbox" id="opt-minimal">
-          </label>
-          <label class="field home-field">
-            <span data-i18n="home.folder">Home folder</span>
-            <span class="select-wrap select-wrap-block">
-              <select id="opt-home"></select>
-              <svg class="icon"><use href="#i-chevron-down"/></svg>
-            </span>
-          </label>
-          <p class="settings-note" data-i18n="home.urlHint">This address always opens in minimal mode. To use it as your Firefox home page, paste it in Firefox Settings → Home → Homepage and new windows → Custom URLs.</p>
-          <div class="home-url">
-            <input id="home-url" type="text" readonly spellcheck="false" aria-label="Home page address" data-i18n-attr="aria-label:home.url">
-            <button type="button" class="btn" id="home-url-copy">
-              <svg class="icon"><use href="#i-copy"/></svg>
-              <span data-i18n="home.copy">Copy</span>
-            </button>
+          <h4 class="set-heading" data-i18n="settings.behavior">Behavior</h4>
+          <div class="set-group">
+            <label class="set-row">
+              <span class="set-text">
+                <span data-i18n="opt.newtab">Open bookmarks in a new tab</span>
+                <small data-i18n="opt.newtabHint">When off, bookmarks open in the current tab.</small>
+              </span>
+              <input class="switch" type="checkbox" id="opt-newtab">
+            </label>
+            <label class="set-row">
+              <span class="set-text">
+                <span data-i18n="opt.subfolders">Include bookmarks from subfolders</span>
+                <small data-i18n="opt.subfoldersHint">When opening a folder, also show the bookmarks of all its subfolders.</small>
+              </span>
+              <input class="switch" type="checkbox" id="opt-subfolders">
+            </label>
+            <label class="set-row">
+              <span class="set-text">
+                <span data-i18n="opt.favicons">Show favicons</span>
+                <small data-i18n="opt.faviconsHint">Requested directly from each site (/favicon.ico), never from third-party services. Turn it off so the dashboard makes no network connections at all.</small>
+              </span>
+              <input class="switch" type="checkbox" id="opt-favicons">
+            </label>
           </div>
-        </fieldset>
 
-        <fieldset class="settings-group">
-          <legend data-i18n="settings.behavior">Behavior</legend>
-          <label class="switch-row">
-            <span class="switch-text">
-              <span data-i18n="opt.newtab">Open bookmarks in a new tab</span>
-              <small data-i18n="opt.newtabHint">When off, bookmarks open in the current tab.</small>
-            </span>
-            <input class="switch" type="checkbox" id="opt-newtab">
-          </label>
-          <label class="switch-row">
-            <span class="switch-text">
-              <span data-i18n="opt.subfolders">Include bookmarks from subfolders</span>
-              <small data-i18n="opt.subfoldersHint">When opening a folder, also show the bookmarks of all its subfolders.</small>
-            </span>
-            <input class="switch" type="checkbox" id="opt-subfolders">
-          </label>
-          <label class="switch-row">
-            <span class="switch-text">
-              <span data-i18n="opt.favicons">Show favicons</span>
-              <small data-i18n="opt.faviconsHint">Requested directly from each site (/favicon.ico), never from third-party services. Turn it off so the dashboard makes no network connections at all.</small>
-            </span>
-            <input class="switch" type="checkbox" id="opt-favicons">
-          </label>
-        </fieldset>
-
-        <fieldset class="settings-group">
-          <legend data-i18n="backup.title">Backup</legend>
-          <p class="settings-note" data-i18n="backup.text">Groups, folder colors, starred items and settings are stored only in this extension. Save them to a file to restore them later or on another computer. Your Firefox bookmarks are not included (Firefox already backs them up).</p>
-          <div class="backup-actions">
-            <button type="button" class="btn" id="export-btn">
-              <svg class="icon"><use href="#i-download"/></svg>
-              <span data-i18n="backup.export">Export…</span>
-            </button>
-            <button type="button" class="btn" id="import-btn">
-              <svg class="icon"><use href="#i-upload"/></svg>
-              <span data-i18n="backup.import">Import…</span>
-            </button>
-            <input type="file" id="import-file" accept="application/json,.json" hidden>
+          <h4 class="set-heading" data-i18n="settings.bookmarks">Bookmarks</h4>
+          <div class="set-group">
+            <div class="set-row">
+              <span class="set-text">
+                <span data-i18n="resync.button">Reload bookmarks</span>
+                <small data-i18n="resync.hint">Reads the bookmark tree from Firefox again. Changes are already picked up automatically; use it after a large import or restore.</small>
+              </span>
+              <button type="button" class="btn" id="resync-btn">
+                <svg class="icon"><use href="#i-refresh"/></svg>
+                <span data-i18n="resync.short">Reload</span>
+              </button>
+            </div>
           </div>
-        </fieldset>
 
-        <fieldset class="settings-group">
-          <legend data-i18n="settings.shortcuts">Keyboard shortcuts</legend>
-          <dl class="shortcuts">
-            <dt><kbd>/</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></dt><dd data-i18n="shortcut.search">Search</dd>
-            <dt><kbd data-i18n="kbd.enter">Enter</kbd></dt><dd data-i18n="shortcut.enter">Open the first search result</dd>
-            <dt><kbd data-i18n="kbd.delete">Delete</kbd></dt><dd data-i18n="shortcut.delete">Delete the focused bookmark or folder</dd>
-            <dt><kbd>Esc</kbd></dt><dd data-i18n="shortcut.esc">Clear search / close menus</dd>
-            <dt><kbd>Esc</kbd></dt><dd data-i18n="shortcut.minimalEsc">Minimal mode: back to the home folder</dd>
-            <dt><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd></dt><dd data-i18n="shortcut.open">Open the dashboard from any tab</dd>
-            <dt><kbd data-i18n="kbd.middleClick">Middle click</kbd></dt><dd data-i18n="shortcut.middleClick">On a folder: open its bookmarks in new tabs</dd>
-          </dl>
-        </fieldset>
+          <p class="privacy-note">
+            <svg class="icon"><use href="#i-check"/></svg>
+            <span data-i18n="privacy.note">Everything runs locally. Your bookmarks are read through the Firefox API and are never sent to any server. Starred items and preferences are stored only in this extension.</span>
+          </p>
+        </section>
 
-        <p class="privacy-note">
-          <svg class="icon"><use href="#i-check"/></svg>
-          <span data-i18n="privacy.note">Everything runs locally. Your bookmarks are read through the Firefox API and are never sent to any server. Starred items and preferences are stored only in this extension.</span>
-        </p>
+        <!-- Página de inicio -->
+        <section class="settings-panel" role="tabpanel" id="spanel-home" aria-labelledby="stab-home" hidden>
+          <h3 class="panel-title" data-i18n="home.title">Home page</h3>
+          <div class="set-group">
+            <label class="set-row">
+              <span class="set-text">
+                <span data-i18n="opt.minimal">Minimal mode</span>
+                <small data-i18n="opt.minimalHint">Shows only the board of the home folder: search, side panels and buttons are hidden. To exit, use the button in the top-right corner.</small>
+              </span>
+              <input class="switch" type="checkbox" id="opt-minimal">
+            </label>
+            <label class="set-row set-row-stack">
+              <span class="set-text"><span data-i18n="home.folder">Home folder</span></span>
+              <span class="select-wrap select-wrap-block">
+                <select id="opt-home"></select>
+                <svg class="icon"><use href="#i-chevron-down"/></svg>
+              </span>
+            </label>
+          </div>
+
+          <h4 class="set-heading" data-i18n="home.url">Home page address</h4>
+          <div class="set-group">
+            <div class="set-row set-row-stack">
+              <span class="set-text"><small data-i18n="home.urlHint">This address always opens in minimal mode. To use it as your Firefox home page, paste it in Firefox Settings → Home → Homepage and new windows → Custom URLs.</small></span>
+              <div class="home-url">
+                <input id="home-url" type="text" readonly spellcheck="false" aria-label="Home page address" data-i18n-attr="aria-label:home.url">
+                <button type="button" class="btn" id="home-url-copy">
+                  <svg class="icon"><use href="#i-copy"/></svg>
+                  <span data-i18n="home.copy">Copy</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Copia de seguridad -->
+        <section class="settings-panel" role="tabpanel" id="spanel-backup" aria-labelledby="stab-backup" hidden>
+          <h3 class="panel-title" data-i18n="backup.title">Backup</h3>
+          <div class="set-group">
+            <div class="set-row set-row-stack">
+              <span class="set-text"><small data-i18n="backup.text">Groups, folder colors, starred items and settings are stored only in this extension. Save them to a file to restore them later or on another computer. Your Firefox bookmarks are not included (Firefox already backs them up).</small></span>
+              <div class="backup-actions">
+                <button type="button" class="btn" id="export-btn">
+                  <svg class="icon"><use href="#i-download"/></svg>
+                  <span data-i18n="backup.export">Export…</span>
+                </button>
+                <button type="button" class="btn" id="import-btn">
+                  <svg class="icon"><use href="#i-upload"/></svg>
+                  <span data-i18n="backup.import">Import…</span>
+                </button>
+                <input type="file" id="import-file" accept="application/json,.json" hidden>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Atajos -->
+        <section class="settings-panel" role="tabpanel" id="spanel-shortcuts" aria-labelledby="stab-shortcuts" hidden>
+          <h3 class="panel-title" data-i18n="settings.shortcuts">Keyboard shortcuts</h3>
+          <div class="set-group">
+            <dl class="shortcuts">
+              <div class="set-row"><dt><kbd>/</kbd> <kbd>Ctrl</kbd>+<kbd>K</kbd></dt><dd data-i18n="shortcut.search">Search</dd></div>
+              <div class="set-row"><dt><kbd data-i18n="kbd.enter">Enter</kbd></dt><dd data-i18n="shortcut.enter">Open the first search result</dd></div>
+              <div class="set-row"><dt><kbd data-i18n="kbd.delete">Delete</kbd></dt><dd data-i18n="shortcut.delete">Delete the focused bookmark or folder</dd></div>
+              <div class="set-row"><dt><kbd>Esc</kbd></dt><dd data-i18n="shortcut.esc">Clear search / close menus</dd></div>
+              <div class="set-row"><dt><kbd>Esc</kbd></dt><dd data-i18n="shortcut.minimalEsc">Minimal mode: back to the home folder</dd></div>
+              <div class="set-row"><dt><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd></dt><dd data-i18n="shortcut.open">Open the dashboard from any tab</dd></div>
+              <div class="set-row"><dt><kbd data-i18n="kbd.middleClick">Middle click</kbd></dt><dd data-i18n="shortcut.middleClick">On a folder: open its bookmarks in new tabs</dd></div>
+            </dl>
+          </div>
+        </section>
       </div>
-      <footer class="dialog-foot">
-        <button type="button" class="btn" id="resync-btn">
-          <svg class="icon"><use href="#i-refresh"/></svg>
-          <span data-i18n="resync.button">Reload bookmarks</span>
-        </button>
-        <button type="submit" class="btn btn-primary" value="close" data-i18n="action.done">Done</button>
-      </footer>
     </form>
   </dialog>
 </body>

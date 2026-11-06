@@ -56,6 +56,10 @@
   const GROUP_NAME_MAX = 60;
   const VIEW_MODES = ['grid', 'list', 'board'];
   const CORNERS = ['round', 'semi', 'square'];
+  // Franja de color a la izquierda de las tarjetas: color general y grosor (px).
+  const STRIPE_COLORS = ['auto', ...GROUP_COLORS];
+  const STRIPE_WIDTHS = [2, 3, 5, 8];
+  const SETTINGS_TABS = ['appearance', 'general', 'home', 'backup', 'shortcuts'];
   const BOARD_ROWS = 10; // enlaces visibles por tarjeta antes de «Mostrar más»
   const BOARD_PAGE = 40; // tarjetas por página en la vista de tablero
   const HOME_NAV_KEY = 'bd-home-nav'; // subcarpeta abierta en el modo minimalista (por pestaña)
@@ -81,6 +85,9 @@
     sidebarPanel: true,
     minimal: false,
     homeFolder: 'toolbar_____',
+    stripe: true,
+    stripeColor: 'auto',
+    stripeWidth: 3,
     theme: 'auto',
     view: 'grid',
     sort: 'manual',
@@ -110,6 +117,9 @@
       sidebarPanel: DEFAULT_PREFS.sidebarPanel,
       minimal: DEFAULT_PREFS.minimal,
       homeFolder: DEFAULT_PREFS.homeFolder,
+      stripe: DEFAULT_PREFS.stripe,
+      stripeColor: DEFAULT_PREFS.stripeColor,
+      stripeWidth: DEFAULT_PREFS.stripeWidth,
       theme: DEFAULT_PREFS.theme,
       view: DEFAULT_PREFS.view,
       sort: DEFAULT_PREFS.sort,
@@ -129,6 +139,7 @@
     forceHome: new URLSearchParams(location.search).has('home'),
     homeNav: readHomeNav(),
     minimalOn: null,
+    settingsTab: 'appearance',
     query: '',
     terms: [],
     limit: PAGE_SIZE,
@@ -644,7 +655,9 @@
     if (SORTS.includes(p.sort)) prefs.sort = p.sort;
     if (typeof p.lastFolder === 'string') prefs.lastFolder = p.lastFolder;
     if (typeof p.homeFolder === 'string' && p.homeFolder) prefs.homeFolder = p.homeFolder;
-    for (const key of ['openInNewTab', 'showFavicons', 'includeSubfolders', 'groupsPanel', 'sidebarPanel', 'minimal']) {
+    if (STRIPE_COLORS.includes(p.stripeColor)) prefs.stripeColor = p.stripeColor;
+    if (STRIPE_WIDTHS.includes(p.stripeWidth)) prefs.stripeWidth = p.stripeWidth;
+    for (const key of ['openInNewTab', 'showFavicons', 'includeSubfolders', 'groupsPanel', 'sidebarPanel', 'minimal', 'stripe']) {
       if (typeof p[key] === 'boolean') prefs[key] = p[key];
     }
     if (Array.isArray(p.expanded)) state.expanded = new Set(p.expanded.filter((x) => typeof x === 'string'));
@@ -677,6 +690,7 @@
     if (key === 'corners') applyCorners();
     if (key === 'sidebarPanel') applySidebar();
     if (key === 'minimal' || key === 'homeFolder') applyMinimal();
+    if (key === 'stripe' || key === 'stripeColor' || key === 'stripeWidth') applyStripe();
     if (key === 'lang') applyLanguage();
     if (key === 'groupsPanel') applyGroupsPanel();
     if (key === 'includeSubfolders') state.limit = PAGE_SIZE;
@@ -697,6 +711,7 @@
     applyCorners();
     applySidebar();
     applyMinimal();
+    applyStripe();
     applyGroupsPanel();
     applyTheme();
     syncControls();
@@ -750,6 +765,21 @@
     document.documentElement.dataset.corners = corners;
     try {
       localStorage.setItem('bd-corners', corners);
+    } catch {
+      /* sin localStorage: solo afecta al primer pintado */
+    }
+  }
+
+  /** Franja de color de las tarjetas: visible u oculta, color general y grosor (ver CSS). */
+  function applyStripe() {
+    const { stripe, stripeColor, stripeWidth } = state.prefs;
+    const root = document.documentElement;
+    root.dataset.stripe = stripe ? 'on' : 'off';
+    if (stripeColor === 'auto') delete root.dataset.stripeColor;
+    else root.dataset.stripeColor = stripeColor;
+    root.style.setProperty('--stripe-w', `${stripeWidth}px`);
+    try {
+      localStorage.setItem('bd-stripe', `${stripe ? 1 : 0}|${stripeColor}|${stripeWidth}`);
     } catch {
       /* sin localStorage: solo afecta al primer pintado */
     }
@@ -895,6 +925,61 @@
     $('#opt-newtab').checked = state.prefs.openInNewTab;
     $('#opt-subfolders').checked = state.prefs.includeSubfolders;
     $('#opt-favicons').checked = state.prefs.showFavicons;
+    $('#opt-stripe').checked = state.prefs.stripe;
+    for (const radio of form.querySelectorAll('input[name="stripe-color"]')) radio.checked = radio.value === state.prefs.stripeColor;
+    for (const radio of form.querySelectorAll('input[name="stripe-width"]')) radio.checked = Number(radio.value) === state.prefs.stripeWidth;
+    // Sin franja, el color y el grosor no aplican.
+    for (const row of [$('#stripe-color-row'), $('#stripe-width-row')]) {
+      row.classList.toggle('is-disabled', !state.prefs.stripe);
+      for (const input of row.querySelectorAll('input')) input.disabled = !state.prefs.stripe;
+    }
+  }
+
+  /** Muestras de color de la franja (Ajustes → Apariencia). Los textos se traducen con translateStatic. */
+  function buildStripeSwatches() {
+    $('#stripe-colors').replaceChildren(
+      ...STRIPE_COLORS.map((c) => {
+        const key = c === 'auto' ? 'stripe.auto' : `color.${c}`;
+        return el(
+          'label',
+          { class: 'swatch', title: t(key), dataset: { color: c, i18nAttr: `title:${key}` } },
+          el('input', { type: 'radio', name: 'stripe-color', value: c, 'aria-label': t(key), dataset: { i18nAttr: `aria-label:${key}` } }),
+          el('span', { class: 'swatch-dot' }, icon('check')),
+        );
+      }),
+    );
+  }
+
+  /** Pestañas de Ajustes (patrón ARIA tabs: flechas, Inicio y Fin). */
+  function showSettingsTab(name, focus = false) {
+    const tab = SETTINGS_TABS.includes(name) ? name : SETTINGS_TABS[0];
+    state.settingsTab = tab;
+    for (const btn of document.querySelectorAll('#settings-tabs [role="tab"]')) {
+      const active = btn.dataset.tab === tab;
+      btn.setAttribute('aria-selected', String(active));
+      btn.tabIndex = active ? 0 : -1;
+      if (active && focus) btn.focus();
+    }
+    for (const panel of document.querySelectorAll('#settings-dialog .settings-panel')) {
+      panel.hidden = panel.id !== `spanel-${tab}`;
+    }
+    $('#settings-dialog .settings-main').scrollTop = 0;
+  }
+
+  function handleSettingsTabKeys(event) {
+    const i = SETTINGS_TABS.indexOf(state.settingsTab);
+    const last = SETTINGS_TABS.length - 1;
+    const next = {
+      ArrowDown: i + 1,
+      ArrowRight: i + 1,
+      ArrowUp: i - 1,
+      ArrowLeft: i - 1,
+      Home: 0,
+      End: last,
+    }[event.key];
+    if (next === undefined) return;
+    event.preventDefault();
+    showSettingsTab(SETTINGS_TABS[(next + SETTINGS_TABS.length) % SETTINGS_TABS.length], true);
   }
 
   // ---------------------------------------------------------------------------
@@ -2569,6 +2654,9 @@
     corners: (v) => CORNERS.includes(v),
     sidebarPanel: (v) => typeof v === 'boolean',
     minimal: (v) => typeof v === 'boolean',
+    stripe: (v) => typeof v === 'boolean',
+    stripeColor: (v) => STRIPE_COLORS.includes(v),
+    stripeWidth: (v) => STRIPE_WIDTHS.includes(v),
     view: (v) => VIEW_MODES.includes(v),
     sort: (v) => SORTS.includes(v),
     openInNewTab: (v) => typeof v === 'boolean',
@@ -2775,6 +2863,7 @@
     applyCorners();
     applySidebar();
     applyMinimal();
+    applyStripe();
     applyGroupsPanel();
     syncControls();
     scheduleRender();
@@ -3276,8 +3365,17 @@
       syncControls();
       fillHomeSelect();
       $('#home-url').value = homeUrl();
+      showSettingsTab(state.settingsTab);
       $('#settings-dialog').showModal();
+      $(`#stab-${state.settingsTab}`).focus();
     });
+    buildStripeSwatches();
+    const settingsTabs = $('#settings-tabs');
+    settingsTabs.addEventListener('click', (event) => {
+      const tab = event.target.closest('[role="tab"]');
+      if (tab) showSettingsTab(tab.dataset.tab);
+    });
+    settingsTabs.addEventListener('keydown', handleSettingsTabKeys);
     $('#minimal-btn').addEventListener('click', enterMinimal);
     $('#minimal-exit').addEventListener('click', exitMinimal);
     $('#home-back').addEventListener('click', () => selectView(homeId()));
@@ -3364,6 +3462,9 @@
         if (input.checked) enterMinimal();
         else setPref('minimal', false);
       } else if (input.id === 'opt-home') setHomeFolder(input.value);
+      else if (input.id === 'opt-stripe') setPref('stripe', input.checked);
+      else if (input.name === 'stripe-color') setPref('stripeColor', input.value);
+      else if (input.name === 'stripe-width') setPref('stripeWidth', Number(input.value));
       else if (input.id === 'opt-newtab') setPref('openInNewTab', input.checked);
       else if (input.id === 'opt-subfolders') setPref('includeSubfolders', input.checked);
       else if (input.id === 'opt-favicons') {
@@ -3505,6 +3606,7 @@
     applyCorners();
     applySidebar();
     applyMinimal();
+    applyStripe();
     applyGroupsPanel();
     applyTheme();
     syncControls();

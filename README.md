@@ -141,6 +141,14 @@ bookmarks/
   El modo se recuerda (también en las pestañas nuevas) y se aplica antes del primer pintado.
   La dirección `moz-extension://…/dashboard.html?home` abre siempre el modo minimalista sin
   cambiar el ajuste: está en Ajustes → Página de inicio, con botón «Copiar».
+- **Ajustes rediseñados**: diálogo con pestañas a la izquierda (Apariencia, General, Página de
+  inicio, Copia de seguridad, Atajos) y opciones en filas agrupadas; en móvil las pestañas pasan
+  arriba. Se navega también con el teclado (flechas, Inicio, Fin).
+- **Borde izquierdo de las tarjetas** (Ajustes → Apariencia → Borde de las tarjetas): la franja de
+  color de las tarjetas del tablero y de los grupos se puede ocultar, cambiar de grosor (fino,
+  normal, grueso, extra) y de color general. El color general tiñe las tarjetas de carpeta que
+  no tienen color propio (las que sí lo tienen lo conservan; los grupos mantienen el suyo). Con
+  vista previa en vivo; se aplica antes del primer pintado y entra en la copia de seguridad.
 - **Estilo de bordes** (Ajustes → Bordes): esquinas redondeadas, semi o rectas en toda la
   interfaz (tarjetas, botones, menús, diálogos, buscador…). Se aplica antes del primer pintado,
   como el tema, y se sincroniza entre pestañas.

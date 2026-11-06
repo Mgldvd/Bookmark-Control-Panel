@@ -15,6 +15,15 @@ try {
   if (corners === 'round' || corners === 'semi' || corners === 'square') {
     document.documentElement.dataset.corners = corners;
   }
+  // Franja de las tarjetas: "visible|color|grosor" (p. ej. "1|auto|3").
+  const [stripe, stripeColor, stripeWidth] = (localStorage.getItem('bd-stripe') || '').split('|');
+  if (stripe === '0') document.documentElement.dataset.stripe = 'off';
+  if (/^(indigo|blue|teal|green|amber|orange|red|pink|violet|slate)$/.test(stripeColor || '')) {
+    document.documentElement.dataset.stripeColor = stripeColor;
+  }
+  if (['2', '3', '5', '8'].includes(stripeWidth)) {
+    document.documentElement.style.setProperty('--stripe-w', `${stripeWidth}px`);
+  }
   if (localStorage.getItem('bd-minimal') === '1') {
     document.documentElement.classList.add('minimal');
   }
