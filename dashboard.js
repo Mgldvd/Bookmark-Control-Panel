@@ -1,7 +1,7 @@
 'use strict';
 
 /*
- * Bookmark Dashboard — lógica principal.
+ * Bookmark Control Panel — lógica principal.
  *
  * Arquitectura:
  *   1. Modelo en memoria (Map id → nodo) construido con browser.bookmarks.getTree().
@@ -24,7 +24,7 @@
   // ---------------------------------------------------------------------------
 
   const SVG_NS = 'http://www.w3.org/2000/svg';
-  const DND_TYPE = 'application/x-bookmark-dashboard-id';
+  const DND_TYPE = 'application/x-bookmark-control-panel-id';
 
   const VIEW_ALL = 'view:all';
   const VIEW_FAVORITES = 'view:favorites';
@@ -634,7 +634,7 @@
       scheduleRender();
       if (notify) toast(t('toast.resynced'));
     } catch (err) {
-      console.error('[Bookmark Dashboard] Error al releer los marcadores:', err);
+      console.error('[Bookmark Control Panel] Error al releer los marcadores:', err);
       $('#live').classList.add('is-error');
       if (notify) toast(t('toast.resyncError', { error: err?.message || err }), 'error');
     }
@@ -683,13 +683,13 @@
     try {
       applyPrefs(await api.storage.local.get({ ...DEFAULT_PREFS }));
     } catch (err) {
-      console.warn('[Bookmark Dashboard] No se pudieron leer las preferencias:', err);
+      console.warn('[Bookmark Control Panel] No se pudieron leer las preferencias:', err);
     }
   }
 
   function savePrefs(partial) {
     return api.storage.local.set(partial).catch((err) => {
-      console.error('[Bookmark Dashboard] Error al guardar preferencias:', err);
+      console.error('[Bookmark Control Panel] Error al guardar preferencias:', err);
       toast(t('toast.prefsError'), 'error');
     });
   }
@@ -713,7 +713,7 @@
     scheduleRender();
   }
 
-  /** Mantiene sincronizadas varias pestañas del dashboard abiertas a la vez. */
+  /** Mantiene sincronizadas varias pestañas del panel abiertas a la vez. */
   function handleStorageChange(changes, area) {
     if (area !== 'local') return;
     const incoming = {};
@@ -893,7 +893,7 @@
     }
   }
 
-  // ----- Transición animada entre el dashboard y el modo minimalista -----
+  // ----- Transición animada entre el panel y el modo minimalista -----
   // View Transitions API: el navegador captura el estado anterior y el nuevo y
   // anima la diferencia. Los paneles salen por su borde, las tarjetas vuelan a
   // su nueva posición (escalonadas) y las que aparecen o desaparecen se funden.
@@ -989,7 +989,7 @@
   }
 
   function exitMinimal() {
-    // Al salir, el dashboard normal se queda en lo que se estaba viendo.
+    // Al salir, el panel normal se queda en lo que se estaba viendo.
     const at = state.ready ? minimalSelection() : null;
     animateMinimalSwitch(() => {
       if (state.forceHome) {
@@ -1168,7 +1168,7 @@
     if (!state.ready) return;
     const target = resolveSelection(id);
     if (isMinimal()) {
-      // Dentro del modo minimalista se navega sin tocar la carpeta del dashboard normal.
+      // Dentro del modo minimalista se navega sin tocar la carpeta del panel normal.
       setHomeNav(target !== homeId() && isShowable(target) ? target : null);
       state.limit = PAGE_SIZE;
       renderMain();
@@ -2119,7 +2119,7 @@
     $('#controls').hidden = true;
     $('#breadcrumb').hidden = true;
     $('#view-icon').replaceChildren(icon('alert'));
-    $('#view-title').textContent = 'Bookmark Dashboard';
+    $('#view-title').textContent = 'Bookmark Control Panel';
     $('#view-subtitle').textContent = '';
     $('#stats').textContent = t('stats.disconnected');
     $('#live').classList.add('is-error');
@@ -2805,6 +2805,8 @@
   // destacados y ajustes. Los marcadores de Firefox no se incluyen ni se tocan.
   // ---------------------------------------------------------------------------
 
+  // Identificador interno del formato: se conserva el del nombre anterior para
+  // que las copias ya exportadas se sigan pudiendo importar.
   const BACKUP_FORMAT = 'bookmark-dashboard-backup';
   const BACKUP_VERSION = 1;
   const BACKUP_MAX_BYTES = 5 * 1024 * 1024;
@@ -2881,7 +2883,7 @@
       const json = JSON.stringify(buildBackup(), null, 2);
       const d = new Date();
       const pad = (x) => String(x).padStart(2, '0');
-      const file = `bookmark-dashboard-backup-${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}.json`;
+      const file = `bookmark-control-panel-backup-${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}.json`;
       const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
       const link = el('a', { href: url, download: file, hidden: true });
       document.body.append(link);
@@ -3726,7 +3728,7 @@
     try {
       await loadTree();
     } catch (err) {
-      console.error('[Bookmark Dashboard] Error al leer los marcadores:', err);
+      console.error('[Bookmark Control Panel] Error al leer los marcadores:', err);
       showFatal(
         t('fatal.read.title'),
         t('fatal.read.text'),
@@ -3780,7 +3782,7 @@
   }
 
   init().catch((err) => {
-    console.error('[Bookmark Dashboard] Error inesperado:', err);
+    console.error('[Bookmark Control Panel] Error inesperado:', err);
     showFatal(t('fatal.unexpected.title'), t('fatal.unexpected.text'), String(err?.message || err), () => location.reload());
   });
 })();

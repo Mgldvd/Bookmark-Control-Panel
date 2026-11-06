@@ -1,11 +1,11 @@
 #!/usr/bin/env sh
-# Empaqueta la extensión en dist/bookmark-dashboard-<versión>.zip,
+# Empaqueta la extensión en dist/bookmark-control-panel-<versión>.zip,
 # listo para subir a addons.mozilla.org (firma) o instalar como .xpi firmado.
 set -eu
 
 cd "$(dirname "$0")"
 VERSION=$(sed -n 's/^ *"version": *"\([^"]*\)".*/\1/p' manifest.json | head -n 1)
-OUT="dist/bookmark-dashboard-${VERSION}.zip"
+OUT="dist/bookmark-control-panel-${VERSION}.zip"
 
 mkdir -p dist
 rm -f "$OUT"

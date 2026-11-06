@@ -1,12 +1,14 @@
-# Firefox Bookmark Dashboard
+# Bookmark Control Panel
 
-Dashboard visual de tus marcadores **reales** de Firefox, construido como WebExtension.
+Panel de control visual de tus marcadores **reales** de Firefox, construido como WebExtension.
 Lee el árbol de marcadores directamente con `browser.bookmarks`, se **actualiza en tiempo real**
 cuando agregas, renombras, mueves o eliminas marcadores (desde cualquier ventana, la Biblioteca o Sync)
 y funciona **100 % en local**: sin servidor, sin dependencias, sin frameworks y sin enviar datos a terceros.
 
-> En el manifiesto la extensión se llama **«Bookmark Dashboard»** porque Mozilla no permite la palabra
-> «Firefox» en el nombre de complementos que se envían a firmar.
+> Antes se llamaba **Bookmark Dashboard**. Desde la versión 1.6.1 se llama **Bookmark Control Panel**,
+> pero conserva el id interno (`bookmark-dashboard@local-extension`): se actualiza encima de la versión
+> anterior sin perder grupos, colores ni ajustes, y las copias de seguridad antiguas se siguen importando.
+> (Mozilla no permite la palabra «Firefox» en el nombre de complementos que se envían a firmar.)
 
 ---
 
@@ -50,7 +52,7 @@ y funciona **100 % en local**: sin servidor, sin dependencias, sin frameworks y 
   una extensión).
 - **Destacados locales**: la marca de «destacado» se guarda en `browser.storage.local` por id de
   marcador (los GUID de Firefox son estables). No altera la estructura ni los marcadores.
-- **Varias pestañas**: `storage.onChanged` mantiene coherentes varios dashboards abiertos
+- **Varias pestañas**: `storage.onChanged` mantiene coherentes varios paneles abiertos
   (tema, destacados, vista…).
 
 ### Permisos (mínimos)
@@ -65,10 +67,10 @@ y funciona **100 % en local**: sin servidor, sin dependencias, sin frameworks y 
 
 ### Favicons y privacidad
 
-La API de WebExtensions no da acceso a la caché de favicons de Firefox. El dashboard pide
+La API de WebExtensions no da acceso a la caché de favicons de Firefox. El panel pide
 `https://<sitio>/favicon.ico` **directamente a cada sitio marcado** (con `no-referrer`), nunca a
 servicios de terceros como Google. Mientras carga o si falla, muestra una inicial con un color
-derivado del dominio. Si prefieres que el dashboard **no haga ninguna conexión de red**, desactiva
+derivado del dominio. Si prefieres que el panel **no haga ninguna conexión de red**, desactiva
 «Mostrar favicons» en Ajustes.
 
 ---
@@ -78,7 +80,7 @@ derivado del dominio. Si prefieres que el dashboard **no haga ninguna conexión 
 ```
 bookmarks/
 ├── manifest.json      # Manifiesto MV3: permisos, nueva pestaña, botón, id de gecko
-├── background.js      # Botón de la barra / Alt+Shift+B → abre el dashboard
+├── background.js      # Botón de la barra / Alt+Shift+B → abre el panel
 ├── dashboard.html     # Estructura, sprite de iconos SVG y diálogos
 ├── dashboard.css      # Diseño claro/oscuro (light-dark()), responsive, animaciones
 ├── dashboard.js       # Modelo, sincronización, render, búsqueda, CRUD, arrastrar y soltar
@@ -89,7 +91,7 @@ bookmarks/
 │   └── es/messages.json
 ├── icons/
 │   └── icon.svg       # Icono de la extensión
-├── package.sh         # Genera dist/bookmark-dashboard-<versión>.zip para firmar
+├── package.sh         # Genera dist/bookmark-control-panel-<versión>.zip para firmar
 ├── sign.sh            # Firma el paquete en AMO (canal privado) y deja el .xpi en dist/
 └── README.md
 ```
@@ -116,7 +118,7 @@ bookmarks/
   marcadores de la vista actual: carpeta, búsqueda, destacados…) y opción «Open all in tabs» en el
   menú de cada carpeta (sus marcadores directos, como hace Firefox). También con **clic central**
   sobre cualquier carpeta (barra lateral, bloque de carpeta o ruta superior). Se abren en segundo plano, en
-  orden, justo después de la pestaña del dashboard. Con más de 15 pide confirmación. Los enlaces
+  orden, justo después de la pestaña del panel. Con más de 15 pide confirmación. Los enlaces
   que Firefox no deja abrir desde extensiones (`place:`, `javascript:`…) se omiten y se avisa.
 - **Separadores** de Firefox en la **vista de lista** (con «Orden original» y sin «Incluir
   subcarpetas», que es cuando tienen sentido). Se actualizan en vivo y se pueden eliminar con
@@ -133,13 +135,13 @@ bookmarks/
   libre. Se recuerda y se aplica antes del primer pintado. En móvil la barra sigue siendo un cajón.
 - **Modo minimalista / página de inicio**: el botón de las cuatro esquinas (barra superior) deja
   solo el tablero de la carpeta (o vista) en la que estás, con «Volver a …» para ir a la **carpeta
-  de inicio**; al salir, el dashboard se queda en la carpeta que estabas viendo. Las pestañas nuevas
+  de inicio**; al salir, el panel se queda en la carpeta que estabas viendo. Las pestañas nuevas
   y la dirección `?home` empiezan en la carpeta de inicio. Se ocultan buscador, paneles laterales, cabecera y
   botones. Para salir, usa el botón fijo de la esquina superior derecha.
   La carpeta de inicio se elige en Ajustes → Página de inicio (también vale «Todos», «Destacados»
   o «Recientes») o con clic derecho en una carpeta → «Usar como página de inicio». Dentro del modo,
   al abrir una subcarpeta aparece «Volver a …» (o `Esc`); se conserva al recargar la pestaña, las
-  pestañas nuevas empiezan en la carpeta de inicio y no cambia la carpeta del dashboard normal.
+  pestañas nuevas empiezan en la carpeta de inicio y no cambia la carpeta del panel normal.
   El modo se recuerda (también en las pestañas nuevas) y se aplica antes del primer pintado.
   Entrar y salir es una transición animada (View Transitions API): los paneles salen por su borde,
   las tarjetas vuelan escalonadas a su nueva posición y el botón de salida entra girando. Con
@@ -172,7 +174,7 @@ bookmarks/
   colores o «Predeterminado». Se aplica al icono de la barra lateral, al bloque de carpeta, a la
   tarjeta del tablero (franja, cabecera y contador), a los accesos de subcarpeta y a la cabecera de
   la vista. Se guarda solo en `browser.storage.local` (Firefox no admite colores en carpetas) y se
-  sincroniza entre pestañas del dashboard.
+  sincroniza entre pestañas del panel.
 - **Grupos** (columna derecha): crea grupos con nombre y un color característico (10 colores) y
   **arrastra marcadores** sobre ellos para añadirlos. Un marcador puede estar en varios grupos y
   sus tarjetas muestran un punto del color de cada grupo. Arrastrar un elemento de un grupo a otro
@@ -183,14 +185,14 @@ bookmarks/
   borran marcadores de Firefox**. Por debajo de 1200 px el panel flota sobre el contenido y se
   abre con el botón de panel de la barra superior.
 - **Idioma**: inglés por defecto; español opcional en Ajustes → Language / Idioma. Se aplica al
-  instante, se guarda en `browser.storage.local` y se sincroniza entre pestañas del dashboard.
+  instante, se guarda en `browser.storage.local` y se sincroniza entre pestañas del panel.
 - Tema claro / oscuro / del sistema, vista cuadrícula/lista, orden (original, nombre A→Z / Z→A,
   más recientes / más antiguos), última carpeta recordada y carpetas expandidas, todo guardado en
   `browser.storage.local`.
 - Responsive: por debajo de 900 px la barra lateral pasa a ser un panel deslizable.
 - Atajos: `/` o `Ctrl+K` buscar · `Intro` abre el primer resultado · `↓` pasa a los resultados ·
   `Supr` elimina el elemento enfocado · `Esc` limpia / cierra · flechas para navegar el árbol ·
-  `Alt+Shift+B` abre el dashboard.
+  `Alt+Shift+B` abre el panel.
 - Estados vacíos (carpeta vacía, sin resultados, sin destacados, sin marcadores) y de error
   (API no disponible, fallo de lectura con botón «Reintentar»).
 
@@ -214,7 +216,7 @@ cargues en Firefox, e `icon.svg` dentro de `icons/`).
 
 Notas:
 - Un complemento temporal **se descarga al cerrar Firefox**; hay que volver a cargarlo en la
-  siguiente sesión. Tus marcadores no se ven afectados; las preferencias locales del dashboard
+  siguiente sesión. Tus marcadores no se ven afectados; las preferencias locales del panel
   (destacados, tema…) pueden perderse al desinstalarlo.
 - Tras cambiar el código, pulsa **«Recargar»** en `about:debugging`.
 - Para ver errores: botón **«Inspeccionar»** en `about:debugging` (abre la consola de la extensión).
@@ -231,15 +233,15 @@ Ya viene activado: `manifest.json` incluye
 
 - La primera vez que abras una pestaña nueva, Firefox mostrará un aviso *«Una extensión ha cambiado
   la página que ves al abrir una pestaña nueva»*. Elige **«Mantener cambios»**.
-- En **Ajustes → Inicio → Nuevas pestañas** verás que Bookmark Dashboard controla esa página.
+- En **Ajustes → Inicio → Nuevas pestañas** verás que Bookmark Control Panel controla esa página.
 - **Si no lo quieres como nueva pestaña**, borra el bloque `"chrome_url_overrides"` (3 líneas) de
-  `manifest.json` y recarga la extensión. El dashboard seguirá disponible desde el botón de la barra
+  `manifest.json` y recarga la extensión. El panel seguirá disponible desde el botón de la barra
   y con `Alt+Shift+B`.
-- Para que también aparezca en **ventanas privadas**: `about:addons` → Bookmark Dashboard →
+- Para que también aparezca en **ventanas privadas**: `about:addons` → Bookmark Control Panel →
   «Ejecutar en ventanas privadas» → Permitir.
 - Para que la **nueva pestaña** sea solo la carpeta de inicio, activa el modo minimalista
   (botón de las cuatro esquinas o Ajustes → Página de inicio → «Modo minimalista»).
-- Opcional, como **página de inicio** de Firefox: en Ajustes del dashboard → Página de inicio,
+- Opcional, como **página de inicio** de Firefox: en Ajustes del panel → Página de inicio,
   pulsa «Copiar» (copia `moz-extension://…/dashboard.html?home`, que abre siempre el modo
   minimalista) y pégala en Ajustes de Firefox → Inicio → «Página de inicio y nuevas ventanas» →
   Direcciones personalizadas. El UUID es estable mientras la extensión conserve el mismo `id`.
@@ -257,9 +259,9 @@ no se publica en la tienda):
 
 1. Empaqueta la extensión:
    ```sh
-   ./package.sh            # crea dist/bookmark-dashboard-<versión>.zip
+   ./package.sh            # crea dist/bookmark-control-panel-<versión>.zip
    ```
-   (o a mano: `zip -r -X bookmark-dashboard.zip manifest.json background.js dashboard.* theme-init.js i18n.js _locales icons`).
+   (o a mano: `zip -r -X bookmark-control-panel.zip manifest.json background.js dashboard.* theme-init.js i18n.js _locales icons`).
 2. Crea una cuenta o inicia sesión en <https://addons.mozilla.org/developers/>.
 3. **«Enviar un nuevo complemento»** → elige **«Por tu cuenta»** (*On your own*, distribución propia, sin listar).
 4. Sube el `.zip`. La validación y firma automáticas suelen tardar unos minutos; no se publica ni
@@ -305,9 +307,9 @@ desde `about:addons`. **En Firefox normal esta preferencia se ignora.**
 
 ## 8. Probar la sincronización
 
-Con el dashboard abierto (mejor en una ventana propia, al lado de una ventana normal):
+Con el panel abierto (mejor en una ventana propia, al lado de una ventana normal):
 
-| Prueba | Qué hacer | Resultado esperado en el dashboard |
+| Prueba | Qué hacer | Resultado esperado en el panel |
 |---|---|---|
 | Crear | `Ctrl+D` en cualquier página y guardarla en la barra de marcadores | La tarjeta aparece al instante con un breve resaltado; los contadores suben. |
 | Renombrar | Biblioteca (`Ctrl+Shift+O`) → editar el nombre de un marcador | La tarjeta cambia de título sin recargar. |
@@ -316,10 +318,10 @@ Con el dashboard abierto (mejor en una ventana propia, al lado de una ventana no
 | Reordenar | Arrastrar un marcador dentro de la misma carpeta (barra) | Con «Orden original», cambia su posición. |
 | Eliminar | Borrar un marcador o carpeta desde la Biblioteca | Desaparece; si estabas dentro de la carpeta borrada, pasas a la carpeta padre. |
 | Deshacer | `Ctrl+Z` en la Biblioteca tras borrar | El marcador vuelve a aparecer. |
-| Varios dashboards | Abrir dos pestañas del dashboard y destacar algo en una | La otra actualiza la estrella y el contador. |
-| Desde el dashboard | Crear / editar / mover / eliminar desde el dashboard | El cambio se ve en la barra y en la Biblioteca de Firefox. |
+| Varios paneles | Abrir dos pestañas del panel y destacar algo en una | La otra actualiza la estrella y el contador. |
+| Desde el panel | Crear / editar / mover / eliminar desde el panel | El cambio se ve en la barra y en la Biblioteca de Firefox. |
 | Arrastrar enlace | Arrastrar un enlace de una web a una carpeta de la barra lateral | Se guarda como marcador en esa carpeta. |
-| Separador | Biblioteca → clic derecho → «Nuevo separador» (con el dashboard en vista de lista) | Aparece una línea divisoria en la misma posición. |
+| Separador | Biblioteca → clic derecho → «Nuevo separador» (con el panel en vista de lista) | Aparece una línea divisoria en la misma posición. |
 
 El punto verde de la esquina inferior izquierda pulsa cada vez que llega un evento de Firefox.
 

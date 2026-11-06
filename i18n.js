@@ -1,7 +1,7 @@
 'use strict';
 
 /*
- * Bookmark Dashboard — interface strings.
+ * Bookmark Control Panel — interface strings.
  *
  * English is the default; Spanish is optional (Settings → Language).
  * Values are plain text: they are always inserted with textContent or
@@ -105,7 +105,7 @@ globalThis.BD_I18N = Object.freeze({
     'opt.subfolders': 'Include bookmarks from subfolders',
     'opt.subfoldersHint': 'When opening a folder, also show the bookmarks of all its subfolders.',
     'opt.favicons': 'Show favicons',
-    'opt.faviconsHint': 'Requested directly from each site (/favicon.ico), never from third-party services. Turn it off so the dashboard makes no network connections at all.',
+    'opt.faviconsHint': 'Requested directly from each site (/favicon.ico), never from third-party services. Turn it off so the extension makes no network connections at all.',
     'kbd.enter': 'Enter',
     'kbd.delete': 'Delete',
     'kbd.middleClick': 'Middle click',
@@ -113,7 +113,7 @@ globalThis.BD_I18N = Object.freeze({
     'shortcut.enter': 'Open the first search result',
     'shortcut.delete': 'Delete the focused bookmark or folder',
     'shortcut.esc': 'Clear search / close menus',
-    'shortcut.open': 'Open the dashboard from any tab',
+    'shortcut.open': 'Open Bookmark Control Panel from any tab',
     'shortcut.middleClick': 'On a folder: open its bookmarks in new tabs',
     'privacy.note': 'Everything runs locally. Your bookmarks are read through the Firefox API and are never sent to any server. Starred items and preferences are stored only in this extension.',
     'resync.button': 'Reload bookmarks',
@@ -183,9 +183,9 @@ globalThis.BD_I18N = Object.freeze({
     'fatal.read.title': 'Couldn’t read your bookmarks',
     'fatal.read.text': 'Firefox returned an error while reading the bookmark tree. You can try again; your bookmarks have not been modified.',
     'fatal.noApi.title': 'Open this page from the extension',
-    'fatal.noApi.text': 'The dashboard needs the Firefox bookmarks API. Install the extension (about:debugging → Load Temporary Add-on) and open it with its toolbar button or a new tab.',
+    'fatal.noApi.text': 'Bookmark Control Panel needs the Firefox bookmarks API. Install the extension (about:debugging → Load Temporary Add-on) and open it with its toolbar button or a new tab.',
     'fatal.unexpected.title': 'Something went wrong',
-    'fatal.unexpected.text': 'An unexpected error occurred while starting the dashboard.',
+    'fatal.unexpected.text': 'An unexpected error occurred while starting Bookmark Control Panel.',
 
     // Toasts
     'toast.resynced': 'Bookmarks reloaded from Firefox',
@@ -291,7 +291,7 @@ globalThis.BD_I18N = Object.freeze({
     'toast.exported': 'Backup saved: {file}',
     'toast.exportError': 'Couldn’t create the backup: {error}',
     'toast.importError': 'Couldn’t read the file: {error}',
-    'toast.importInvalid': 'This file isn’t a Bookmark Dashboard backup.',
+    'toast.importInvalid': 'This file isn’t a Bookmark Control Panel backup.',
     'toast.imported': 'Backup restored',
     'toast.importMissing': { one: '{n} bookmark not found', other: '{n} bookmarks not found' },
 
@@ -434,7 +434,7 @@ globalThis.BD_I18N = Object.freeze({
     'opt.subfolders': 'Incluir marcadores de subcarpetas',
     'opt.subfoldersHint': 'Al abrir una carpeta, muestra también los marcadores de todas sus subcarpetas.',
     'opt.favicons': 'Mostrar favicons',
-    'opt.faviconsHint': 'Se piden directamente a cada sitio (/favicon.ico), nunca a servicios de terceros. Desactívalo para que el dashboard no haga ninguna conexión de red.',
+    'opt.faviconsHint': 'Se piden directamente a cada sitio (/favicon.ico), nunca a servicios de terceros. Desactívalo para que la extensión no haga ninguna conexión de red.',
     'kbd.enter': 'Intro',
     'kbd.delete': 'Supr',
     'kbd.middleClick': 'Clic central',
@@ -442,7 +442,7 @@ globalThis.BD_I18N = Object.freeze({
     'shortcut.enter': 'Abrir el primer resultado de la búsqueda',
     'shortcut.delete': 'Eliminar el marcador o carpeta enfocado',
     'shortcut.esc': 'Limpiar búsqueda / cerrar menús',
-    'shortcut.open': 'Abrir el dashboard desde cualquier pestaña',
+    'shortcut.open': 'Abrir Bookmark Control Panel desde cualquier pestaña',
     'shortcut.middleClick': 'Sobre una carpeta: abrir sus marcadores en pestañas nuevas',
     'privacy.note': 'Todo funciona en local. Tus marcadores se leen con la API de Firefox y nunca se envían a ningún servidor. Los destacados y preferencias se guardan solo en esta extensión.',
     'resync.button': 'Releer marcadores',
@@ -505,9 +505,9 @@ globalThis.BD_I18N = Object.freeze({
     'fatal.read.title': 'No se pudieron leer los marcadores',
     'fatal.read.text': 'Firefox devolvió un error al leer el árbol de marcadores. Puedes reintentarlo; tus marcadores no se han modificado.',
     'fatal.noApi.title': 'Abre esta página desde la extensión',
-    'fatal.noApi.text': 'El dashboard necesita la API de marcadores de Firefox. Instala la extensión (about:debugging → Cargar complemento temporal) y ábrela con su botón en la barra de herramientas o con una pestaña nueva.',
+    'fatal.noApi.text': 'Bookmark Control Panel necesita la API de marcadores de Firefox. Instala la extensión (about:debugging → Cargar complemento temporal) y ábrela con su botón en la barra de herramientas o con una pestaña nueva.',
     'fatal.unexpected.title': 'Algo salió mal',
-    'fatal.unexpected.text': 'Se produjo un error inesperado al iniciar el dashboard.',
+    'fatal.unexpected.text': 'Se produjo un error inesperado al iniciar Bookmark Control Panel.',
 
     'toast.resynced': 'Marcadores releídos desde Firefox',
     'toast.resyncError': 'No se pudieron leer los marcadores: {error}',
@@ -607,7 +607,7 @@ globalThis.BD_I18N = Object.freeze({
     'toast.exported': 'Copia guardada: {file}',
     'toast.exportError': 'No se pudo crear la copia: {error}',
     'toast.importError': 'No se pudo leer el archivo: {error}',
-    'toast.importInvalid': 'Este archivo no es una copia de seguridad de Bookmark Dashboard.',
+    'toast.importInvalid': 'Este archivo no es una copia de seguridad de Bookmark Control Panel.',
     'toast.imported': 'Copia restaurada',
     'toast.importMissing': { one: '{n} marcador no encontrado', other: '{n} marcadores no encontrados' },
 

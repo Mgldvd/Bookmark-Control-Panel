@@ -1,11 +1,11 @@
 {
   "extDescription": {
-    "message": "A visual, 100% local dashboard for your Firefox bookmarks, synced in real time."
+    "message": "A visual, 100% local control panel for your Firefox bookmarks, synced in real time."
   },
   "actionTitle": {
-    "message": "Open Bookmark Dashboard"
+    "message": "Open Bookmark Control Panel"
   },
   "commandOpen": {
-    "message": "Open the bookmark dashboard"
+    "message": "Open Bookmark Control Panel"
   }
 }

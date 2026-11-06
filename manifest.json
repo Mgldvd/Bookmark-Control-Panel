@@ -1,11 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "Bookmark Dashboard",
+  "name": "Bookmark Control Panel",
   "short_name": "Bookmarks",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "__MSG_extDescription__",
   "default_locale": "en",
-  "author": "Firefox Bookmark Dashboard",
+  "author": "Bookmark Control Panel",
 
   "icons": {
     "48": "icons/icon.svg",

@@ -1,11 +1,11 @@
 {
   "extDescription": {
-    "message": "Dashboard visual y 100 % local de tus marcadores de Firefox, sincronizado en tiempo real."
+    "message": "Panel de control visual y 100 % local de tus marcadores de Firefox, sincronizado en tiempo real."
   },
   "actionTitle": {
-    "message": "Abrir Bookmark Dashboard"
+    "message": "Abrir Bookmark Control Panel"
   },
   "commandOpen": {
-    "message": "Abrir el dashboard de marcadores"
+    "message": "Abrir Bookmark Control Panel"
   }
 }

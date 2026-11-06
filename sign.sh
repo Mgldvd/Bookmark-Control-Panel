@@ -42,7 +42,7 @@ if [ "${1:-}" = "--check" ]; then
 fi
 
 VERSION=$(sed -n 's/^ *"version": *"\([^"]*\)".*/\1/p' manifest.json | head -n 1)
-ZIP="dist/bookmark-dashboard-${VERSION}.zip"
+ZIP="dist/bookmark-control-panel-${VERSION}.zip"
 
 # Se firma exactamente el contenido del paquete (sin README, scripts ni .git).
 ./package.sh
@@ -59,6 +59,6 @@ npx --yes web-ext@10.8.0 sign \
 
 # web-ext usa un nombre interno; se renombra a uno legible.
 SIGNED=$(ls -1t "$ARTIFACTS"/*.xpi | head -n 1)
-OUT="dist/bookmark-dashboard-${VERSION}-signed.xpi"
+OUT="dist/bookmark-control-panel-${VERSION}-signed.xpi"
 mv "$SIGNED" "$OUT"
 echo "Listo. .xpi firmado: $OUT"
