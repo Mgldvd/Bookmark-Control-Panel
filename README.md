@@ -246,12 +246,15 @@ ser único en AMO. Si lo rechaza por duplicado, cámbialo por uno propio (p. ej.
 
 1. En <https://addons.mozilla.org/developers/addon/api/key/> genera tus credenciales de API
    («Emisor JWT» y «Secreto JWT»).
-2. Ejecuta (las credenciales solo viven en la sesión; no se guardan en el repositorio):
+2. Guárdalas una sola vez en un archivo `.env` en la raíz del proyecto (está en `.gitignore`, así
+   que nunca se sube al repositorio; usa `.env.example` como plantilla):
    ```sh
-   export WEB_EXT_API_KEY='user:12345:678'     # Emisor JWT
-   export WEB_EXT_API_SECRET='…'               # Secreto JWT
-   ./sign.sh
+   cp .env.example .env && chmod 600 .env   # y edita los dos valores
+   ./sign.sh --check                        # comprueba que se cargan, sin firmar nada
+   ./sign.sh                                # empaqueta y firma
    ```
+   También puedes exportarlas en la terminal (`export WEB_EXT_API_KEY=…`); si lo haces, tienen
+   prioridad sobre `.env`.
    El script empaqueta, firma exactamente el contenido del `.zip` por el canal *unlisted* con la
    herramienta oficial `web-ext` de Mozilla (vía `npx`, no forma parte de la extensión) y deja el
    `.xpi` firmado en `dist/`.
