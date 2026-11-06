@@ -2380,6 +2380,222 @@
     ];
   }
 
+  // ---------------------------------------------------------------------------
+  // Copia de seguridad de los datos locales: grupos, colores de carpeta,
+  // destacados y ajustes. Los marcadores de Firefox no se incluyen ni se tocan.
+  // ---------------------------------------------------------------------------
+
+  const BACKUP_FORMAT = 'bookmark-dashboard-backup';
+  const BACKUP_VERSION = 1;
+  const BACKUP_MAX_BYTES = 5 * 1024 * 1024;
+  const BACKUP_PREFS = {
+    lang: (v) => LANGS.includes(v),
+    theme: (v) => THEMES.includes(v),
+    view: (v) => VIEW_MODES.includes(v),
+    sort: (v) => SORTS.includes(v),
+    openInNewTab: (v) => typeof v === 'boolean',
+    showFavicons: (v) => typeof v === 'boolean',
+    includeSubfolders: (v) => typeof v === 'boolean',
+    groupsPanel: (v) => typeof v === 'boolean',
+  };
+  const isPlainObject = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+
+  /** Ruta con los títulos originales: identifica una carpeta en otro perfil u ordenador. */
+  function rawFolderPath(id) {
+    const n = get(id);
+    return n ? [...ancestors(id).map((a) => a.title), n.title].join('\u001f') : '';
+  }
+
+  function buildBackup() {
+    const bookmarkIds = new Set(state.favorites);
+    for (const g of state.groups) for (const id of g.items) bookmarkIds.add(id);
+    const folderIds = new Set([...Object.keys(state.folderColors), ...state.boardCollapsed, ...state.expanded]);
+
+    // URL y título de cada marcador referenciado (y ruta de cada carpeta), para
+    // poder reconocerlos aunque en otro perfil tengan otro id interno.
+    const bookmarks = {};
+    for (const id of bookmarkIds) {
+      const n = get(id);
+      if (isBookmark(n)) bookmarks[id] = { url: n.url, title: n.title };
+    }
+    const folders = {};
+    for (const id of folderIds) {
+      const f = get(id);
+      if (isFolder(f)) folders[id] = { title: f.title, path: rawFolderPath(id) };
+    }
+    const prefs = {};
+    for (const key of Object.keys(BACKUP_PREFS)) prefs[key] = state.prefs[key];
+    let app = '';
+    try {
+      app = api.runtime?.getManifest?.().version || '';
+    } catch {
+      /* sin versión */
+    }
+    return {
+      format: BACKUP_FORMAT,
+      version: BACKUP_VERSION,
+      app,
+      exportedAt: new Date().toISOString(),
+      prefs,
+      favorites: [...state.favorites],
+      groups: serializeGroups(),
+      folderColors: { ...state.folderColors },
+      boardCollapsed: [...state.boardCollapsed],
+      expanded: [...state.expanded],
+      refs: { bookmarks, folders },
+    };
+  }
+
+  function exportBackup() {
+    if (!state.ready) return;
+    try {
+      const json = JSON.stringify(buildBackup(), null, 2);
+      const d = new Date();
+      const pad = (x) => String(x).padStart(2, '0');
+      const file = `bookmark-dashboard-backup-${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}.json`;
+      const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+      const link = el('a', { href: url, download: file, hidden: true });
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      toast(t('toast.exported', { file }));
+    } catch (err) {
+      toast(t('toast.exportError', { error: err?.message || err }), 'error');
+    }
+  }
+
+  /** Traduce ids de la copia a ids de este perfil (por id, URL o ruta de carpeta). */
+  function makeRemapper(refs) {
+    const bookmarkRefs = isPlainObject(refs?.bookmarks) ? refs.bookmarks : {};
+    const folderRefs = isPlainObject(refs?.folders) ? refs.folders : {};
+    let byUrl = null;
+    let byPath = null;
+    const buildIndex = () => {
+      if (byUrl) return;
+      byUrl = new Map();
+      byPath = new Map();
+      for (const n of state.nodes.values()) {
+        if (isBookmark(n)) {
+          if (!byUrl.has(n.url)) byUrl.set(n.url, []);
+          byUrl.get(n.url).push(n);
+        } else if (isFolder(n)) {
+          const path = rawFolderPath(n.id);
+          if (!byPath.has(path)) byPath.set(path, n);
+        }
+      }
+    };
+    return {
+      bookmark(id) {
+        if (typeof id !== 'string') return null;
+        if (isBookmark(get(id))) return id; // mismo perfil o sincronizado: el id es el mismo
+        const ref = Object.hasOwn(bookmarkRefs, id) ? bookmarkRefs[id] : null;
+        if (!isPlainObject(ref) || typeof ref.url !== 'string') return null;
+        buildIndex();
+        const candidates = byUrl.get(ref.url) || [];
+        return (candidates.find((n) => n.title === ref.title) || candidates[0])?.id ?? null;
+      },
+      folder(id) {
+        if (typeof id !== 'string') return null;
+        if (isFolder(get(id))) return id;
+        const ref = Object.hasOwn(folderRefs, id) ? folderRefs[id] : null;
+        if (!isPlainObject(ref) || typeof ref.path !== 'string') return null;
+        buildIndex();
+        return byPath.get(ref.path)?.id ?? null;
+      },
+    };
+  }
+
+  function planImport(data) {
+    const map = makeRemapper(data.refs);
+    const missing = new Set();
+    const mapBookmarks = (list) => {
+      const out = [];
+      for (const id of Array.isArray(list) ? list : []) {
+        const found = map.bookmark(id);
+        if (!found) missing.add(id);
+        else if (!out.includes(found)) out.push(found);
+      }
+      return out;
+    };
+    const mapFolders = (list) => [...new Set((Array.isArray(list) ? list : []).map((id) => map.folder(id)).filter(Boolean))];
+
+    const favorites = mapBookmarks(data.favorites);
+    const groups = sanitizeGroups(Array.isArray(data.groups) ? data.groups : []).map((g) => ({ ...g, items: mapBookmarks(g.items) }));
+    const folderColors = {};
+    if (isPlainObject(data.folderColors)) {
+      for (const [id, color] of Object.entries(data.folderColors)) {
+        const found = GROUP_COLORS.includes(color) ? map.folder(id) : null;
+        if (found) folderColors[found] = color;
+      }
+    }
+    const prefs = {};
+    if (isPlainObject(data.prefs)) {
+      for (const [key, valid] of Object.entries(BACKUP_PREFS)) {
+        if (Object.hasOwn(data.prefs, key) && valid(data.prefs[key])) prefs[key] = data.prefs[key];
+      }
+    }
+    return {
+      values: {
+        ...prefs,
+        favorites,
+        groups,
+        folderColors,
+        boardCollapsed: mapFolders(data.boardCollapsed),
+        expanded: mapFolders(data.expanded),
+      },
+      missing: missing.size,
+    };
+  }
+
+  async function importBackupFile(file) {
+    if (!file || !state.ready) return;
+    let data;
+    try {
+      if (file.size > BACKUP_MAX_BYTES) throw new Error(t('backup.tooLarge'));
+      data = JSON.parse(await file.text());
+    } catch (err) {
+      toast(t('toast.importError', { error: err?.message || err }), 'error');
+      return;
+    }
+    if (!isPlainObject(data) || data.format !== BACKUP_FORMAT || !Number.isInteger(data.version) || data.version > BACKUP_VERSION) {
+      toast(t('toast.importInvalid'), 'error');
+      return;
+    }
+
+    const { values, missing } = planImport(data);
+    const summary = [
+      tn('n.group', values.groups.length),
+      tn('n.starredItem', values.favorites.length),
+      tn('n.folderColor', Object.keys(values.folderColors).length),
+    ].join(' · ');
+    const created = new Date(data.exportedAt);
+    const message = [
+      Number.isNaN(created.getTime()) ? '' : t('import.created', { date: dateTimeFmt.format(created) }),
+      t('import.confirmMessage', { summary }),
+      missing ? tn('import.missing', missing) : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
+    const ok = await confirmDialog({ title: t('import.confirmTitle'), message, confirmLabel: t('import.confirm'), icon: 'upload', danger: false });
+    if (!ok) return;
+
+    try {
+      await api.storage.local.set(values);
+    } catch (err) {
+      toast(t('toast.importError', { error: err?.message || err }), 'error');
+      return;
+    }
+    // storage.onChanged también lo aplicaría; se aplica ya para no esperar.
+    applyPrefs(values);
+    applyLanguage();
+    applyTheme(true);
+    applyGroupsPanel();
+    syncControls();
+    scheduleRender();
+    toast([t('toast.imported'), missing ? tn('toast.importMissing', missing) : ''].filter(Boolean).join(' · '));
+  }
+
   // ----- Color propio de cada carpeta (solo en esta extensión; Firefox no guarda colores) -----
 
   /** Aplica el color elegido para la carpeta `id` a un elemento (o quita el que tuviera). */
@@ -2957,6 +3173,16 @@
       }
     });
     $('#resync-btn').addEventListener('click', () => resync({ notify: true }));
+
+    // Copia de seguridad
+    const importInput = $('#import-file');
+    $('#export-btn').addEventListener('click', exportBackup);
+    $('#import-btn').addEventListener('click', () => importInput.click());
+    importInput.addEventListener('change', () => {
+      const file = importInput.files?.[0];
+      importInput.value = ''; // permite volver a elegir el mismo archivo
+      importBackupFile(file);
+    });
 
     // Atajos globales
     document.addEventListener('keydown', (event) => {

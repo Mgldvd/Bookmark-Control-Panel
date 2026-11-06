@@ -1153,6 +1153,10 @@ h1 {
 @keyframes toast-in { from { opacity: 0; transform: translateY(10px) scale(0.97); } }
 @keyframes toast-out { to { opacity: 0; transform: translateY(6px); } }
 
+/* ---------- Copia de seguridad (Ajustes) ---------- */
+.settings-note { margin: 0 0 12px; color: var(--text-3); font-size: 12.5px; line-height: 1.5; }
+.backup-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
 /* ---------- Color propio de cada carpeta ----------
    [data-color] define --g; aquí se redefinen los colores de carpeta en ese
    elemento, así icono, franja, cabecera y contador usan el color elegido. */

@@ -127,6 +127,12 @@ bookmarks/
   agrupan por carpeta mostrando su ruta. Cada tarjeta enseña 10 enlaces («Mostrar más» para el
   resto), se puede contraer (se recuerda), su cabecera abre la carpeta (clic central: todo en
   pestañas) y acepta marcadores arrastrados (los mueve a esa carpeta en Firefox).
+- **Copia de seguridad** (Ajustes → Backup / Copia de seguridad): «Exportar…» guarda en un `.json`
+  los grupos, colores de carpeta, destacados y ajustes; «Importar…» los restaura tras confirmar
+  (sustituye los actuales). Como los ids internos de los marcadores pueden cambiar entre perfiles,
+  la copia guarda también la URL de cada marcador y la ruta de cada carpeta: al restaurar en otro
+  ordenador se reconocen por URL/ruta y se avisa de los que no existen. No incluye ni modifica los
+  marcadores de Firefox. Conviene exportar antes de reinstalar o de cambiar de versión firmada.
 - **Color por carpeta**: menú de cualquier carpeta (clic derecho o `⋯`) → «Color…» → uno de los 10
   colores o «Predeterminado». Se aplica al icono de la barra lateral, al bloque de carpeta, a la
   tarjeta del tablero (franja, cabecera y contador), a los accesos de subcarpeta y a la cabecera de
