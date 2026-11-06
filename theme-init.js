@@ -15,6 +15,13 @@ try {
   if (corners === 'round' || corners === 'semi' || corners === 'square') {
     document.documentElement.dataset.corners = corners;
   }
+  if (localStorage.getItem('bd-minimal') === '1') {
+    document.documentElement.classList.add('minimal');
+  }
 } catch {
   // localStorage no disponible: se usará el tema automático.
+}
+// dashboard.html?home (página de inicio de Firefox) abre siempre el modo minimalista.
+if (new URLSearchParams(location.search).has('home')) {
+  document.documentElement.classList.add('minimal');
 }

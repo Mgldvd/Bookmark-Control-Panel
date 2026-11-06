@@ -71,6 +71,8 @@
     lang: DEFAULT_LANG,
     corners: 'round',
     sidebarPanel: true,
+    minimal: false,
+    homeFolder: 'toolbar_____',
     theme: 'auto',
     view: 'grid',
     sort: 'manual',
@@ -98,6 +100,8 @@
       lang: DEFAULT_PREFS.lang,
       corners: DEFAULT_PREFS.corners,
       sidebarPanel: DEFAULT_PREFS.sidebarPanel,
+      minimal: DEFAULT_PREFS.minimal,
+      homeFolder: DEFAULT_PREFS.homeFolder,
       theme: DEFAULT_PREFS.theme,
       view: DEFAULT_PREFS.view,
       sort: DEFAULT_PREFS.sort,
@@ -110,6 +114,10 @@
     expanded: new Set(DEFAULT_PREFS.expanded),
     favorites: new Set(),
     selected: VIEW_ALL,
+    // Modo minimalista: ?home en la URL lo fuerza en esta pestaña (página de inicio);
+    // homeNav es la subcarpeta abierta temporalmente dentro de ese modo.
+    forceHome: new URLSearchParams(location.search).has('home'),
+    homeNav: null,
     query: '',
     terms: [],
     limit: PAGE_SIZE,
@@ -624,7 +632,8 @@
     }
     if (SORTS.includes(p.sort)) prefs.sort = p.sort;
     if (typeof p.lastFolder === 'string') prefs.lastFolder = p.lastFolder;
-    for (const key of ['openInNewTab', 'showFavicons', 'includeSubfolders', 'groupsPanel', 'sidebarPanel']) {
+    if (typeof p.homeFolder === 'string' && p.homeFolder) prefs.homeFolder = p.homeFolder;
+    for (const key of ['openInNewTab', 'showFavicons', 'includeSubfolders', 'groupsPanel', 'sidebarPanel', 'minimal']) {
       if (typeof p[key] === 'boolean') prefs[key] = p[key];
     }
     if (Array.isArray(p.expanded)) state.expanded = new Set(p.expanded.filter((x) => typeof x === 'string'));
@@ -656,6 +665,7 @@
     if (key === 'theme') applyTheme(true);
     if (key === 'corners') applyCorners();
     if (key === 'sidebarPanel') applySidebar();
+    if (key === 'minimal' || key === 'homeFolder') applyMinimal();
     if (key === 'lang') applyLanguage();
     if (key === 'groupsPanel') applyGroupsPanel();
     if (key === 'includeSubfolders') state.limit = PAGE_SIZE;
@@ -675,6 +685,7 @@
     if (incoming.lang !== undefined) applyLanguage();
     applyCorners();
     applySidebar();
+    applyMinimal();
     applyGroupsPanel();
     applyTheme();
     syncControls();
@@ -745,6 +756,107 @@
     }
   }
 
+  // ----- Modo minimalista: solo el tablero de la carpeta de inicio -----
+
+  const isMinimal = () => state.forceHome || state.prefs.minimal;
+  /** Tipo de vista efectivo: el modo minimalista siempre usa el tablero. */
+  const viewMode = () => (isMinimal() ? 'board' : state.prefs.view);
+  /** Carpeta (o vista) de inicio; si ya no existe, se usa «Todos los marcadores». */
+  const homeId = () => resolveSelection(state.prefs.homeFolder);
+
+  function selectionTitle(id) {
+    if (isView(id)) return t(VIEWS[id].label);
+    const n = get(id);
+    return n ? folderName(n) : '';
+  }
+
+  /** Aplica el modo (clase en <html>, ver CSS) y guarda la copia rápida para theme-init.js. */
+  function applyMinimal() {
+    const on = isMinimal();
+    const root = document.documentElement;
+    if (on !== root.classList.contains('minimal')) {
+      state.homeNav = null;
+      state.limit = PAGE_SIZE;
+    }
+    root.classList.toggle('minimal', on);
+    if (on) {
+      if (state.query) {
+        $('#search').value = '';
+        applyQuery('', false);
+      }
+      closeDrawer();
+      closeGroupsOverlay();
+    }
+    if (state.homeNav && !isFolder(get(state.homeNav))) state.homeNav = null;
+    $('#opt-minimal').checked = state.prefs.minimal;
+    try {
+      localStorage.setItem('bd-minimal', state.prefs.minimal ? '1' : '0');
+    } catch {
+      /* sin localStorage: solo afecta al primer pintado */
+    }
+  }
+
+  function enterMinimal() {
+    closeMenu();
+    if ($('#settings-dialog').open) $('#settings-dialog').close();
+    setPref('minimal', true);
+    $('#content').scrollTop = 0;
+    toast(t('toast.minimalOn'));
+    // El botón de salida se ve unos segundos para que se sepa dónde está.
+    const exit = $('#minimal-exit');
+    exit.classList.add('is-hinted');
+    setTimeout(() => exit.classList.remove('is-hinted'), 3500);
+  }
+
+  function exitMinimal() {
+    if (state.forceHome) {
+      state.forceHome = false;
+      const url = new URL(location.href);
+      url.searchParams.delete('home');
+      history.replaceState(history.state, '', url);
+    }
+    if (state.prefs.minimal) setPref('minimal', false);
+    else {
+      applyMinimal();
+      scheduleRender();
+    }
+    $('#content').scrollTop = 0;
+  }
+
+  function setHomeFolder(id) {
+    setPref('homeFolder', id);
+    toast(t('toast.homeSet', { name: selectionTitle(id) }));
+  }
+
+  /** Lista de la carpeta de inicio en Ajustes: vistas y todas las carpetas. */
+  function fillHomeSelect() {
+    const select = $('#opt-home');
+    fillFolderSelect(select, homeId());
+    select.prepend(...Object.keys(VIEWS).map((id) => el('option', { value: id, text: t(VIEWS[id].label) })));
+    select.value = homeId();
+  }
+
+  const homeUrl = () => api.runtime.getURL('dashboard.html?home');
+
+  async function copyHomeUrl() {
+    try {
+      await navigator.clipboard.writeText(homeUrl());
+      toast(t('toast.homeUrlCopied'));
+    } catch {
+      toast(t('toast.copyError'), 'error');
+    }
+  }
+
+  /** Barra «Volver a …» cuando se abre una subcarpeta dentro del modo minimalista. */
+  function renderHomeBar(view) {
+    const bar = $('#home-bar');
+    const away = isMinimal() && view.kind === 'folder' && view.folder.id !== homeId();
+    bar.hidden = !away;
+    if (!away) return;
+    $('#home-back-label').textContent = t('home.back', { name: selectionTitle(homeId()) });
+    $('#home-here').textContent = folderName(view.folder);
+  }
+
   function cycleTheme() {
     const next = THEMES[(THEMES.indexOf(state.prefs.theme) + 1) % THEMES.length];
     setPref('theme', next);
@@ -798,6 +910,14 @@
   function selectView(id) {
     if (!state.ready) return;
     const target = resolveSelection(id);
+    if (isMinimal()) {
+      // Dentro del modo minimalista se navega sin tocar la carpeta del dashboard normal.
+      state.homeNav = target !== homeId() && isFolder(get(target)) ? target : null;
+      state.limit = PAGE_SIZE;
+      renderMain();
+      $('#content').scrollTop = 0;
+      return;
+    }
     if (state.query) {
       $('#search').value = '';
       applyQuery('', false);
@@ -1044,10 +1164,10 @@
   // ----- Contenido principal -----
 
   function computeView() {
-    const sel = state.selected;
+    const sel = isMinimal() ? (isFolder(get(state.homeNav)) ? state.homeNav : homeId()) : state.selected;
     const root = state.rootId;
 
-    if (state.query) {
+    if (state.query && !isMinimal()) {
       const items = collectBookmarks(root).filter(matchesBookmark);
       const folders = collectFolders(root).filter((f) => !isBuiltin(f.id) && matchesFolder(f));
       return {
@@ -1082,7 +1202,7 @@
     const items = sortNodes(state.prefs.includeSubfolders ? collectBookmarks(folder.id) : direct, bookmarkTitle);
     // Separadores de Firefox: solo en la vista de lista, con el orden original
     // y sin mezclar subcarpetas (fuera de ese contexto no tienen sentido).
-    const showSeparators = state.prefs.view === 'list' && state.prefs.sort === 'manual' && !state.prefs.includeSubfolders;
+    const showSeparators = viewMode() === 'list' && state.prefs.sort === 'manual' && !state.prefs.includeSubfolders;
     return {
       kind: 'folder',
       key: folder.id,
@@ -1164,7 +1284,8 @@
 
     $('#content').dataset.dropId = view.kind === 'folder' ? view.folder.id : '';
 
-    const board = state.prefs.view === 'board';
+    const board = viewMode() === 'board';
+    renderHomeBar(view);
 
     // Carpetas (en el tablero cada carpeta es una tarjeta propia)
     const folderGrid = $('#folder-grid');
@@ -1174,7 +1295,7 @@
 
     const cards = $('#cards');
     const section = $('#bookmarks-section');
-    cards.classList.toggle('is-list', state.prefs.view === 'list');
+    cards.classList.toggle('is-list', viewMode() === 'list');
     cards.classList.toggle('is-board', board);
     section.classList.toggle('is-board-section', board);
     let remaining;
@@ -1210,7 +1331,7 @@
     }
 
     // Animación al cambiar de vista
-    const viewKey = `${view.key}|${state.prefs.view}`;
+    const viewKey = `${view.key}|${viewMode()}`;
     if (viewKey !== state.lastViewKey) {
       state.lastViewKey = viewKey;
       animateEntering(folderGrid);
@@ -2427,6 +2548,7 @@
     theme: (v) => THEMES.includes(v),
     corners: (v) => CORNERS.includes(v),
     sidebarPanel: (v) => typeof v === 'boolean',
+    minimal: (v) => typeof v === 'boolean',
     view: (v) => VIEW_MODES.includes(v),
     sort: (v) => SORTS.includes(v),
     openInNewTab: (v) => typeof v === 'boolean',
@@ -2445,7 +2567,7 @@
   function buildBackup() {
     const bookmarkIds = new Set(state.favorites);
     for (const g of state.groups) for (const id of g.items) bookmarkIds.add(id);
-    const folderIds = new Set([...Object.keys(state.folderColors), ...state.boardCollapsed, ...state.expanded]);
+    const folderIds = new Set([...Object.keys(state.folderColors), ...state.boardCollapsed, ...state.expanded, state.prefs.homeFolder]);
 
     // URL y título de cada marcador referenciado (y ruta de cada carpeta), para
     // poder reconocerlos aunque en otro perfil tengan otro id interno.
@@ -2473,6 +2595,7 @@
       app,
       exportedAt: new Date().toISOString(),
       prefs,
+      homeFolder: state.prefs.homeFolder,
       favorites: [...state.favorites],
       groups: serializeGroups(),
       folderColors: { ...state.folderColors },
@@ -2571,6 +2694,9 @@
         if (Object.hasOwn(data.prefs, key) && valid(data.prefs[key])) prefs[key] = data.prefs[key];
       }
     }
+    // La carpeta de inicio es un id de carpeta (o una vista) que también se traduce.
+    const home = typeof data.homeFolder === 'string' ? (isView(data.homeFolder) ? data.homeFolder : map.folder(data.homeFolder)) : null;
+    if (home) prefs.homeFolder = home;
     return {
       values: {
         ...prefs,
@@ -2626,6 +2752,9 @@
     applyPrefs(values);
     applyLanguage();
     applyTheme(true);
+    applyCorners();
+    applySidebar();
+    applyMinimal();
     applyGroupsPanel();
     syncControls();
     scheduleRender();
@@ -2672,6 +2801,7 @@
       { label: t('menu.newBookmarkHere'), icon: 'bookmark', run: () => openEditor({ mode: 'new-bookmark', parentId: f.id }) },
       { label: t('menu.newSubfolder'), icon: 'folder-plus', run: () => openEditor({ mode: 'new-folder', parentId: f.id }) },
       { label: t('menu.folderColor'), icon: 'palette', run: () => openFolderColorMenu(f.id, state.menuAnchor) },
+      homeId() !== f.id && { label: t('menu.setHome'), icon: 'home', run: () => setHomeFolder(f.id) },
       !builtin && '-',
       !builtin && { label: t('menu.rename'), icon: 'edit', run: () => openEditor({ mode: 'edit', node: f }) },
       !builtin && { label: t('menu.moveTo'), icon: 'move', run: () => openEditor({ mode: 'edit', node: f, focus: 'folder' }) },
@@ -3124,8 +3254,15 @@
     $('#theme-btn').addEventListener('click', cycleTheme);
     $('#settings-btn').addEventListener('click', () => {
       syncControls();
+      fillHomeSelect();
+      $('#home-url').value = homeUrl();
       $('#settings-dialog').showModal();
     });
+    $('#minimal-btn').addEventListener('click', enterMinimal);
+    $('#minimal-exit').addEventListener('click', exitMinimal);
+    $('#home-back').addEventListener('click', () => selectView(homeId()));
+    $('#home-url-copy').addEventListener('click', copyHomeUrl);
+    $('#home-url').addEventListener('focus', (event) => event.target.select());
     $('#new-btn').addEventListener('click', (event) => {
       const parentId = defaultParentId();
       openMenu(
@@ -3203,6 +3340,10 @@
       if (input.name === 'theme') setPref('theme', input.value);
       else if (input.name === 'lang') setPref('lang', input.value);
       else if (input.name === 'corners') setPref('corners', input.value);
+      else if (input.id === 'opt-minimal') {
+        if (input.checked) enterMinimal();
+        else setPref('minimal', false);
+      } else if (input.id === 'opt-home') setHomeFolder(input.value);
       else if (input.id === 'opt-newtab') setPref('openInNewTab', input.checked);
       else if (input.id === 'opt-subfolders') setPref('includeSubfolders', input.checked);
       else if (input.id === 'opt-favicons') {
@@ -3226,7 +3367,9 @@
     document.addEventListener('keydown', (event) => {
       if (event.defaultPrevented || document.querySelector('dialog[open]')) return;
       const typing = event.target.closest?.('input, textarea, select, [contenteditable="true"]');
-      if ((event.key === '/' && !typing) || ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k')) {
+      if (isMinimal() && (event.key === '/' || ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k'))) {
+        // Sin buscador en el modo minimalista.
+      } else if ((event.key === '/' && !typing) || ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k')) {
         event.preventDefault();
         search.focus();
         search.select();
@@ -3239,6 +3382,7 @@
         }
       } else if (event.key === 'Escape') {
         if (!menu.hidden) closeMenu(true);
+        else if (isMinimal() && state.homeNav) selectView(homeId());
         else if (document.body.classList.contains('nav-open')) closeDrawer();
         else if (document.body.classList.contains('groups-open')) closeGroupsOverlay();
       }
@@ -3340,6 +3484,7 @@
     if (state.prefs.lang !== lang) applyLanguage();
     applyCorners();
     applySidebar();
+    applyMinimal();
     applyGroupsPanel();
     applyTheme();
     syncControls();

@@ -131,6 +131,15 @@ bookmarks/
 - **Ocultar la barra lateral**: el botón de panel a la izquierda del buscador oculta o muestra el
   árbol de carpetas (el de la derecha hace lo mismo con los grupos); el contenido ocupa el espacio
   libre. Se recuerda y se aplica antes del primer pintado. En móvil la barra sigue siendo un cajón.
+- **Modo minimalista / página de inicio**: el botón de las cuatro esquinas (barra superior) deja
+  solo el tablero de la **carpeta de inicio**; se ocultan buscador, paneles laterales, cabecera y
+  botones. Para salir, lleva el puntero a la esquina superior derecha (aparece el botón de salida).
+  La carpeta de inicio se elige en Ajustes → Página de inicio (también vale «Todos», «Destacados»
+  o «Recientes») o con clic derecho en una carpeta → «Usar como página de inicio». Dentro del modo,
+  al abrir una subcarpeta aparece «Volver a …» (o `Esc`); no cambia la carpeta del dashboard normal.
+  El modo se recuerda (también en las pestañas nuevas) y se aplica antes del primer pintado.
+  La dirección `moz-extension://…/dashboard.html?home` abre siempre el modo minimalista sin
+  cambiar el ajuste: está en Ajustes → Página de inicio, con botón «Copiar».
 - **Estilo de bordes** (Ajustes → Bordes): esquinas redondeadas, semi o rectas en toda la
   interfaz (tarjetas, botones, menús, diálogos, buscador…). Se aplica antes del primer pintado,
   como el tema, y se sincroniza entre pestañas.
@@ -209,9 +218,12 @@ Ya viene activado: `manifest.json` incluye
   y con `Alt+Shift+B`.
 - Para que también aparezca en **ventanas privadas**: `about:addons` → Bookmark Dashboard →
   «Ejecutar en ventanas privadas» → Permitir.
-- Opcional, como **página de inicio**: copia la URL del dashboard (`moz-extension://…/dashboard.html`)
-  y pégala en Ajustes → Inicio → «Página de inicio y nuevas ventanas» → URL personalizadas.
-  El UUID es estable mientras la extensión conserve el mismo `id`.
+- Para que la **nueva pestaña** sea solo la carpeta de inicio, activa el modo minimalista
+  (botón de las cuatro esquinas o Ajustes → Página de inicio → «Modo minimalista»).
+- Opcional, como **página de inicio** de Firefox: en Ajustes del dashboard → Página de inicio,
+  pulsa «Copiar» (copia `moz-extension://…/dashboard.html?home`, que abre siempre el modo
+  minimalista) y pégala en Ajustes de Firefox → Inicio → «Página de inicio y nuevas ventanas» →
+  Direcciones personalizadas. El UUID es estable mientras la extensión conserve el mismo `id`.
 
 ---
 

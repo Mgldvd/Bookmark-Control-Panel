@@ -59,6 +59,10 @@
     <symbol id="i-corner-semi" viewBox="0 0 24 24"><path d="M5 20V9a4 4 0 0 1 4-4h10"/></symbol>
     <symbol id="i-corner-square" viewBox="0 0 24 24"><path d="M5 20V5h14"/></symbol>
     <symbol id="i-panel-left" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1.5 1.5 0 0 1-1.5 1.5H15v-6H9v6H4.5A1.5 1.5 0 0 1 3 20Z"/></symbol>
+    <symbol id="i-focus" viewBox="0 0 24 24"><path d="M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/></symbol>
+    <symbol id="i-focus-exit" viewBox="0 0 24 24"><path d="M8 3v3a2 2 0 0 1-2 2H3M21 8h-3a2 2 0 0 1-2-2V3M16 21v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></symbol>
+    <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></symbol>
     <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16M3 12a9 9 0 0 1 15.5-6.2L21 8"/><path d="M21 3v5h-5M3 21v-5h5"/></symbol>
   </svg>
 
@@ -140,6 +144,11 @@
                   data-i18n-attr="title:groups.toggle;aria-label:groups.toggle">
             <svg class="icon"><use href="#i-panel-right"/></svg>
           </button>
+          <button class="icon-btn" id="minimal-btn" type="button"
+                  title="Minimal mode: show only the home folder" aria-label="Minimal mode: show only the home folder"
+                  data-i18n-attr="title:minimal.enter;aria-label:minimal.enter">
+            <svg class="icon"><use href="#i-focus"/></svg>
+          </button>
           <button class="icon-btn" id="theme-btn" type="button"></button>
           <button class="icon-btn" id="settings-btn" type="button" title="Settings" aria-label="Settings" data-i18n-attr="title:settings.title;aria-label:settings.title">
             <svg class="icon"><use href="#i-settings"/></svg>
@@ -200,6 +209,14 @@
             </div>
           </div>
 
+          <div class="home-bar" id="home-bar" hidden>
+            <button class="btn" id="home-back" type="button">
+              <svg class="icon"><use href="#i-arrow-left"/></svg>
+              <span id="home-back-label"></span>
+            </button>
+            <span class="home-here" id="home-here"></span>
+          </div>
+
           <section class="section" id="folders-section" hidden>
             <h2 class="section-title"><span data-i18n="section.folders">Folders</span> <span class="section-count" id="folders-count"></span></h2>
             <div class="folder-grid" id="folder-grid"></div>
@@ -240,6 +257,12 @@
       <p class="groups-foot" data-i18n="groups.hint">Drag bookmarks onto a group to add them. Groups are saved only in this extension and don’t change your Firefox bookmarks.</p>
     </aside>
   </div>
+
+  <button class="icon-btn minimal-exit" id="minimal-exit" type="button"
+          title="Exit minimal mode" aria-label="Exit minimal mode"
+          data-i18n-attr="title:minimal.exit;aria-label:minimal.exit">
+    <svg class="icon"><use href="#i-focus-exit"/></svg>
+  </button>
 
   <div class="menu" id="menu" role="menu" hidden></div>
   <div class="toasts" id="toasts" aria-live="polite"></div>
@@ -360,6 +383,32 @@
         </fieldset>
 
         <fieldset class="settings-group">
+          <legend data-i18n="home.title">Home page</legend>
+          <label class="switch-row">
+            <span class="switch-text">
+              <span data-i18n="opt.minimal">Minimal mode</span>
+              <small data-i18n="opt.minimalHint">Shows only the board of the home folder: search, side panels and buttons are hidden. To exit, point at the top-right corner.</small>
+            </span>
+            <input class="switch" type="checkbox" id="opt-minimal">
+          </label>
+          <label class="field home-field">
+            <span data-i18n="home.folder">Home folder</span>
+            <span class="select-wrap select-wrap-block">
+              <select id="opt-home"></select>
+              <svg class="icon"><use href="#i-chevron-down"/></svg>
+            </span>
+          </label>
+          <p class="settings-note" data-i18n="home.urlHint">This address always opens in minimal mode. To use it as your Firefox home page, paste it in Firefox Settings → Home → Homepage and new windows → Custom URLs.</p>
+          <div class="home-url">
+            <input id="home-url" type="text" readonly spellcheck="false" aria-label="Home page address" data-i18n-attr="aria-label:home.url">
+            <button type="button" class="btn" id="home-url-copy">
+              <svg class="icon"><use href="#i-copy"/></svg>
+              <span data-i18n="home.copy">Copy</span>
+            </button>
+          </div>
+        </fieldset>
+
+        <fieldset class="settings-group">
           <legend data-i18n="settings.behavior">Behavior</legend>
           <label class="switch-row">
             <span class="switch-text">
@@ -407,6 +456,7 @@
             <dt><kbd data-i18n="kbd.enter">Enter</kbd></dt><dd data-i18n="shortcut.enter">Open the first search result</dd>
             <dt><kbd data-i18n="kbd.delete">Delete</kbd></dt><dd data-i18n="shortcut.delete">Delete the focused bookmark or folder</dd>
             <dt><kbd>Esc</kbd></dt><dd data-i18n="shortcut.esc">Clear search / close menus</dd>
+            <dt><kbd>Esc</kbd></dt><dd data-i18n="shortcut.minimalEsc">Minimal mode: back to the home folder</dd>
             <dt><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd></dt><dd data-i18n="shortcut.open">Open the dashboard from any tab</dd>
             <dt><kbd data-i18n="kbd.middleClick">Middle click</kbd></dt><dd data-i18n="shortcut.middleClick">On a folder: open its bookmarks in new tabs</dd>
           </dl>
