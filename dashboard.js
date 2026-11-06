@@ -58,6 +58,14 @@
   const CORNERS = ['round', 'semi', 'square'];
   const BOARD_ROWS = 10; // enlaces visibles por tarjeta antes de «Mostrar más»
   const BOARD_PAGE = 40; // tarjetas por página en la vista de tablero
+  const HOME_NAV_KEY = 'bd-home-nav'; // subcarpeta abierta en el modo minimalista (por pestaña)
+  function readHomeNav() {
+    try {
+      return sessionStorage.getItem(HOME_NAV_KEY) || null;
+    } catch {
+      return null;
+    }
+  }
   // Por debajo de este ancho el panel de grupos flota sobre el contenido.
   const GROUPS_OVERLAY = window.matchMedia('(max-width: 1200px)');
   const SORTS = ['manual', 'name-asc', 'name-desc', 'date-desc', 'date-asc'];
@@ -115,9 +123,12 @@
     favorites: new Set(),
     selected: VIEW_ALL,
     // Modo minimalista: ?home en la URL lo fuerza en esta pestaña (página de inicio);
-    // homeNav es la subcarpeta abierta temporalmente dentro de ese modo.
+    // homeNav es la subcarpeta abierta dentro de ese modo: se guarda por pestaña
+    // (sessionStorage), así sobrevive a una recarga y las pestañas nuevas empiezan
+    // en la carpeta de inicio.
     forceHome: new URLSearchParams(location.search).has('home'),
-    homeNav: null,
+    homeNav: readHomeNav(),
+    minimalOn: null,
     query: '',
     terms: [],
     limit: PAGE_SIZE,
@@ -759,6 +770,16 @@
   // ----- Modo minimalista: solo el tablero de la carpeta de inicio -----
 
   const isMinimal = () => state.forceHome || state.prefs.minimal;
+
+  function setHomeNav(id) {
+    state.homeNav = id;
+    try {
+      if (id) sessionStorage.setItem(HOME_NAV_KEY, id);
+      else sessionStorage.removeItem(HOME_NAV_KEY);
+    } catch {
+      /* sin sessionStorage: la subcarpeta no sobrevive a una recarga */
+    }
+  }
   /** Tipo de vista efectivo: el modo minimalista siempre usa el tablero. */
   const viewMode = () => (isMinimal() ? 'board' : state.prefs.view);
   /** Carpeta (o vista) de inicio; si ya no existe, se usa «Todos los marcadores». */
@@ -774,10 +795,13 @@
   function applyMinimal() {
     const on = isMinimal();
     const root = document.documentElement;
-    if (on !== root.classList.contains('minimal')) {
-      state.homeNav = null;
+    // Al entrar o salir se vuelve a la carpeta de inicio; al arrancar (minimalOn
+    // aún null) se conserva la subcarpeta guardada de esta pestaña.
+    if (state.minimalOn !== null && on !== state.minimalOn) {
+      setHomeNav(null);
       state.limit = PAGE_SIZE;
     }
+    state.minimalOn = on;
     root.classList.toggle('minimal', on);
     if (on) {
       if (state.query) {
@@ -787,7 +811,7 @@
       closeDrawer();
       closeGroupsOverlay();
     }
-    if (state.homeNav && !isFolder(get(state.homeNav))) state.homeNav = null;
+    if (state.ready && state.homeNav && !isFolder(get(state.homeNav))) setHomeNav(null);
     $('#opt-minimal').checked = state.prefs.minimal;
     try {
       localStorage.setItem('bd-minimal', state.prefs.minimal ? '1' : '0');
@@ -908,7 +932,7 @@
     const target = resolveSelection(id);
     if (isMinimal()) {
       // Dentro del modo minimalista se navega sin tocar la carpeta del dashboard normal.
-      state.homeNav = target !== homeId() && isFolder(get(target)) ? target : null;
+      setHomeNav(target !== homeId() && isFolder(get(target)) ? target : null);
       state.limit = PAGE_SIZE;
       renderMain();
       $('#content').scrollTop = 0;

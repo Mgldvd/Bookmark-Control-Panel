@@ -136,7 +136,8 @@ bookmarks/
   botones. Para salir, usa el botón fijo de la esquina superior derecha.
   La carpeta de inicio se elige en Ajustes → Página de inicio (también vale «Todos», «Destacados»
   o «Recientes») o con clic derecho en una carpeta → «Usar como página de inicio». Dentro del modo,
-  al abrir una subcarpeta aparece «Volver a …» (o `Esc`); no cambia la carpeta del dashboard normal.
+  al abrir una subcarpeta aparece «Volver a …» (o `Esc`); se conserva al recargar la pestaña, las
+  pestañas nuevas empiezan en la carpeta de inicio y no cambia la carpeta del dashboard normal.
   El modo se recuerda (también en las pestañas nuevas) y se aplica antes del primer pintado.
   La dirección `moz-extension://…/dashboard.html?home` abre siempre el modo minimalista sin
   cambiar el ajuste: está en Ajustes → Página de inicio, con botón «Copiar».
