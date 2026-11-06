@@ -127,6 +127,9 @@ bookmarks/
   agrupan por carpeta mostrando su ruta. Cada tarjeta enseña 10 enlaces («Mostrar más» para el
   resto), se puede contraer (se recuerda), su cabecera abre la carpeta (clic central: todo en
   pestañas) y acepta marcadores arrastrados (los mueve a esa carpeta en Firefox).
+- **Estilo de bordes** (Ajustes → Bordes): esquinas redondeadas, semi o rectas en toda la
+  interfaz (tarjetas, botones, menús, diálogos, buscador…). Se aplica antes del primer pintado,
+  como el tema, y se sincroniza entre pestañas.
 - **Copia de seguridad** (Ajustes → Backup / Copia de seguridad): «Exportar…» guarda en un `.json`
   los grupos, colores de carpeta, destacados y ajustes; «Importar…» los restaura tras confirmar
   (sustituye los actuales). Como los ids internos de los marcadores pueden cambiar entre perfiles,

@@ -55,6 +55,7 @@
   const GROUP_COLORS = ['indigo', 'blue', 'teal', 'green', 'amber', 'orange', 'red', 'pink', 'violet', 'slate'];
   const GROUP_NAME_MAX = 60;
   const VIEW_MODES = ['grid', 'list', 'board'];
+  const CORNERS = ['round', 'semi', 'square'];
   const BOARD_ROWS = 10; // enlaces visibles por tarjeta antes de «Mostrar más»
   const BOARD_PAGE = 40; // tarjetas por página en la vista de tablero
   // Por debajo de este ancho el panel de grupos flota sobre el contenido.
@@ -68,6 +69,7 @@
 
   const DEFAULT_PREFS = Object.freeze({
     lang: DEFAULT_LANG,
+    corners: 'round',
     theme: 'auto',
     view: 'grid',
     sort: 'manual',
@@ -93,6 +95,7 @@
     nodes: new Map(),
     prefs: {
       lang: DEFAULT_PREFS.lang,
+      corners: DEFAULT_PREFS.corners,
       theme: DEFAULT_PREFS.theme,
       view: DEFAULT_PREFS.view,
       sort: DEFAULT_PREFS.sort,
@@ -609,6 +612,7 @@
     const prefs = state.prefs;
     if (LANGS.includes(p.lang)) prefs.lang = p.lang;
     if (THEMES.includes(p.theme)) prefs.theme = p.theme;
+    if (CORNERS.includes(p.corners)) prefs.corners = p.corners;
     if (VIEW_MODES.includes(p.view)) prefs.view = p.view;
     if (Array.isArray(p.boardCollapsed)) state.boardCollapsed = new Set(p.boardCollapsed.filter((x) => typeof x === 'string'));
     if (p.folderColors && typeof p.folderColors === 'object' && !Array.isArray(p.folderColors)) {
@@ -648,6 +652,7 @@
     state.prefs[key] = value;
     savePrefs({ [key]: value });
     if (key === 'theme') applyTheme(true);
+    if (key === 'corners') applyCorners();
     if (key === 'lang') applyLanguage();
     if (key === 'groupsPanel') applyGroupsPanel();
     if (key === 'includeSubfolders') state.limit = PAGE_SIZE;
@@ -665,6 +670,7 @@
     if (!Object.keys(incoming).length) return;
     applyPrefs(incoming);
     if (incoming.lang !== undefined) applyLanguage();
+    applyCorners();
     applyGroupsPanel();
     applyTheme();
     syncControls();
@@ -712,6 +718,17 @@
     scheduleRender();
   }
 
+  /** Estilo de esquinas: redondeadas, semi o rectas (atributo en <html>, ver CSS). */
+  function applyCorners() {
+    const corners = state.prefs.corners;
+    document.documentElement.dataset.corners = corners;
+    try {
+      localStorage.setItem('bd-corners', corners);
+    } catch {
+      /* sin localStorage: solo afecta al primer pintado */
+    }
+  }
+
   function cycleTheme() {
     const next = THEMES[(THEMES.indexOf(state.prefs.theme) + 1) % THEMES.length];
     setPref('theme', next);
@@ -726,6 +743,7 @@
     const form = $('#settings-form');
     for (const radio of form.querySelectorAll('input[name="theme"]')) radio.checked = radio.value === state.prefs.theme;
     for (const radio of form.querySelectorAll('input[name="lang"]')) radio.checked = radio.value === state.prefs.lang;
+    for (const radio of form.querySelectorAll('input[name="corners"]')) radio.checked = radio.value === state.prefs.corners;
     $('#opt-newtab').checked = state.prefs.openInNewTab;
     $('#opt-subfolders').checked = state.prefs.includeSubfolders;
     $('#opt-favicons').checked = state.prefs.showFavicons;
@@ -2391,6 +2409,7 @@
   const BACKUP_PREFS = {
     lang: (v) => LANGS.includes(v),
     theme: (v) => THEMES.includes(v),
+    corners: (v) => CORNERS.includes(v),
     view: (v) => VIEW_MODES.includes(v),
     sort: (v) => SORTS.includes(v),
     openInNewTab: (v) => typeof v === 'boolean',
@@ -3165,6 +3184,7 @@
       const input = event.target;
       if (input.name === 'theme') setPref('theme', input.value);
       else if (input.name === 'lang') setPref('lang', input.value);
+      else if (input.name === 'corners') setPref('corners', input.value);
       else if (input.id === 'opt-newtab') setPref('openInNewTab', input.checked);
       else if (input.id === 'opt-subfolders') setPref('includeSubfolders', input.checked);
       else if (input.id === 'opt-favicons') {
@@ -3300,6 +3320,7 @@
     api.storage.onChanged.addListener(handleStorageChange);
     await loadPrefs();
     if (state.prefs.lang !== lang) applyLanguage();
+    applyCorners();
     applyGroupsPanel();
     applyTheme();
     syncControls();

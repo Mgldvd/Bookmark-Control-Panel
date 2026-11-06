@@ -8,6 +8,10 @@ try {
   if (theme === 'light' || theme === 'dark' || theme === 'auto') {
     document.documentElement.dataset.theme = theme;
   }
+  const corners = localStorage.getItem('bd-corners');
+  if (corners === 'round' || corners === 'semi' || corners === 'square') {
+    document.documentElement.dataset.corners = corners;
+  }
 } catch {
   // localStorage no disponible: se usará el tema automático.
 }
