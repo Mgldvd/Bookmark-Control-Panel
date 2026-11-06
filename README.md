@@ -145,8 +145,8 @@ bookmarks/
   inicio, Copia de seguridad, Atajos) y opciones en filas agrupadas; en móvil las pestañas pasan
   arriba. Se navega también con el teclado (flechas, Inicio, Fin).
 - **Borde izquierdo de las tarjetas** (Ajustes → Apariencia → Borde de las tarjetas): la franja de
-  color de las tarjetas del tablero y de los grupos se puede ocultar, cambiar de grosor (fino,
-  normal, grueso, extra) y de color general. El color general tiñe las tarjetas de carpeta que
+  color de las tarjetas del tablero y de los grupos se puede ocultar, cambiar de grosor (ninguno,
+  fino, normal, grueso, extra; «Ninguno» equivale a apagar el interruptor) y de color general. El color general tiñe las tarjetas de carpeta que
   no tienen color propio (las que sí lo tienen lo conservan; los grupos mantienen el suyo). Con
   vista previa en vivo; se aplica antes del primer pintado y entra en la copia de seguridad.
 - **Estilo de bordes** (Ajustes → Bordes): esquinas redondeadas, semi o rectas en toda la

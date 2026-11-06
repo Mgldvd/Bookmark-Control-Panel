@@ -927,12 +927,27 @@
     $('#opt-favicons').checked = state.prefs.showFavicons;
     $('#opt-stripe').checked = state.prefs.stripe;
     for (const radio of form.querySelectorAll('input[name="stripe-color"]')) radio.checked = radio.value === state.prefs.stripeColor;
-    for (const radio of form.querySelectorAll('input[name="stripe-width"]')) radio.checked = Number(radio.value) === state.prefs.stripeWidth;
-    // Sin franja, el color y el grosor no aplican.
-    for (const row of [$('#stripe-color-row'), $('#stripe-width-row')]) {
-      row.classList.toggle('is-disabled', !state.prefs.stripe);
-      for (const input of row.querySelectorAll('input')) input.disabled = !state.prefs.stripe;
+    // «Ninguno» (0) equivale al interruptor apagado; el grosor elegido se conserva.
+    const width = state.prefs.stripe ? state.prefs.stripeWidth : 0;
+    for (const radio of form.querySelectorAll('input[name="stripe-width"]')) radio.checked = Number(radio.value) === width;
+    // Sin franja, el color no aplica (el grosor sí: elegir uno la vuelve a mostrar).
+    const colorRow = $('#stripe-color-row');
+    colorRow.classList.toggle('is-disabled', !state.prefs.stripe);
+    for (const input of colorRow.querySelectorAll('input')) input.disabled = !state.prefs.stripe;
+  }
+
+  /** Grosor de la franja: 0 («Ninguno») la oculta; cualquier otro la muestra con ese grosor. */
+  function setStripeWidth(width) {
+    if (width === 0) {
+      setPref('stripe', false);
+      return;
     }
+    if (!STRIPE_WIDTHS.includes(width)) return;
+    state.prefs.stripe = true;
+    state.prefs.stripeWidth = width;
+    savePrefs({ stripe: true, stripeWidth: width });
+    applyStripe();
+    syncControls();
   }
 
   /** Muestras de color de la franja (Ajustes → Apariencia). Los textos se traducen con translateStatic. */
@@ -3464,7 +3479,7 @@
       } else if (input.id === 'opt-home') setHomeFolder(input.value);
       else if (input.id === 'opt-stripe') setPref('stripe', input.checked);
       else if (input.name === 'stripe-color') setPref('stripeColor', input.value);
-      else if (input.name === 'stripe-width') setPref('stripeWidth', Number(input.value));
+      else if (input.name === 'stripe-width') setStripeWidth(Number(input.value));
       else if (input.id === 'opt-newtab') setPref('openInNewTab', input.checked);
       else if (input.id === 'opt-subfolders') setPref('includeSubfolders', input.checked);
       else if (input.id === 'opt-favicons') {
