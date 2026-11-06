@@ -36,7 +36,7 @@ y funciona **100 % en local**: sin servidor, sin dependencias, sin frameworks y 
   modelo en memoria (`Map id → nodo`) que conserva la jerarquía y el orden originales.
   La inicialización **solo lee**: nunca crea, edita ni borra nada.
 - **Sincronización**: los listeners `onCreated`, `onRemoved`, `onChanged` y `onMoved` aplican
-  cambios *incrementales* al modelo (insertar, eliminar subárbol, renombrar, mover entre padres
+  cambios _incrementales_ al modelo (insertar, eliminar subárbol, renombrar, mover entre padres
   con su índice). La interfaz se repinta en el siguiente `requestAnimationFrame`, lo que agrupa
   ráfagas de eventos (por ejemplo, cuando Sync descarga cientos de marcadores).
 - **Render eficiente**: las tarjetas se reconcilian **por id**: una tarjeta existente reutiliza su
@@ -57,10 +57,10 @@ y funciona **100 % en local**: sin servidor, sin dependencias, sin frameworks y 
 
 ### Permisos (mínimos)
 
-| Permiso | Para qué |
-|---|---|
+| Permiso     | Para qué                                                                                        |
+| ----------- | ----------------------------------------------------------------------------------------------- |
 | `bookmarks` | Leer y modificar marcadores (las modificaciones solo ocurren por acción explícita del usuario). |
-| `storage` | Guardar preferencias y destacados en local. |
+| `storage`   | Guardar preferencias y destacados en local.                                                     |
 
 `tabs.create` (abrir en pestaña nueva) no requiere permiso. No se piden permisos de host y
 `data_collection_permissions` declara `none`.
@@ -215,6 +215,7 @@ cargues en Firefox, e `icon.svg` dentro de `icons/`).
    y fíjalo). Púlsalo, abre una pestaña nueva o usa `Alt+Shift+B`.
 
 Notas:
+
 - Un complemento temporal **se descarga al cerrar Firefox**; hay que volver a cargarlo en la
   siguiente sesión. Tus marcadores no se ven afectados; las preferencias locales del panel
   (destacados, tema…) pueden perderse al desinstalarlo.
@@ -231,8 +232,8 @@ Ya viene activado: `manifest.json` incluye
 "chrome_url_overrides": { "newtab": "dashboard.html" }
 ```
 
-- La primera vez que abras una pestaña nueva, Firefox mostrará un aviso *«Una extensión ha cambiado
-  la página que ves al abrir una pestaña nueva»*. Elige **«Mantener cambios»**.
+- La primera vez que abras una pestaña nueva, Firefox mostrará un aviso _«Una extensión ha cambiado
+  la página que ves al abrir una pestaña nueva»_. Elige **«Mantener cambios»**.
 - En **Ajustes → Inicio → Nuevas pestañas** verás que Bookmark Control Panel controla esa página.
 - **Si no lo quieres como nueva pestaña**, borra el bloque `"chrome_url_overrides"` (3 líneas) de
   `manifest.json` y recarga la extensión. El panel seguirá disponible desde el botón de la barra
@@ -263,7 +264,7 @@ no se publica en la tienda):
    ```
    (o a mano: `zip -r -X bookmark-control-panel.zip manifest.json background.js dashboard.* theme-init.js i18n.js _locales icons`).
 2. Crea una cuenta o inicia sesión en <https://addons.mozilla.org/developers/>.
-3. **«Enviar un nuevo complemento»** → elige **«Por tu cuenta»** (*On your own*, distribución propia, sin listar).
+3. **«Enviar un nuevo complemento»** → elige **«Por tu cuenta»** (_On your own_, distribución propia, sin listar).
 4. Sube el `.zip`. La validación y firma automáticas suelen tardar unos minutos; no se publica ni
    lo ve nadie.
 5. Descarga el `.xpi` firmado e instálalo desde `about:addons` → ⚙️ → **«Instalar complemento desde
@@ -288,7 +289,7 @@ ser único en AMO. Si lo rechaza por duplicado, cámbialo por uno propio (p. ej.
    ```
    También puedes exportarlas en la terminal (`export WEB_EXT_API_KEY=…`); si lo haces, tienen
    prioridad sobre `.env`.
-   El script empaqueta, firma exactamente el contenido del `.zip` por el canal *unlisted* con la
+   El script empaqueta, firma exactamente el contenido del `.zip` por el canal _unlisted_ con la
    herramienta oficial `web-ext` de Mozilla (vía `npx`, no forma parte de la extensión) y deja el
    `.xpi` firmado en `dist/`.
 3. Instálalo: `about:addons` → ⚙️ → «Instalar complemento desde archivo…».
@@ -309,19 +310,19 @@ desde `about:addons`. **En Firefox normal esta preferencia se ignora.**
 
 Con el panel abierto (mejor en una ventana propia, al lado de una ventana normal):
 
-| Prueba | Qué hacer | Resultado esperado en el panel |
-|---|---|---|
-| Crear | `Ctrl+D` en cualquier página y guardarla en la barra de marcadores | La tarjeta aparece al instante con un breve resaltado; los contadores suben. |
-| Renombrar | Biblioteca (`Ctrl+Shift+O`) → editar el nombre de un marcador | La tarjeta cambia de título sin recargar. |
-| Cambiar URL | Cambiar la URL en la Biblioteca | Se actualizan el dominio y el favicon. |
-| Mover | Arrastrar un marcador a otra carpeta en la Biblioteca o en la barra | Desaparece de la carpeta antigua y aparece en la nueva; ambos contadores cambian. |
-| Reordenar | Arrastrar un marcador dentro de la misma carpeta (barra) | Con «Orden original», cambia su posición. |
-| Eliminar | Borrar un marcador o carpeta desde la Biblioteca | Desaparece; si estabas dentro de la carpeta borrada, pasas a la carpeta padre. |
-| Deshacer | `Ctrl+Z` en la Biblioteca tras borrar | El marcador vuelve a aparecer. |
-| Varios paneles | Abrir dos pestañas del panel y destacar algo en una | La otra actualiza la estrella y el contador. |
-| Desde el panel | Crear / editar / mover / eliminar desde el panel | El cambio se ve en la barra y en la Biblioteca de Firefox. |
-| Arrastrar enlace | Arrastrar un enlace de una web a una carpeta de la barra lateral | Se guarda como marcador en esa carpeta. |
-| Separador | Biblioteca → clic derecho → «Nuevo separador» (con el panel en vista de lista) | Aparece una línea divisoria en la misma posición. |
+| Prueba           | Qué hacer                                                                      | Resultado esperado en el panel                                                    |
+| ---------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| Crear            | `Ctrl+D` en cualquier página y guardarla en la barra de marcadores             | La tarjeta aparece al instante con un breve resaltado; los contadores suben.      |
+| Renombrar        | Biblioteca (`Ctrl+Shift+O`) → editar el nombre de un marcador                  | La tarjeta cambia de título sin recargar.                                         |
+| Cambiar URL      | Cambiar la URL en la Biblioteca                                                | Se actualizan el dominio y el favicon.                                            |
+| Mover            | Arrastrar un marcador a otra carpeta en la Biblioteca o en la barra            | Desaparece de la carpeta antigua y aparece en la nueva; ambos contadores cambian. |
+| Reordenar        | Arrastrar un marcador dentro de la misma carpeta (barra)                       | Con «Orden original», cambia su posición.                                         |
+| Eliminar         | Borrar un marcador o carpeta desde la Biblioteca                               | Desaparece; si estabas dentro de la carpeta borrada, pasas a la carpeta padre.    |
+| Deshacer         | `Ctrl+Z` en la Biblioteca tras borrar                                          | El marcador vuelve a aparecer.                                                    |
+| Varios paneles   | Abrir dos pestañas del panel y destacar algo en una                            | La otra actualiza la estrella y el contador.                                      |
+| Desde el panel   | Crear / editar / mover / eliminar desde el panel                               | El cambio se ve en la barra y en la Biblioteca de Firefox.                        |
+| Arrastrar enlace | Arrastrar un enlace de una web a una carpeta de la barra lateral               | Se guarda como marcador en esa carpeta.                                           |
+| Separador        | Biblioteca → clic derecho → «Nuevo separador» (con el panel en vista de lista) | Aparece una línea divisoria en la misma posición.                                 |
 
 El punto verde de la esquina inferior izquierda pulsa cada vez que llega un evento de Firefox.
 
@@ -339,13 +340,13 @@ Requiere Node.js `^22.18.0 || ^24.11.0 || >=26.0.0`. La primera vez:
 npm install
 ```
 
-| Comando | Qué hace |
-| --- | --- |
-| `npm run check` | Formato + lint en una pasada (lo recomendable antes de cada commit). |
-| `npm run lint` | Oxlint sobre los `.js` (entornos `browser` y `webextensions`). |
-| `npm run lint:fix` | Corrige lo que se pueda de forma automática. |
-| `npm run fmt` | Formatea JS, CSS, HTML, JSON y Markdown (escribe los archivos). |
-| `npm run fmt:check` | Solo comprueba el formato, sin escribir. |
+| Comando             | Qué hace                                                             |
+| ------------------- | -------------------------------------------------------------------- |
+| `npm run check`     | Formato + lint en una pasada (lo recomendable antes de cada commit). |
+| `npm run lint`      | Oxlint sobre los `.js` (entornos `browser` y `webextensions`).       |
+| `npm run lint:fix`  | Corrige lo que se pueda de forma automática.                         |
+| `npm run fmt`       | Formatea JS, CSS, HTML, JSON y Markdown (escribe los archivos).      |
+| `npm run fmt:check` | Solo comprueba el formato, sin escribir.                             |
 
 La configuración está en `vite.config.mjs` (bloques `lint` y `fmt`): comillas simples, punto y
 coma, comas finales y 120 columnas. Las reglas desactivadas llevan un comentario con el motivo.
@@ -355,7 +356,7 @@ coma, comas finales y 120 columnas. Las reglas desactivadas llevan un comentario
 ## Solución de problemas
 
 - **La interfaz sale en inglés**: es el idioma por defecto. Cámbialo en Ajustes (icono de
-  controles) → *Language* → Español.
+  controles) → _Language_ → Español.
 - **«Open this page from the extension» / «Abre esta página desde la extensión»**: abriste `dashboard.html` como archivo local; debe
   cargarse como extensión (sección 5).
 - **Algunos favicons no aparecen**: el sitio no sirve `/favicon.ico` (declara el icono solo en su

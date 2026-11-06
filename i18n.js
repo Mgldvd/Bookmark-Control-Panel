@@ -76,7 +76,8 @@ globalThis.BD_I18N = Object.freeze({
     'cols.auto': 'Auto',
     'settings.bookmarks': 'Bookmarks',
     'resync.short': 'Reload',
-    'resync.hint': 'Reads the bookmark tree from Firefox again. Changes are already picked up automatically; use it after a large import or restore.',
+    'resync.hint':
+      'Reads the bookmark tree from Firefox again. Changes are already picked up automatically; use it after a large import or restore.',
     'stripe.show': 'Colored left border',
     'stripe.showHint': 'The color stripe on the left of folder cards (board view) and groups.',
     'stripe.color': 'Color',
@@ -105,7 +106,8 @@ globalThis.BD_I18N = Object.freeze({
     'opt.subfolders': 'Include bookmarks from subfolders',
     'opt.subfoldersHint': 'When opening a folder, also show the bookmarks of all its subfolders.',
     'opt.favicons': 'Show favicons',
-    'opt.faviconsHint': 'Requested directly from each site (/favicon.ico), never from third-party services. Turn it off so the extension makes no network connections at all.',
+    'opt.faviconsHint':
+      'Requested directly from each site (/favicon.ico), never from third-party services. Turn it off so the extension makes no network connections at all.',
     'kbd.enter': 'Enter',
     'kbd.delete': 'Delete',
     'kbd.middleClick': 'Middle click',
@@ -115,7 +117,8 @@ globalThis.BD_I18N = Object.freeze({
     'shortcut.esc': 'Clear search / close menus',
     'shortcut.open': 'Open Bookmark Control Panel from any tab',
     'shortcut.middleClick': 'On a folder: open its bookmarks in new tabs',
-    'privacy.note': 'Everything runs locally. Your bookmarks are read through the Firefox API and are never sent to any server. Starred items and preferences are stored only in this extension.',
+    'privacy.note':
+      'Everything runs locally. Your bookmarks are read through the Firefox API and are never sent to any server. Starred items and preferences are stored only in this extension.',
     'resync.button': 'Reload bookmarks',
 
     // Views and built-in folders
@@ -129,7 +132,7 @@ globalThis.BD_I18N = Object.freeze({
     'folder.unnamed': 'Untitled folder',
     'bookmark.untitled': 'Untitled',
     'separator.label': 'Separator',
-    'root': 'Root',
+    root: 'Root',
 
     // Theme button
     'themeBtn.auto': 'Theme: automatic (system)',
@@ -173,7 +176,8 @@ globalThis.BD_I18N = Object.freeze({
     'empty.search.text': 'No bookmark matches “{q}” in its title, URL or folder.',
     'empty.search.action': 'Clear search',
     'empty.favorites.title': 'No starred bookmarks yet',
-    'empty.favorites.text': 'Click the star on any bookmark to keep it close at hand. Starred items are stored only in this extension and never change your Firefox bookmarks.',
+    'empty.favorites.text':
+      'Click the star on any bookmark to keep it close at hand. Starred items are stored only in this extension and never change your Firefox bookmarks.',
     'empty.favorites.action': 'View all bookmarks',
     'empty.all.title': 'No bookmarks yet',
     'empty.all.text': 'Pages you bookmark in Firefox will show up here automatically.',
@@ -181,9 +185,11 @@ globalThis.BD_I18N = Object.freeze({
     'empty.folder.text': 'Add a bookmark, create a subfolder or drag items here from another folder.',
     'empty.addBookmark': 'Add bookmark',
     'fatal.read.title': 'Couldn’t read your bookmarks',
-    'fatal.read.text': 'Firefox returned an error while reading the bookmark tree. You can try again; your bookmarks have not been modified.',
+    'fatal.read.text':
+      'Firefox returned an error while reading the bookmark tree. You can try again; your bookmarks have not been modified.',
     'fatal.noApi.title': 'Open this page from the extension',
-    'fatal.noApi.text': 'Bookmark Control Panel needs the Firefox bookmarks API. Install the extension (about:debugging → Load Temporary Add-on) and open it with its toolbar button or a new tab.',
+    'fatal.noApi.text':
+      'Bookmark Control Panel needs the Firefox bookmarks API. Install the extension (about:debugging → Load Temporary Add-on) and open it with its toolbar button or a new tab.',
     'fatal.unexpected.title': 'Something went wrong',
     'fatal.unexpected.text': 'An unexpected error occurred while starting Bookmark Control Panel.',
 
@@ -208,12 +214,16 @@ globalThis.BD_I18N = Object.freeze({
     'toast.opError': 'Couldn’t complete the operation: {error}',
     'toast.nothingToOpen': 'There are no links here that can be opened in tabs',
     'toast.openedTabs': { one: 'Opened {n} tab', other: 'Opened {n} tabs' },
-    'toast.skipped': { one: '{n} link skipped (Firefox blocks it in extensions)', other: '{n} links skipped (Firefox blocks them in extensions)' },
+    'toast.skipped': {
+      one: '{n} link skipped (Firefox blocks it in extensions)',
+      other: '{n} links skipped (Firefox blocks them in extensions)',
+    },
     'toast.openAllError': 'Opened {opened} of {total} tabs: {error}',
 
     // Delete confirmation
     'delete.folder.title': 'Delete folder?',
-    'delete.folder.message': '“{name}” will be deleted from Firefox along with everything in it: {bookmarks} and {subfolders}.',
+    'delete.folder.message':
+      '“{name}” will be deleted from Firefox along with everything in it: {bookmarks} and {subfolders}.',
     'delete.folder.empty': 'The empty folder “{name}” will be deleted from Firefox.',
     'delete.bookmark.title': 'Delete bookmark?',
     'delete.bookmark.message': '“{name}” will be deleted from your Firefox bookmarks.',
@@ -223,7 +233,10 @@ globalThis.BD_I18N = Object.freeze({
     // Open all in tabs
     'openAll.confirmTitle': { one: 'Open {n} tab?', other: 'Open {n} tabs?' },
     'openAll.confirmMessage': 'Every bookmark in “{name}” will open in a new background tab.',
-    'openAll.confirmSkipped': { one: '{n} link that Firefox doesn’t let extensions open (place:, javascript:…) will be skipped.', other: '{n} links that Firefox doesn’t let extensions open (place:, javascript:…) will be skipped.' },
+    'openAll.confirmSkipped': {
+      one: '{n} link that Firefox doesn’t let extensions open (place:, javascript:…) will be skipped.',
+      other: '{n} links that Firefox doesn’t let extensions open (place:, javascript:…) will be skipped.',
+    },
     'openAll.confirm': 'Open tabs',
 
     // Editor
@@ -265,9 +278,11 @@ globalThis.BD_I18N = Object.freeze({
     'home.back': 'Back to {name}',
     'home.url': 'Home page address',
     'home.copy': 'Copy',
-    'home.urlHint': 'This address always opens in minimal mode. To use it as your Firefox home page, paste it in Firefox Settings → Home → Homepage and new windows → Custom URLs.',
+    'home.urlHint':
+      'This address always opens in minimal mode. To use it as your Firefox home page, paste it in Firefox Settings → Home → Homepage and new windows → Custom URLs.',
     'opt.minimal': 'Minimal mode',
-    'opt.minimalHint': 'Shows only the board of the home folder: search, side panels and buttons are hidden. To exit, use the button in the top-right corner.',
+    'opt.minimalHint':
+      'Shows only the board of the home folder: search, side panels and buttons are hidden. To exit, use the button in the top-right corner.',
     'shortcut.minimalEsc': 'Minimal mode: back to the home folder',
     'toast.minimalOn': 'Minimal mode. To exit, use the button in the top-right corner.',
     'toast.homeSet': '“{name}” is now the home page',
@@ -276,7 +291,8 @@ globalThis.BD_I18N = Object.freeze({
 
     // Backup
     'backup.title': 'Backup',
-    'backup.text': 'Groups, folder colors, starred items and settings are stored only in this extension. Save them to a file to restore them later or on another computer. Your Firefox bookmarks are not included (Firefox already backs them up).',
+    'backup.text':
+      'Groups, folder colors, starred items and settings are stored only in this extension. Save them to a file to restore them later or on another computer. Your Firefox bookmarks are not included (Firefox already backs them up).',
     'backup.export': 'Export…',
     'backup.import': 'Import…',
     'backup.tooLarge': 'the file is too large',
@@ -285,8 +301,12 @@ globalThis.BD_I18N = Object.freeze({
     'n.folderColor': { one: '{n} folder color', other: '{n} folder colors' },
     'import.confirmTitle': 'Restore this backup?',
     'import.created': 'Backup from {date}.',
-    'import.confirmMessage': 'Your current groups, starred items, folder colors and settings will be replaced with the ones in the file ({summary}). Your Firefox bookmarks are not modified.',
-    'import.missing': { one: '{n} bookmark from the backup isn’t in this Firefox and will be skipped.', other: '{n} bookmarks from the backup aren’t in this Firefox and will be skipped.' },
+    'import.confirmMessage':
+      'Your current groups, starred items, folder colors and settings will be replaced with the ones in the file ({summary}). Your Firefox bookmarks are not modified.',
+    'import.missing': {
+      one: '{n} bookmark from the backup isn’t in this Firefox and will be skipped.',
+      other: '{n} bookmarks from the backup aren’t in this Firefox and will be skipped.',
+    },
     'import.confirm': 'Restore',
     'toast.exported': 'Backup saved: {file}',
     'toast.exportError': 'Couldn’t create the backup: {error}',
@@ -300,7 +320,8 @@ globalThis.BD_I18N = Object.freeze({
     'groups.new': 'New group',
     'groups.toggle': 'Show or hide groups',
     'groups.close': 'Close groups',
-    'groups.hint': 'Drag bookmarks onto a group to add them. Groups are saved only in this extension and don’t change your Firefox bookmarks.',
+    'groups.hint':
+      'Drag bookmarks onto a group to add them. Groups are saved only in this extension and don’t change your Firefox bookmarks.',
     'groups.empty.title': 'No groups yet',
     'groups.empty.text': 'Create a group, give it a color and drag bookmarks into it.',
     'groups.empty.action': 'Create group',
@@ -405,9 +426,11 @@ globalThis.BD_I18N = Object.freeze({
     'cols.auto': 'Auto',
     'settings.bookmarks': 'Marcadores',
     'resync.short': 'Releer',
-    'resync.hint': 'Vuelve a leer el árbol de marcadores de Firefox. Los cambios ya se detectan solos; úsalo tras una importación o restauración grande.',
+    'resync.hint':
+      'Vuelve a leer el árbol de marcadores de Firefox. Los cambios ya se detectan solos; úsalo tras una importación o restauración grande.',
     'stripe.show': 'Borde izquierdo de color',
-    'stripe.showHint': 'La franja de color a la izquierda de las tarjetas de carpeta (vista de tablero) y de los grupos.',
+    'stripe.showHint':
+      'La franja de color a la izquierda de las tarjetas de carpeta (vista de tablero) y de los grupos.',
     'stripe.color': 'Color',
     'stripe.colorHint': '«Color de carpeta» usa el color habitual. Las carpetas con color propio lo conservan.',
     'stripe.auto': 'Color de carpeta',
@@ -434,7 +457,8 @@ globalThis.BD_I18N = Object.freeze({
     'opt.subfolders': 'Incluir marcadores de subcarpetas',
     'opt.subfoldersHint': 'Al abrir una carpeta, muestra también los marcadores de todas sus subcarpetas.',
     'opt.favicons': 'Mostrar favicons',
-    'opt.faviconsHint': 'Se piden directamente a cada sitio (/favicon.ico), nunca a servicios de terceros. Desactívalo para que la extensión no haga ninguna conexión de red.',
+    'opt.faviconsHint':
+      'Se piden directamente a cada sitio (/favicon.ico), nunca a servicios de terceros. Desactívalo para que la extensión no haga ninguna conexión de red.',
     'kbd.enter': 'Intro',
     'kbd.delete': 'Supr',
     'kbd.middleClick': 'Clic central',
@@ -444,7 +468,8 @@ globalThis.BD_I18N = Object.freeze({
     'shortcut.esc': 'Limpiar búsqueda / cerrar menús',
     'shortcut.open': 'Abrir Bookmark Control Panel desde cualquier pestaña',
     'shortcut.middleClick': 'Sobre una carpeta: abrir sus marcadores en pestañas nuevas',
-    'privacy.note': 'Todo funciona en local. Tus marcadores se leen con la API de Firefox y nunca se envían a ningún servidor. Los destacados y preferencias se guardan solo en esta extensión.',
+    'privacy.note':
+      'Todo funciona en local. Tus marcadores se leen con la API de Firefox y nunca se envían a ningún servidor. Los destacados y preferencias se guardan solo en esta extensión.',
     'resync.button': 'Releer marcadores',
 
     'view.all': 'Todos los marcadores',
@@ -457,7 +482,7 @@ globalThis.BD_I18N = Object.freeze({
     'folder.unnamed': 'Carpeta sin nombre',
     'bookmark.untitled': 'Sin título',
     'separator.label': 'Separador',
-    'root': 'Raíz',
+    root: 'Raíz',
 
     'themeBtn.auto': 'Tema: automático (sistema)',
     'themeBtn.light': 'Tema: claro',
@@ -495,7 +520,8 @@ globalThis.BD_I18N = Object.freeze({
     'empty.search.text': 'Ningún marcador coincide con «{q}» en el título, la URL o la carpeta.',
     'empty.search.action': 'Limpiar búsqueda',
     'empty.favorites.title': 'Aún no tienes destacados',
-    'empty.favorites.text': 'Pulsa la estrella de cualquier marcador para tenerlo siempre a mano. Los destacados se guardan solo en esta extensión y no modifican tus marcadores de Firefox.',
+    'empty.favorites.text':
+      'Pulsa la estrella de cualquier marcador para tenerlo siempre a mano. Los destacados se guardan solo en esta extensión y no modifican tus marcadores de Firefox.',
     'empty.favorites.action': 'Ver todos los marcadores',
     'empty.all.title': 'Todavía no hay marcadores',
     'empty.all.text': 'Cuando guardes páginas en Firefox aparecerán aquí automáticamente.',
@@ -503,9 +529,11 @@ globalThis.BD_I18N = Object.freeze({
     'empty.folder.text': 'Añade un marcador, crea una subcarpeta o arrastra aquí elementos desde otra carpeta.',
     'empty.addBookmark': 'Añadir marcador',
     'fatal.read.title': 'No se pudieron leer los marcadores',
-    'fatal.read.text': 'Firefox devolvió un error al leer el árbol de marcadores. Puedes reintentarlo; tus marcadores no se han modificado.',
+    'fatal.read.text':
+      'Firefox devolvió un error al leer el árbol de marcadores. Puedes reintentarlo; tus marcadores no se han modificado.',
     'fatal.noApi.title': 'Abre esta página desde la extensión',
-    'fatal.noApi.text': 'Bookmark Control Panel necesita la API de marcadores de Firefox. Instala la extensión (about:debugging → Cargar complemento temporal) y ábrela con su botón en la barra de herramientas o con una pestaña nueva.',
+    'fatal.noApi.text':
+      'Bookmark Control Panel necesita la API de marcadores de Firefox. Instala la extensión (about:debugging → Cargar complemento temporal) y ábrela con su botón en la barra de herramientas o con una pestaña nueva.',
     'fatal.unexpected.title': 'Algo salió mal',
     'fatal.unexpected.text': 'Se produjo un error inesperado al iniciar Bookmark Control Panel.',
 
@@ -529,11 +557,15 @@ globalThis.BD_I18N = Object.freeze({
     'toast.opError': 'No se pudo completar la operación: {error}',
     'toast.nothingToOpen': 'Aquí no hay enlaces que se puedan abrir en pestañas',
     'toast.openedTabs': { one: 'Se abrió {n} pestaña', other: 'Se abrieron {n} pestañas' },
-    'toast.skipped': { one: '{n} enlace omitido (Firefox lo bloquea en extensiones)', other: '{n} enlaces omitidos (Firefox los bloquea en extensiones)' },
+    'toast.skipped': {
+      one: '{n} enlace omitido (Firefox lo bloquea en extensiones)',
+      other: '{n} enlaces omitidos (Firefox los bloquea en extensiones)',
+    },
     'toast.openAllError': 'Se abrieron {opened} de {total} pestañas: {error}',
 
     'delete.folder.title': '¿Eliminar carpeta?',
-    'delete.folder.message': 'Se eliminará «{name}» de Firefox junto con todo su contenido: {bookmarks} y {subfolders}.',
+    'delete.folder.message':
+      'Se eliminará «{name}» de Firefox junto con todo su contenido: {bookmarks} y {subfolders}.',
     'delete.folder.empty': 'Se eliminará la carpeta vacía «{name}» de Firefox.',
     'delete.bookmark.title': '¿Eliminar marcador?',
     'delete.bookmark.message': 'Se eliminará «{name}» de tus marcadores de Firefox.',
@@ -542,7 +574,10 @@ globalThis.BD_I18N = Object.freeze({
 
     'openAll.confirmTitle': { one: '¿Abrir {n} pestaña?', other: '¿Abrir {n} pestañas?' },
     'openAll.confirmMessage': 'Todos los marcadores de «{name}» se abrirán en pestañas nuevas en segundo plano.',
-    'openAll.confirmSkipped': { one: 'Se omitirá {n} enlace que Firefox no deja abrir desde extensiones (place:, javascript:…).', other: 'Se omitirán {n} enlaces que Firefox no deja abrir desde extensiones (place:, javascript:…).' },
+    'openAll.confirmSkipped': {
+      one: 'Se omitirá {n} enlace que Firefox no deja abrir desde extensiones (place:, javascript:…).',
+      other: 'Se omitirán {n} enlaces que Firefox no deja abrir desde extensiones (place:, javascript:…).',
+    },
     'openAll.confirm': 'Abrir pestañas',
 
     'editor.newBookmark': 'Nuevo marcador',
@@ -582,9 +617,11 @@ globalThis.BD_I18N = Object.freeze({
     'home.back': 'Volver a {name}',
     'home.url': 'Dirección de la página de inicio',
     'home.copy': 'Copiar',
-    'home.urlHint': 'Esta dirección abre siempre el modo minimalista. Para usarla como página de inicio de Firefox, pégala en Ajustes de Firefox → Inicio → Página de inicio y nuevas ventanas → Direcciones personalizadas.',
+    'home.urlHint':
+      'Esta dirección abre siempre el modo minimalista. Para usarla como página de inicio de Firefox, pégala en Ajustes de Firefox → Inicio → Página de inicio y nuevas ventanas → Direcciones personalizadas.',
     'opt.minimal': 'Modo minimalista',
-    'opt.minimalHint': 'Muestra solo el tablero de la carpeta de inicio: se ocultan el buscador, los paneles laterales y los botones. Para salir, usa el botón de la esquina superior derecha.',
+    'opt.minimalHint':
+      'Muestra solo el tablero de la carpeta de inicio: se ocultan el buscador, los paneles laterales y los botones. Para salir, usa el botón de la esquina superior derecha.',
     'shortcut.minimalEsc': 'Modo minimalista: volver a la carpeta de inicio',
     'toast.minimalOn': 'Modo minimalista. Para salir, usa el botón de la esquina superior derecha.',
     'toast.homeSet': '«{name}» es ahora la página de inicio',
@@ -592,7 +629,8 @@ globalThis.BD_I18N = Object.freeze({
     'color.default': 'Predeterminado',
 
     'backup.title': 'Copia de seguridad',
-    'backup.text': 'Los grupos, colores de carpeta, destacados y ajustes se guardan solo en esta extensión. Guárdalos en un archivo para recuperarlos más adelante o en otro ordenador. Tus marcadores de Firefox no se incluyen (Firefox ya hace sus propias copias).',
+    'backup.text':
+      'Los grupos, colores de carpeta, destacados y ajustes se guardan solo en esta extensión. Guárdalos en un archivo para recuperarlos más adelante o en otro ordenador. Tus marcadores de Firefox no se incluyen (Firefox ya hace sus propias copias).',
     'backup.export': 'Exportar…',
     'backup.import': 'Importar…',
     'backup.tooLarge': 'el archivo es demasiado grande',
@@ -601,8 +639,12 @@ globalThis.BD_I18N = Object.freeze({
     'n.folderColor': { one: '{n} color de carpeta', other: '{n} colores de carpeta' },
     'import.confirmTitle': '¿Restaurar esta copia?',
     'import.created': 'Copia del {date}.',
-    'import.confirmMessage': 'Tus grupos, destacados, colores de carpeta y ajustes actuales se sustituirán por los del archivo ({summary}). Tus marcadores de Firefox no se modifican.',
-    'import.missing': { one: '{n} marcador de la copia no está en este Firefox y se omitirá.', other: '{n} marcadores de la copia no están en este Firefox y se omitirán.' },
+    'import.confirmMessage':
+      'Tus grupos, destacados, colores de carpeta y ajustes actuales se sustituirán por los del archivo ({summary}). Tus marcadores de Firefox no se modifican.',
+    'import.missing': {
+      one: '{n} marcador de la copia no está en este Firefox y se omitirá.',
+      other: '{n} marcadores de la copia no están en este Firefox y se omitirán.',
+    },
     'import.confirm': 'Restaurar',
     'toast.exported': 'Copia guardada: {file}',
     'toast.exportError': 'No se pudo crear la copia: {error}',
@@ -615,7 +657,8 @@ globalThis.BD_I18N = Object.freeze({
     'groups.new': 'Nuevo grupo',
     'groups.toggle': 'Mostrar u ocultar grupos',
     'groups.close': 'Cerrar grupos',
-    'groups.hint': 'Arrastra marcadores sobre un grupo para añadirlos. Los grupos se guardan solo en esta extensión y no modifican tus marcadores de Firefox.',
+    'groups.hint':
+      'Arrastra marcadores sobre un grupo para añadirlos. Los grupos se guardan solo en esta extensión y no modifican tus marcadores de Firefox.',
     'groups.empty.title': 'Aún no hay grupos',
     'groups.empty.text': 'Crea un grupo, elige su color y arrastra marcadores dentro.',
     'groups.empty.action': 'Crear grupo',
