@@ -132,7 +132,9 @@ bookmarks/
   árbol de carpetas (el de la derecha hace lo mismo con los grupos); el contenido ocupa el espacio
   libre. Se recuerda y se aplica antes del primer pintado. En móvil la barra sigue siendo un cajón.
 - **Modo minimalista / página de inicio**: el botón de las cuatro esquinas (barra superior) deja
-  solo el tablero de la **carpeta de inicio**; se ocultan buscador, paneles laterales, cabecera y
+  solo el tablero de la carpeta (o vista) en la que estás, con «Volver a …» para ir a la **carpeta
+  de inicio**; al salir, el dashboard se queda en la carpeta que estabas viendo. Las pestañas nuevas
+  y la dirección `?home` empiezan en la carpeta de inicio. Se ocultan buscador, paneles laterales, cabecera y
   botones. Para salir, usa el botón fijo de la esquina superior derecha.
   La carpeta de inicio se elige en Ajustes → Página de inicio (también vale «Todos», «Destacados»
   o «Recientes») o con clic derecho en una carpeta → «Usar como página de inicio». Dentro del modo,

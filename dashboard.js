@@ -801,6 +801,11 @@
 
   const isMinimal = () => state.forceHome || state.prefs.minimal;
 
+  /** Algo que se puede mostrar en el modo minimalista: una carpeta o una vista (Todos, Destacados…). */
+  const isShowable = (id) => isView(id) || isFolder(get(id));
+  /** Lo que muestra el modo minimalista: la carpeta abierta en él o, si no hay, la de inicio. */
+  const minimalSelection = () => (state.homeNav && isShowable(state.homeNav) ? state.homeNav : homeId());
+
   function setHomeNav(id) {
     state.homeNav = id;
     try {
@@ -841,7 +846,7 @@
       closeDrawer();
       closeGroupsOverlay();
     }
-    if (state.ready && state.homeNav && !isFolder(get(state.homeNav))) setHomeNav(null);
+    if (state.ready && state.homeNav && !isShowable(state.homeNav)) setHomeNav(null);
     $('#opt-minimal').checked = state.prefs.minimal;
     try {
       localStorage.setItem('bd-minimal', state.prefs.minimal ? '1' : '0');
@@ -853,12 +858,17 @@
   function enterMinimal() {
     closeMenu();
     if ($('#settings-dialog').open) $('#settings-dialog').close();
+    // Se entra mostrando la carpeta (o vista) en la que se estaba, no la de inicio.
+    const from = state.ready ? state.selected : null;
     setPref('minimal', true);
+    if (from && from !== homeId() && isShowable(from)) setHomeNav(from);
     $('#content').scrollTop = 0;
     toast(t('toast.minimalOn'));
   }
 
   function exitMinimal() {
+    // Al salir, el dashboard normal se queda en lo que se estaba viendo.
+    const at = state.ready ? minimalSelection() : null;
     if (state.forceHome) {
       state.forceHome = false;
       const url = new URL(location.href);
@@ -870,6 +880,7 @@
       applyMinimal();
       scheduleRender();
     }
+    if (at && at !== state.selected) selectView(at);
     $('#content').scrollTop = 0;
   }
 
@@ -900,11 +911,11 @@
   /** Barra «Volver a …» cuando se abre una subcarpeta dentro del modo minimalista. */
   function renderHomeBar(view) {
     const bar = $('#home-bar');
-    const away = isMinimal() && view.kind === 'folder' && view.folder.id !== homeId();
+    const away = isMinimal() && view.kind !== 'search' && minimalSelection() !== homeId();
     bar.hidden = !away;
     if (!away) return;
     $('#home-back-label').textContent = t('home.back', { name: selectionTitle(homeId()) });
-    $('#home-here').textContent = folderName(view.folder);
+    $('#home-here').textContent = view.title;
   }
 
   function cycleTheme() {
@@ -1032,7 +1043,7 @@
     const target = resolveSelection(id);
     if (isMinimal()) {
       // Dentro del modo minimalista se navega sin tocar la carpeta del dashboard normal.
-      setHomeNav(target !== homeId() && isFolder(get(target)) ? target : null);
+      setHomeNav(target !== homeId() && isShowable(target) ? target : null);
       state.limit = PAGE_SIZE;
       renderMain();
       $('#content').scrollTop = 0;
@@ -1284,7 +1295,7 @@
   // ----- Contenido principal -----
 
   function computeView() {
-    const sel = isMinimal() ? (isFolder(get(state.homeNav)) ? state.homeNav : homeId()) : state.selected;
+    const sel = isMinimal() ? minimalSelection() : state.selected;
     const root = state.rootId;
 
     if (state.query && !isMinimal()) {
