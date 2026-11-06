@@ -90,6 +90,7 @@ bookmarks/
 ├── icons/
 │   └── icon.svg       # Icono de la extensión
 ├── package.sh         # Genera dist/bookmark-dashboard-<versión>.zip para firmar
+├── sign.sh            # Firma el paquete en AMO (canal privado) y deja el .xpi en dist/
 └── README.md
 ```
 
@@ -241,9 +242,24 @@ ser único en AMO. Si lo rechaza por duplicado, cámbialo por uno propio (p. ej.
 `bookmark-dashboard@tu-dominio.example`) **antes** de la primera firma y mantenlo después
 (el almacenamiento y la URL `moz-extension://` dependen de él).
 
-Alternativa por línea de comandos (opcional): `web-ext sign --channel=unlisted --api-key=… --api-secret=…`
-(la herramienta `web-ext` de Mozilla funciona con Node.js; solo sirve para firmar y no forma parte
-del proyecto).
+### Opción A bis: firmar desde la terminal con `sign.sh`
+
+1. En <https://addons.mozilla.org/developers/addon/api/key/> genera tus credenciales de API
+   («Emisor JWT» y «Secreto JWT»).
+2. Ejecuta (las credenciales solo viven en la sesión; no se guardan en el repositorio):
+   ```sh
+   export WEB_EXT_API_KEY='user:12345:678'     # Emisor JWT
+   export WEB_EXT_API_SECRET='…'               # Secreto JWT
+   ./sign.sh
+   ```
+   El script empaqueta, firma exactamente el contenido del `.zip` por el canal *unlisted* con la
+   herramienta oficial `web-ext` de Mozilla (vía `npx`, no forma parte de la extensión) y deja el
+   `.xpi` firmado en `dist/`.
+3. Instálalo: `about:addons` → ⚙️ → «Instalar complemento desde archivo…».
+
+**Antes de pasar de la versión temporal a la firmada**, exporta tus datos (Ajustes → Copia de
+seguridad → Exportar…) y, ya con la firmada instalada, impórtalos. Los grupos, colores y destacados
+viven en el almacenamiento de la extensión y no van incluidos en el `.xpi`.
 
 ### Opción B: sin firma (solo Developer Edition, Nightly o ESR)
 
