@@ -51,3 +51,6 @@ creds.js
 node_modules/
 
 .tmp
+
+# Dependencias de desarrollo (Vite+)
+node_modules/

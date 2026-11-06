@@ -327,6 +327,31 @@ El punto verde de la esquina inferior izquierda pulsa cada vez que llega un even
 
 ---
 
+## 9. Lint y formato (Vite+)
+
+El código se revisa y formatea con [Vite+](https://viteplus.dev) (`vp`), que integra Oxlint y
+Oxfmt. Es solo una herramienta de desarrollo: `package.sh` empaqueta únicamente los archivos de
+la extensión, así que no entra en el `.xpi` y la extensión sigue sin dependencias.
+
+Requiere Node.js `^22.18.0 || ^24.11.0 || >=26.0.0`. La primera vez:
+
+```sh
+npm install
+```
+
+| Comando | Qué hace |
+| --- | --- |
+| `npm run check` | Formato + lint en una pasada (lo recomendable antes de cada commit). |
+| `npm run lint` | Oxlint sobre los `.js` (entornos `browser` y `webextensions`). |
+| `npm run lint:fix` | Corrige lo que se pueda de forma automática. |
+| `npm run fmt` | Formatea JS, CSS, HTML, JSON y Markdown (escribe los archivos). |
+| `npm run fmt:check` | Solo comprueba el formato, sin escribir. |
+
+La configuración está en `vite.config.mjs` (bloques `lint` y `fmt`): comillas simples, punto y
+coma, comas finales y 120 columnas. Las reglas desactivadas llevan un comentario con el motivo.
+
+---
+
 ## Solución de problemas
 
 - **La interfaz sale en inglés**: es el idioma por defecto. Cámbialo en Ajustes (icono de

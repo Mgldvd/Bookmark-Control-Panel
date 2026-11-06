@@ -1,0 +1,18 @@
+{
+  "name": "bookmark-control-panel",
+  "private": true,
+  "description": "Herramientas de desarrollo (lint y formato con Vite+). La extensión no usa dependencias: package.sh solo empaqueta sus propios archivos.",
+  "scripts": {
+    "check": "vp check",
+    "lint": "vp lint",
+    "lint:fix": "vp lint --fix",
+    "fmt": "vp fmt",
+    "fmt:check": "vp fmt --check"
+  },
+  "devDependencies": {
+    "vite-plus": "1.5.0"
+  },
+  "engines": {
+    "node": "^22.18.0 || ^24.11.0 || >=26.0.0"
+  }
+}

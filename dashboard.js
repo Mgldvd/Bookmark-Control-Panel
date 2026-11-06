@@ -398,6 +398,8 @@
   async function loadTree() {
     for (let attempt = 0; ; attempt++) {
       const seq = state.eventSeq;
+      // Reintento secuencial a propósito: hay que comparar eventSeq después de cada lectura.
+      // oxlint-disable-next-line no-await-in-loop
       const tree = await api.bookmarks.getTree();
       if (!Array.isArray(tree) || !tree[0]) throw new Error('getTree() returned an empty tree');
       if (seq === state.eventSeq || attempt >= 2) {
@@ -485,7 +487,7 @@
       out.push(n);
       n = get(n.parentId);
     }
-    return out.reverse();
+    return out.toReversed();
   }
 
   function pathText(id) {
@@ -1190,11 +1192,11 @@
     scrollSelectedIntoView();
   }
 
-  function applyQuery(value, render = true) {
+  function applyQuery(value, rerender = true) {
     state.query = value.trim();
     state.terms = fold(state.query).split(/\s+/).filter(Boolean);
     state.limit = PAGE_SIZE;
-    if (render && state.ready) {
+    if (rerender && state.ready) {
       updateSidebarSelection();
       renderMain();
       $('#content').scrollTop = 0;
@@ -1227,13 +1229,13 @@
   function sortNodes(list, nameFn) {
     switch (state.prefs.sort) {
       case 'name-asc':
-        return list.sort((a, b) => collator.compare(nameFn(a), nameFn(b)));
+        return list.toSorted((a, b) => collator.compare(nameFn(a), nameFn(b)));
       case 'name-desc':
-        return list.sort((a, b) => collator.compare(nameFn(b), nameFn(a)));
+        return list.toSorted((a, b) => collator.compare(nameFn(b), nameFn(a)));
       case 'date-desc':
-        return list.sort((a, b) => b.dateAdded - a.dateAdded);
+        return list.toSorted((a, b) => b.dateAdded - a.dateAdded);
       case 'date-asc':
-        return list.sort((a, b) => a.dateAdded - b.dateAdded);
+        return list.toSorted((a, b) => a.dateAdded - b.dateAdded);
       default:
         return list; // orden original de Firefox
     }
@@ -1452,7 +1454,7 @@
     }
     if (sel === VIEW_RECENT) {
       const items = collectBookmarks(root)
-        .sort((a, b) => b.dateAdded - a.dateAdded)
+        .toSorted((a, b) => b.dateAdded - a.dateAdded)
         .slice(0, RECENT_LIMIT);
       return { kind: 'view', key: sel, title: t(VIEWS[sel].label), icon: VIEWS[sel].icon, items, folders: [], showPath: true, fixedOrder: true };
     }
@@ -2185,6 +2187,8 @@
       for (const url of urls) {
         const props = { url, active: false };
         if (where.windowId !== undefined) Object.assign(props, { windowId: where.windowId, index: where.index + opened });
+        // Una a una a propósito: así las pestañas quedan en el orden de los marcadores.
+        // oxlint-disable-next-line no-await-in-loop
         await api.tabs.create(props);
         opened++;
       }
@@ -2423,9 +2427,9 @@
   const groupBookmarks = (g) => g.items.map(get).filter(isBookmark);
   const serializeGroups = () => state.groups.map((g) => ({ id: g.id, name: g.name, color: g.color, items: [...g.items], collapsed: g.collapsed }));
 
-  function saveGroups({ render = true } = {}) {
+  function saveGroups({ rerender = true } = {}) {
     savePrefs({ groups: serializeGroups() });
-    if (render) scheduleRender();
+    if (rerender) scheduleRender();
   }
 
   function buildGroupIndex() {
@@ -2477,7 +2481,7 @@
     if (!g) return;
     g.collapsed = !g.collapsed;
     syncGroupCollapsed(g); // sin recrear el DOM, para que se anime
-    saveGroups({ render: false });
+    saveGroups({ rerender: false });
   }
 
   function moveGroup(gid, delta) {
