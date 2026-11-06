@@ -149,6 +149,9 @@ bookmarks/
 - **Ajustes rediseñados**: diálogo con pestañas a la izquierda (Apariencia, General, Página de
   inicio, Copia de seguridad, Atajos) y opciones en filas agrupadas; en móvil las pestañas pasan
   arriba. Se navega también con el teclado (flechas, Inicio, Fin).
+- **Columnas del tablero** (Ajustes → Apariencia → Vista de tablero): Auto (según el ancho, como
+  siempre) o un máximo de 1 a 6. Cada columna mide al menos 160px, así que en ventanas estrechas se
+  usan menos; en móvil siempre una.
 - **Borde izquierdo de las tarjetas** (Ajustes → Apariencia → Borde de las tarjetas): la franja de
   color de las tarjetas del tablero y de los grupos se puede ocultar, cambiar de grosor (ninguno,
   fino, normal, grueso, extra; «Ninguno» equivale a apagar el interruptor) y de color general. El color general tiñe las tarjetas de carpeta que

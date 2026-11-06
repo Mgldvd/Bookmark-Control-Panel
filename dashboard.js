@@ -59,6 +59,7 @@
   // Franja de color a la izquierda de las tarjetas: color general y grosor (px).
   const STRIPE_COLORS = ['auto', ...GROUP_COLORS];
   const STRIPE_WIDTHS = [2, 3, 5, 8];
+  const BOARD_COLUMNS = ['auto', 1, 2, 3, 4, 5, 6]; // máximo de columnas del tablero
   const SETTINGS_TABS = ['appearance', 'general', 'home', 'backup', 'shortcuts'];
   const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)');
   const VT_MAX_CARDS = 60; // tarjetas que vuelan a su sitio en la transición (las visibles)
@@ -90,6 +91,7 @@
     stripe: true,
     stripeColor: 'auto',
     stripeWidth: 3,
+    boardColumns: 'auto',
     theme: 'auto',
     view: 'grid',
     sort: 'manual',
@@ -122,6 +124,7 @@
       stripe: DEFAULT_PREFS.stripe,
       stripeColor: DEFAULT_PREFS.stripeColor,
       stripeWidth: DEFAULT_PREFS.stripeWidth,
+      boardColumns: DEFAULT_PREFS.boardColumns,
       theme: DEFAULT_PREFS.theme,
       view: DEFAULT_PREFS.view,
       sort: DEFAULT_PREFS.sort,
@@ -663,6 +666,7 @@
     if (typeof p.homeFolder === 'string' && p.homeFolder) prefs.homeFolder = p.homeFolder;
     if (STRIPE_COLORS.includes(p.stripeColor)) prefs.stripeColor = p.stripeColor;
     if (STRIPE_WIDTHS.includes(p.stripeWidth)) prefs.stripeWidth = p.stripeWidth;
+    if (BOARD_COLUMNS.includes(p.boardColumns)) prefs.boardColumns = p.boardColumns;
     for (const key of ['openInNewTab', 'showFavicons', 'includeSubfolders', 'groupsPanel', 'sidebarPanel', 'minimal', 'stripe']) {
       if (typeof p[key] === 'boolean') prefs[key] = p[key];
     }
@@ -697,6 +701,7 @@
     if (key === 'sidebarPanel') applySidebar();
     if (key === 'minimal' || key === 'homeFolder') applyMinimal();
     if (key === 'stripe' || key === 'stripeColor' || key === 'stripeWidth') applyStripe();
+    if (key === 'boardColumns') applyBoardColumns();
     if (key === 'lang') applyLanguage();
     if (key === 'groupsPanel') applyGroupsPanel();
     if (key === 'includeSubfolders') state.limit = PAGE_SIZE;
@@ -718,6 +723,7 @@
     applySidebar();
     applyMinimal();
     applyStripe();
+    applyBoardColumns();
     applyGroupsPanel();
     applyTheme();
     syncControls();
@@ -786,6 +792,24 @@
     root.style.setProperty('--stripe-w', `${stripeWidth}px`);
     try {
       localStorage.setItem('bd-stripe', `${stripe ? 1 : 0}|${stripeColor}|${stripeWidth}`);
+    } catch {
+      /* sin localStorage: solo afecta al primer pintado */
+    }
+  }
+
+  /** Máximo de columnas del tablero ('auto' = según el ancho, como siempre). */
+  function applyBoardColumns() {
+    const cols = state.prefs.boardColumns;
+    const root = document.documentElement;
+    if (cols === 'auto') {
+      delete root.dataset.boardCols;
+      root.style.removeProperty('--board-cols');
+    } else {
+      root.dataset.boardCols = String(cols);
+      root.style.setProperty('--board-cols', String(cols));
+    }
+    try {
+      localStorage.setItem('bd-board-cols', String(cols));
     } catch {
       /* sin localStorage: solo afecta al primer pintado */
     }
@@ -1029,6 +1053,7 @@
     $('#opt-subfolders').checked = state.prefs.includeSubfolders;
     $('#opt-favicons').checked = state.prefs.showFavicons;
     $('#opt-stripe').checked = state.prefs.stripe;
+    for (const radio of form.querySelectorAll('input[name="board-cols"]')) radio.checked = radio.value === String(state.prefs.boardColumns);
     for (const radio of form.querySelectorAll('input[name="stripe-color"]')) radio.checked = radio.value === state.prefs.stripeColor;
     // «Ninguno» (0) equivale al interruptor apagado; el grosor elegido se conserva.
     const width = state.prefs.stripe ? state.prefs.stripeWidth : 0;
@@ -2783,6 +2808,7 @@
     stripe: (v) => typeof v === 'boolean',
     stripeColor: (v) => STRIPE_COLORS.includes(v),
     stripeWidth: (v) => STRIPE_WIDTHS.includes(v),
+    boardColumns: (v) => BOARD_COLUMNS.includes(v),
     view: (v) => VIEW_MODES.includes(v),
     sort: (v) => SORTS.includes(v),
     openInNewTab: (v) => typeof v === 'boolean',
@@ -2990,6 +3016,7 @@
     applySidebar();
     applyMinimal();
     applyStripe();
+    applyBoardColumns();
     applyGroupsPanel();
     syncControls();
     scheduleRender();
@@ -3591,6 +3618,7 @@
       else if (input.id === 'opt-stripe') setPref('stripe', input.checked);
       else if (input.name === 'stripe-color') setPref('stripeColor', input.value);
       else if (input.name === 'stripe-width') setStripeWidth(Number(input.value));
+      else if (input.name === 'board-cols') setPref('boardColumns', input.value === 'auto' ? 'auto' : Number(input.value));
       else if (input.id === 'opt-newtab') setPref('openInNewTab', input.checked);
       else if (input.id === 'opt-subfolders') setPref('includeSubfolders', input.checked);
       else if (input.id === 'opt-favicons') {
@@ -3733,6 +3761,7 @@
     applySidebar();
     applyMinimal();
     applyStripe();
+    applyBoardColumns();
     applyGroupsPanel();
     applyTheme();
     syncControls();

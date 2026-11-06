@@ -24,6 +24,11 @@ try {
   if (['2', '3', '5', '8'].includes(stripeWidth)) {
     document.documentElement.style.setProperty('--stripe-w', `${stripeWidth}px`);
   }
+  const cols = localStorage.getItem('bd-board-cols');
+  if (['1', '2', '3', '4', '5', '6'].includes(cols)) {
+    document.documentElement.dataset.boardCols = cols;
+    document.documentElement.style.setProperty('--board-cols', cols);
+  }
   if (localStorage.getItem('bd-minimal') === '1') {
     document.documentElement.classList.add('minimal');
   }

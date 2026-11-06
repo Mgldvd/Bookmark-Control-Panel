@@ -1301,6 +1301,9 @@ label.set-row { cursor: pointer; }
 /* ---------- Vista de tablero (carpetas como tarjetas con sus enlaces) ---------- */
 .is-board-section .section-title { display: none; }
 .cards.is-board { display: block; columns: 290px auto; column-gap: 14px; }
+/* Columnas elegidas en Ajustes: es un máximo; cada columna mide al menos 160px,
+   así en ventanas estrechas se usan menos. */
+:root[data-board-cols] .cards.is-board { columns: 160px var(--board-cols); }
 .cards.is-board > .board-card { break-inside: avoid; margin-bottom: 14px; }
 
 .board-card {
@@ -1917,6 +1920,7 @@ label.set-row { cursor: pointer; }
   .controls .select-wrap select { width: 100%; }
 
   .cards { grid-template-columns: minmax(0, 1fr); }
+  :root[data-board-cols] .cards.is-board { columns: 1; }
   .folder-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 
   .cards.is-list .card {
