@@ -111,6 +111,26 @@ bookmarks/
 - Crear marcadores y carpetas, renombrar, editar URL, mover (diálogo o **arrastrando** a cualquier
   carpeta de la barra lateral o a un bloque de carpeta) y eliminar con confirmación (en carpetas
   se indica cuánto contenido se borrará).
+- **Reordenar arrastrando** en la sección principal (cuadrícula, lista y tablero): suelta un
+  marcador antes o después de otro y una línea marca el hueco; el cambio se guarda en los
+  marcadores de Firefox. Soltarlo junto a un marcador de otra carpeta (otra tarjeta del tablero o
+  una subcarpeta incluida) lo mueve a esa posición de esa carpeta. Solo con «Orden original»; con
+  otro orden, soltar sobre la carpeta la sigue moviendo al final. Un enlace arrastrado desde una
+  web se guarda en la posición donde se suelta.
+- **Reordenar carpetas arrastrando**: un bloque de carpeta (o la cabecera de una tarjeta del
+  tablero) soltado en el **borde** de otro se coloca antes o después de él; en el **centro** se
+  mete dentro, como siempre. En la cuadrícula valen los bordes izquierdo y derecho; en el tablero,
+  el superior y el inferior.
+- **Deshacer**: al mover (arrastrando o con «Mover a…»), reordenar o eliminar aparece un aviso con
+  **«Deshacer»** (también `Ctrl+Z` durante un minuto). Al deshacer un borrado se recrea todo con su
+  contenido en su sitio, y sus destacados, grupos, color de carpeta, carpeta de inicio y estado
+  plegado pasan a los marcadores recreados.
+- **Selección múltiple**: `Ctrl`/`⌘`+clic sobre un marcador (o su casilla, que aparece al pasar
+  el ratón por la tarjeta) lo selecciona; `Mayús`+clic selecciona el rango. Con algo
+  seleccionado, un clic normal también alterna la selección, `Ctrl+A` selecciona toda la vista,
+  `Supr` elimina y `Esc` la quita. La barra inferior permite **abrir**, **mover a…**, **añadir a
+  grupo** y **eliminar** todo a la vez; arrastrar uno de los seleccionados arrastra todos (a una
+  carpeta, a un hueco o a un grupo). El clic central sigue abriendo el enlace en una pestaña.
 - Arrastrar un enlace desde cualquier página web o la barra de direcciones a una carpeta lo guarda
   como marcador allí.
 - Menú contextual (clic derecho o botón `⋯`) en tarjetas y carpetas.
@@ -128,11 +148,32 @@ bookmarks/
   una tarjeta para sus propios marcadores y otra por cada subcarpeta (con accesos a sus
   sub-subcarpetas); en «Todos», «Destacados», «Recientes» y en la búsqueda, los marcadores se
   agrupan por carpeta mostrando su ruta. Cada tarjeta enseña 10 enlaces («Mostrar más» para el
-  resto), se puede contraer (se recuerda), su cabecera abre la carpeta (clic central: todo en
+  resto; si la dejas desplegada, se recuerda), se puede contraer (se recuerda), su cabecera abre la carpeta (clic central: todo en
   pestañas) y acepta marcadores arrastrados (los mueve a esa carpeta en Firefox).
 - **Ocultar la barra lateral**: el botón de panel a la izquierda del buscador oculta o muestra el
   árbol de carpetas (el de la derecha hace lo mismo con los grupos); el contenido ocupa el espacio
   libre. Se recuerda y se aplica antes del primer pintado. En móvil la barra sigue siendo un cajón.
+- **Tira**: vista especial (barra lateral, bajo «Recientes») con las carpetas que elijas, una al
+  lado de otra como tarjetas del tablero en una sola fila. No tiene barra de desplazamiento: se
+  mueve con la **rueda del ratón** (en horizontal; al llegar al extremo la rueda vuelve a ser de la
+  página), **agarrando el fondo** y arrastrando, o acercando a un borde lo que estés arrastrando
+  (una tarjeta o un marcador). Un degradado en los bordes indica que hay más. Las carpetas se
+  eligen en el **árbol de la barra lateral**: con la Tira abierta, cada carpeta muestra una
+  casilla y un clic la añade (al final) o la quita, en vez de abrirla; «Elegir carpetas» lleva
+  ahí (en móvil abre el cajón). También vale «Añadir a la tira» en el menú de cualquier carpeta o
+  arrastrar una carpeta del árbol a la tira. Arrastrar la cabecera de una
+  tarjeta a la izquierda o derecha de otra cambia su sitio (solo en la tira; Firefox no cambia).
+  Dentro de cada tarjeta, las **subcarpetas se despliegan** como un árbol (flecha o clic en su
+  nombre) y muestran sus enlaces y sus propias subcarpetas; se recuerda cuáles están abiertas.
+  Cada tarjeta cabe en la pantalla y tiene su propio scroll vertical: la rueda sobre una tarjeta
+  con más contenido la desplaza a ella; en el resto de la tira, la mueve de lado. Se guarda en
+  `browser.storage.local`, va en la copia de seguridad y puede ser la carpeta de inicio (también
+  en el modo minimalista).
+- **Carpeta de inicio**: cada pestaña nueva del panel empieza en la carpeta o vista marcada con
+  «Usar como página de inicio», tanto en el panel normal como en el modo minimalista. Cualquier
+  vista (también la **Tira**) se marca como inicio con el botón de la casa de la cabecera (se
+  resalta cuando lo que ves ya es el inicio), con clic derecho en la vista de la barra lateral o
+  en Ajustes → Página de inicio.
 - **Modo minimalista / página de inicio**: el botón de las cuatro esquinas (barra superior) deja
   solo el tablero de la carpeta (o vista) en la que estás, con «Volver a …» para ir a la **carpeta
   de inicio**; al salir, el panel se queda en la carpeta que estabas viendo. Las pestañas nuevas
@@ -187,7 +228,7 @@ bookmarks/
 - **Idioma**: inglés por defecto; español opcional en Ajustes → Language / Idioma. Se aplica al
   instante, se guarda en `browser.storage.local` y se sincroniza entre pestañas del panel.
 - Tema claro / oscuro / del sistema, vista cuadrícula/lista, orden (original, nombre A→Z / Z→A,
-  más recientes / más antiguos), última carpeta recordada y carpetas expandidas, todo guardado en
+  más recientes / más antiguos), carpeta de inicio y carpetas expandidas, todo guardado en
   `browser.storage.local`.
 - Responsive: por debajo de 900 px la barra lateral pasa a ser un panel deslizable.
 - Atajos: `/` o `Ctrl+K` buscar · `Intro` abre el primer resultado · `↓` pasa a los resultados ·
@@ -340,16 +381,26 @@ Requiere Node.js `^22.18.0 || ^24.11.0 || >=26.0.0`. La primera vez:
 npm install
 ```
 
-| Comando             | Qué hace                                                             |
-| ------------------- | -------------------------------------------------------------------- |
-| `npm run check`     | Formato + lint en una pasada (lo recomendable antes de cada commit). |
-| `npm run lint`      | Oxlint sobre los `.js` (entornos `browser` y `webextensions`).       |
-| `npm run lint:fix`  | Corrige lo que se pueda de forma automática.                         |
-| `npm run fmt`       | Formatea JS, CSS, HTML, JSON y Markdown (escribe los archivos).      |
-| `npm run fmt:check` | Solo comprueba el formato, sin escribir.                             |
+| Comando             | Qué hace                                                         |
+| ------------------- | ---------------------------------------------------------------- |
+| `npm run check`     | Formato + lint + pruebas (lo recomendable antes de cada commit). |
+| `npm test`          | Solo las pruebas de `tests/`.                                    |
+| `npm run lint`      | Oxlint sobre los `.js` (entornos `browser` y `webextensions`).   |
+| `npm run lint:fix`  | Corrige lo que se pueda de forma automática.                     |
+| `npm run fmt`       | Formatea JS, CSS, HTML, JSON y Markdown (escribe los archivos).  |
+| `npm run fmt:check` | Solo comprueba el formato, sin escribir.                         |
 
 La configuración está en `vite.config.mjs` (bloques `lint` y `fmt`): comillas simples, punto y
 coma, comas finales y 120 columnas. Las reglas desactivadas llevan un comentario con el motivo.
+
+### Pruebas
+
+`tests/` usa `node:test`, sin navegador ni dependencias. `tests/helpers/panel.mjs` carga
+`dashboard.js` (con `i18n.js`) en un contexto aislado de Node, con una API de marcadores simulada
+que se comporta como la de Firefox (y, para comparar, como la de Chrome) y emite sus eventos, un
+DOM mínimo y `browser.storage.local` en memoria. Cubren la carpeta de inicio, «Mostrar más»,
+reordenar marcadores y carpetas, «Deshacer» y la selección múltiple. La interfaz visual (estilos,
+animaciones, arrastre real del ratón) se comprueba a mano en Firefox.
 
 ---
 

@@ -1,9 +1,10 @@
 {
   "name": "bookmark-control-panel",
   "private": true,
-  "description": "Herramientas de desarrollo (lint y formato con Vite+). La extensión no usa dependencias: package.sh solo empaqueta sus propios archivos.",
+  "description": "Herramientas de desarrollo (lint y formato con Vite+, pruebas con node:test). La extensión no usa dependencias: package.sh solo empaqueta sus propios archivos.",
   "scripts": {
-    "check": "vp check",
+    "check": "vp check && npm test",
+    "test": "node --test tests/*.test.mjs",
     "lint": "vp lint",
     "lint:fix": "vp lint --fix",
     "fmt": "vp fmt",

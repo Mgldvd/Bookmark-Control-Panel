@@ -1,5 +1,6 @@
 // Vite+ (https://viteplus.dev) solo se usa para revisar y formatear el código:
-//   npm run check     → formato + lint (lo que conviene pasar antes de cada commit)
+//   npm run check     → formato + lint + pruebas (lo que conviene pasar antes de cada commit)
+//   npm test          → pruebas de tests/ con node:test (sin navegador ni dependencias)
 //   npm run lint      → Oxlint          npm run lint:fix  → corrige lo automático
 //   npm run fmt       → Oxfmt (escribe) npm run fmt:check → solo comprueba
 // No hay build: la extensión se carga tal cual y package.sh empaqueta sus archivos.
@@ -24,11 +25,14 @@ export default defineConfig({
       'no-underscore-dangle': 'off',
       // Copia puntual al importar una copia de seguridad; la claridad pesa más.
       'oxc/no-map-spread': 'off',
+      // Mover, crear y restaurar marcadores va en orden a propósito: cada índice depende
+      // de la operación anterior, y en paralelo los marcadores acabarían descolocados.
+      'no-await-in-loop': 'off',
     },
     overrides: [
       {
-        // Herramientas de Node del propio repositorio.
-        files: ['vite.config.mjs'],
+        // Herramientas de Node del propio repositorio (incluidas las pruebas).
+        files: ['vite.config.mjs', 'tests/**'],
         env: { browser: false, webextensions: false, node: true },
       },
     ],

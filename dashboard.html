@@ -143,6 +143,11 @@
         <rect x="3" y="3" width="7.5" height="18" rx="1.8" />
         <rect x="13.5" y="3" width="7.5" height="11" rx="1.8" />
       </symbol>
+      <symbol id="i-strip" viewBox="0 0 24 24">
+        <rect x="2.5" y="4" width="5.5" height="16" rx="1.5" />
+        <rect x="9.25" y="4" width="5.5" height="11" rx="1.5" />
+        <rect x="16" y="4" width="5.5" height="13.5" rx="1.5" />
+      </symbol>
       <symbol id="i-palette" viewBox="0 0 24 24">
         <path
           d="M12 2.5a9.5 9.5 0 1 0 0 19c1.3 0 2-.9 2-1.9 0-1.2-.9-1.5-.9-2.6 0-1 .8-1.8 1.9-1.8H17a4.5 4.5 0 0 0 4.5-4.5C21.5 6.2 17.3 2.5 12 2.5Z"
@@ -224,6 +229,13 @@
                 <span class="nav-label" data-i18n="nav.recent">Recent</span>
               </button>
             </li>
+            <li>
+              <button class="nav-item" type="button" data-view="view:strip">
+                <svg class="icon"><use href="#i-strip" /></svg>
+                <span class="nav-label" data-i18n="view.strip">Strip</span>
+                <span class="count" id="count-strip"></span>
+              </button>
+            </li>
           </ul>
 
           <div class="nav-heading">
@@ -239,6 +251,11 @@
               <svg class="icon"><use href="#i-folder-plus" /></svg>
             </button>
           </div>
+          <p class="tree-pick-hint" id="tree-pick-hint" hidden>
+            <svg class="icon"><use href="#i-strip" /></svg>
+            <span class="tree-pick-text" data-i18n="strip.treeHint">Check the folders for the strip</span>
+            <span class="tree-pick-count" id="tree-pick-count"></span>
+          </p>
           <ul class="tree" id="tree"></ul>
         </nav>
 
@@ -354,6 +371,28 @@
                 </div>
                 <div class="controls" id="controls">
                   <button
+                    class="btn home-set-btn"
+                    id="home-set-btn"
+                    type="button"
+                    aria-pressed="false"
+                    title="Use as home page"
+                    aria-label="Use as home page"
+                  >
+                    <svg class="icon"><use href="#i-home" /></svg>
+                  </button>
+                  <button
+                    class="btn"
+                    id="strip-pick-btn"
+                    type="button"
+                    hidden
+                    title="Choose the folders shown in the strip"
+                    aria-label="Choose the folders shown in the strip"
+                    data-i18n-attr="title:strip.pickTitle;aria-label:strip.pickTitle"
+                  >
+                    <svg class="icon"><use href="#i-folder-plus" /></svg>
+                    <span data-i18n="strip.pick">Choose folders</span>
+                  </button>
+                  <button
                     class="btn"
                     id="open-all-btn"
                     type="button"
@@ -380,7 +419,13 @@
                     </select>
                     <svg class="icon"><use href="#i-chevron-down" /></svg>
                   </label>
-                  <div class="segmented" role="group" aria-label="View type" data-i18n-attr="aria-label:viewMode.label">
+                  <div
+                    class="segmented"
+                    id="view-modes"
+                    role="group"
+                    aria-label="View type"
+                    data-i18n-attr="aria-label:viewMode.label"
+                  >
                     <button
                       type="button"
                       class="seg-btn"
@@ -504,6 +549,42 @@
     <div class="menu" id="menu" role="menu" hidden></div>
     <div class="toasts" id="toasts" aria-live="polite"></div>
 
+    <!-- Barra de la selección múltiple -->
+    <div
+      class="selection-bar"
+      id="selection-bar"
+      role="toolbar"
+      aria-label="Selected bookmarks"
+      data-i18n-attr="aria-label:selection.label"
+      hidden
+    >
+      <span class="selection-count" id="selection-count" aria-live="polite"></span>
+      <button type="button" class="sel-btn" data-sel="open">
+        <svg class="icon"><use href="#i-tabs" /></svg><span data-i18n="selection.open">Open</span>
+      </button>
+      <button type="button" class="sel-btn" data-sel="move">
+        <svg class="icon"><use href="#i-move" /></svg><span data-i18n="selection.move">Move…</span>
+      </button>
+      <button type="button" class="sel-btn" data-sel="group" aria-haspopup="menu">
+        <svg class="icon"><use href="#i-groups" /></svg><span data-i18n="selection.group">Add to group</span>
+      </button>
+      <button type="button" class="sel-btn sel-btn-danger" data-sel="delete">
+        <svg class="icon"><use href="#i-trash" /></svg><span data-i18n="selection.delete">Delete</span>
+      </button>
+      <span class="selection-sep" aria-hidden="true"></span>
+      <button type="button" class="sel-btn" data-sel="all" data-i18n="selection.all">Select all</button>
+      <button
+        type="button"
+        class="icon-btn icon-btn-sm sel-close"
+        data-sel="clear"
+        title="Clear selection"
+        aria-label="Clear selection"
+        data-i18n-attr="title:selection.clear;aria-label:selection.clear"
+      >
+        <svg class="icon"><use href="#i-close" /></svg>
+      </button>
+    </div>
+
     <!-- Create / edit / move -->
     <dialog class="dialog" id="edit-dialog" aria-labelledby="edit-heading">
       <form id="edit-form" novalidate>
@@ -514,7 +595,7 @@
           </button>
         </header>
         <div class="dialog-body">
-          <label class="field">
+          <label class="field" id="edit-name-row">
             <span data-i18n="edit.name">Name</span>
             <input id="edit-name" type="text" autocomplete="off" />
           </label>

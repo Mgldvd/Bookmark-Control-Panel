@@ -29,10 +29,13 @@
   const VIEW_ALL = 'view:all';
   const VIEW_FAVORITES = 'view:favorites';
   const VIEW_RECENT = 'view:recent';
+  // Tira: las carpetas elegidas, una tarjeta del tablero al lado de otra.
+  const VIEW_STRIP = 'view:strip';
   const VIEWS = {
     [VIEW_ALL]: { label: 'view.all', icon: 'layers' },
     [VIEW_FAVORITES]: { label: 'view.favorites', icon: 'star' },
     [VIEW_RECENT]: { label: 'view.recent', icon: 'clock' },
+    [VIEW_STRIP]: { label: 'view.strip', icon: 'strip' },
   };
 
   // Carpetas raíz de Firefox (ids fijos de Places).
@@ -104,6 +107,9 @@
     groupsPanel: true,
     groups: [],
     boardCollapsed: [],
+    boardShowAll: [],
+    stripFolders: [],
+    stripOpen: [],
     folderColors: {},
     expanded: ['menu________', 'toolbar_____', 'unfiled_____'],
     favorites: [],
@@ -165,14 +171,26 @@
     renderQueued: false,
     lastViewKey: '',
     dragId: null,
+    // Todo lo que se arrastra a la vez (la selección, si se arrastra uno de sus marcadores).
+    dragIds: [],
     dropEl: null,
     dropTimer: 0,
+    // Hueco de reordenación en la sección principal: { el, after, x }.
+    dropSlot: null,
+    reorderable: false,
     menuReturnFocus: null,
     editor: { mode: null, nodeId: null },
     groups: [],
     groupIndex: new Map(),
     groupsSig: '',
-    groupEditor: { id: null, addBookmarkId: null },
+    groupEditor: { id: null, addBookmarkIds: [] },
+    // Última acción que se puede deshacer: { run, at }.
+    undo: null,
+    // Selección múltiple de marcadores en la sección principal.
+    selection: new Set(),
+    selAnchor: null,
+    viewItemIds: [],
+    viewFolderId: null,
     newGroupItem: null,
     dragFromGroup: null,
     menuAnchor: null,
@@ -180,6 +198,13 @@
     boardCollapsed: new Set(),
     boardShowAll: new Set(),
     boardPages: 1,
+    // Carpetas de la tira, en su orden (pueden quedar ids de carpetas borradas:
+    // no se muestran, y «Deshacer» las vuelve a enlazar).
+    stripFolders: [],
+    viewKind: null,
+    treePicking: false,
+    // Subcarpetas desplegadas dentro de las tarjetas de la tira.
+    stripOpen: new Set(),
     folderColors: Object.create(null),
   };
 
@@ -668,6 +693,11 @@
     if (VIEW_MODES.includes(p.view)) prefs.view = p.view;
     if (Array.isArray(p.boardCollapsed))
       state.boardCollapsed = new Set(p.boardCollapsed.filter((x) => typeof x === 'string'));
+    if (Array.isArray(p.boardShowAll))
+      state.boardShowAll = new Set(p.boardShowAll.filter((x) => typeof x === 'string'));
+    if (Array.isArray(p.stripOpen)) state.stripOpen = new Set(p.stripOpen.filter((x) => typeof x === 'string'));
+    if (Array.isArray(p.stripFolders))
+      state.stripFolders = [...new Set(p.stripFolders.filter((x) => typeof x === 'string'))];
     if (p.folderColors && typeof p.folderColors === 'object' && !Array.isArray(p.folderColors)) {
       const colors = Object.create(null);
       for (const [id, color] of Object.entries(p.folderColors)) if (GROUP_COLORS.includes(color)) colors[id] = color;
@@ -1031,6 +1061,40 @@
     });
   }
 
+  /** Casa de la cabecera: marca lo que se ve como página de inicio (o indica que ya lo es). */
+  function renderHomeSetBtn(view) {
+    const btn = $('#home-set-btn');
+    btn.hidden = view.kind === 'search';
+    if (btn.hidden) return;
+    const isHome = view.key === homeId();
+    const label = t(isHome ? 'home.isHere' : 'home.setHere', { name: view.title });
+    btn.setAttribute('aria-pressed', String(isHome));
+    btn.title = label;
+    btn.setAttribute('aria-label', label);
+  }
+
+  /** Lo que muestra ahora el panel (carpeta o vista), o null en una búsqueda. */
+  function currentShown() {
+    if (isMinimal()) return minimalSelection();
+    return state.query ? null : state.selected;
+  }
+
+  function setHomeHere() {
+    const id = currentShown();
+    if (!id || !isShowable(id)) return;
+    if (id === homeId()) toast(t('home.isHere', { name: selectionTitle(id) }));
+    else setHomeFolder(id);
+  }
+
+  /** Menú contextual de las vistas de la barra lateral (Todos, Destacados, Recientes, Tira). */
+  function viewMenu(id) {
+    return [
+      { label: t('menu.open'), icon: VIEWS[id].icon, run: () => selectView(id) },
+      homeId() !== id && { label: t('menu.setHome'), icon: 'home', run: () => setHomeFolder(id) },
+      id === VIEW_STRIP && { label: t('strip.pick'), icon: 'folder-plus', run: revealTreePicker },
+    ];
+  }
+
   function setHomeFolder(id) {
     setPref('homeFolder', id);
     toast(t('toast.homeSet', { name: selectionTitle(id) }));
@@ -1200,6 +1264,7 @@
 
   function selectView(id) {
     if (!state.ready) return;
+    clearSelection();
     const target = resolveSelection(id);
     if (isMinimal()) {
       // Dentro del modo minimalista se navega sin tocar la carpeta del panel normal.
@@ -1225,6 +1290,7 @@
   }
 
   function applyQuery(value, rerender = true) {
+    if (value.trim() !== state.query) clearSelection();
     state.query = value.trim();
     state.terms = fold(state.query).split(/\s+/).filter(Boolean);
     state.limit = PAGE_SIZE;
@@ -1347,8 +1413,14 @@
 
     $('#count-all').textContent = numberFmt.format(total);
     $('#count-favorites').textContent = numberFmt.format(countFavorites());
+    $('#count-strip').textContent = numberFmt.format(stripFolderNodes().length);
 
     const tree = $('#tree');
+    state.treePicking = stripPicking();
+    tree.classList.toggle('is-picking', state.treePicking);
+    const hint = $('#tree-pick-hint');
+    hint.hidden = !state.treePicking;
+    if (state.treePicking) $('#tree-pick-count').textContent = tn('strip.selected', stripFolderNodes().length);
     const active = document.activeElement;
     const focusedId = tree.contains(active) ? active.closest('.tree-row')?.dataset.id : null;
 
@@ -1399,9 +1471,21 @@
         )
       : el('span', { class: 'tree-spacer' });
 
+    const picked = state.treePicking && inStrip(folder.id);
+    row.classList.toggle('is-in-strip', picked);
     const label = el(
       'button',
-      { class: 'tree-label', type: 'button', title: folderName(folder), dataset: { action: 'select' } },
+      {
+        class: 'tree-label',
+        type: 'button',
+        title: state.treePicking
+          ? `${folderName(folder)} — ${t(picked ? 'menu.stripRemove' : 'menu.stripAdd')}`
+          : folderName(folder),
+        role: state.treePicking ? 'checkbox' : null,
+        'aria-checked': state.treePicking ? String(picked) : null,
+        dataset: { action: 'select' },
+      },
+      state.treePicking ? el('span', { class: 'tree-check', 'aria-hidden': 'true' }, icon('check')) : null,
       icon(folderIcon(folder)),
       el('span', { class: 'tree-name', text: folderName(folder) }),
       el('span', { class: 'count', text: numberFmt.format(counts.get(folder.id) || 0) }),
@@ -1420,6 +1504,11 @@
   }
 
   function updateSidebarSelection() {
+    // Entrar o salir de la tira cambia el árbol (casillas de selección).
+    if (state.ready && state.treePicking !== stripPicking()) {
+      renderSidebar();
+      return;
+    }
     const sel = state.query ? null : state.selected;
     for (const btn of document.querySelectorAll('#views .nav-item')) {
       const on = btn.dataset.view === sel;
@@ -1516,6 +1605,19 @@
       };
     }
 
+    if (sel === VIEW_STRIP) {
+      const folders = stripFolderNodes();
+      return {
+        kind: 'strip',
+        key: sel,
+        title: t(VIEWS[sel].label),
+        icon: VIEWS[sel].icon,
+        items: folders.flatMap((f) => directBookmarks(f)),
+        folders,
+        showPath: false,
+      };
+    }
+
     const folder = get(sel);
     const children = folder.children.map(get);
     const folders = children.filter(isFolder);
@@ -1563,6 +1665,10 @@
     }
     if (view.key === VIEW_FAVORITES) return t('favorites.subtitle', { count: tn('n.starred', view.items.length) });
     if (view.key === VIEW_RECENT) return t('recent.subtitle', { n: numberFmt.format(RECENT_LIMIT) });
+    if (view.kind === 'strip') {
+      if (!view.folders.length) return t('strip.subtitleEmpty');
+      return `${tn('n.folder', view.folders.length)} · ${tn('n.bookmark', view.items.length)}`;
+    }
     const total = getCounts().get(view.folder.id) || 0;
     const parts = [tn('n.bookmark', total)];
     if (view.folders.length) parts.push(tn('n.subfolder', view.folders.length));
@@ -1600,6 +1706,9 @@
 
     $('#sort').disabled = !!view.fixedOrder;
     $('#subfolders-chip').hidden = view.kind !== 'folder';
+    $('#strip-pick-btn').hidden = view.kind !== 'strip';
+    renderHomeSetBtn(view);
+    $('#view-modes').hidden = view.kind === 'strip';
     $('#open-all-btn').hidden = !view.items.some((n) => isOpenable(n.url));
     $('#controls').hidden = false;
     document.title =
@@ -1613,8 +1722,16 @@
     renderHeader(view);
 
     $('#content').dataset.dropId = view.kind === 'folder' ? view.folder.id : '';
+    // Reordenar arrastrando solo tiene sentido si se ve el orden real de Firefox.
+    state.reorderable = (view.kind === 'folder' || view.kind === 'strip') && state.prefs.sort === 'manual';
+    state.viewFolderId = view.kind === 'folder' ? view.folder.id : null;
+    state.viewItemIds = view.items.map((n) => n.id);
+    state.viewKind = view.kind;
 
-    const board = viewMode() === 'board';
+    // La tira siempre usa las tarjetas del tablero, pero en una sola fila.
+    const strip = view.kind === 'strip';
+    const board = strip || viewMode() === 'board';
+    $('#content').classList.toggle('is-strip-view', strip);
     renderHomeBar(view);
 
     // Carpetas (en el tablero cada carpeta es una tarjeta propia)
@@ -1625,8 +1742,9 @@
 
     const cards = $('#cards');
     const section = $('#bookmarks-section');
-    cards.classList.toggle('is-list', viewMode() === 'list');
-    cards.classList.toggle('is-board', board);
+    cards.classList.toggle('is-list', !board && viewMode() === 'list');
+    cards.classList.toggle('is-board', board && !strip);
+    cards.classList.toggle('is-strip', strip);
     section.classList.toggle('is-board-section', board);
     let remaining;
 
@@ -1637,7 +1755,23 @@
       $('#bookmarks-count').textContent = numberFmt.format(view.items.length);
       state.cardEls.clear();
       const seen = new Set();
-      cards.replaceChildren(...shown.map((s) => boardCard(s, view, seen)));
+      // Cada tarjeta de la tira tiene su propio scroll vertical: se conserva al repintar.
+      const scrolls = new Map();
+      if (strip) {
+        for (const card of cards.querySelectorAll(':scope > .board-card')) {
+          const top = card.querySelector('.board-inner')?.scrollTop;
+          if (top) scrolls.set(card.dataset.folderId, top);
+        }
+      }
+      const cardEls = shown.map((s) => boardCard(s, view, seen));
+      // Al final de la tira, un hueco para añadir (o soltar) carpetas.
+      if (strip && shown.length === sections.length) cardEls.push(stripAddTile());
+      cards.replaceChildren(...cardEls);
+      for (const card of cardEls) {
+        const top = scrolls.get(card.dataset.folderId);
+        if (top) card.querySelector('.board-inner').scrollTop = top;
+      }
+      requestAnimationFrame(updateStripEdges);
       for (const id of state.rowEls.keys()) if (!seen.has(id)) state.rowEls.delete(id);
       remaining = sections.length - shown.length;
     } else {
@@ -1648,6 +1782,7 @@
       $('#bookmarks-count').textContent = numberFmt.format(view.items.length);
       state.rowEls.clear();
       reconcileCards(cards, visible, view);
+      updateStripEdges();
       remaining = view.items.length - visible.filter(isBookmark).length;
     }
 
@@ -1672,6 +1807,7 @@
     }
 
     renderEmpty(view);
+    syncSelection();
     state.newIds.clear();
   }
 
@@ -1685,6 +1821,13 @@
   }
 
   function boardSections(view) {
+    if (view.kind === 'strip') {
+      return view.folders.map((f) => ({
+        folder: f,
+        rows: boardRowsOf(f),
+        subfolders: sortNodes(f.children.map(get).filter(isFolder), folderName),
+      }));
+    }
     if (view.kind === 'folder') {
       const self = view.folder;
       const sections = [];
@@ -1785,6 +1928,7 @@
     li._sig = sig;
     const title = bookmarkTitle(n);
     const parts = [
+      selectButton(title),
       faviconEl(n, title),
       bookmarkLink(n, 'board-link', title),
       groupDots(n),
@@ -1827,9 +1971,16 @@
 
     const name = folderName(f);
     const path = s.showPath ? pathText(f.id) : '';
+    // La cabecera arrastra la carpeta entera (para reordenarla o moverla a otra).
+    // En la tira también las carpetas raíz: ahí solo se cambia su sitio en la tira.
+    const movable = !isBuiltin(f.id) || view.kind === 'strip';
     const head = el(
       'div',
-      { class: 'board-head', dataset: { id: f.id } },
+      {
+        class: 'board-head',
+        draggable: movable ? 'true' : null,
+        dataset: { id: f.id, dragId: movable ? f.id : null },
+      },
       el(
         'button',
         {
@@ -1890,7 +2041,9 @@
         ),
       );
     }
-    if (s.subfolders.length) {
+    if (s.subfolders.length && view.kind === 'strip') {
+      inner.append(stripSubList(s.subfolders, seen));
+    } else if (s.subfolders.length) {
       inner.append(
         el(
           'div',
@@ -1928,7 +2081,120 @@
     return card;
   }
 
+  // ----- Tira: subcarpetas desplegables dentro de cada tarjeta -----
+  // En vez de accesos sueltos, las subcarpetas forman un árbol: al desplegar una
+  // se ven sus enlaces (y sus propias subcarpetas) sin salir de la tira.
+
+  const saveStripOpen = debounce(() => savePrefs({ stripOpen: [...state.stripOpen] }), 300);
+
+  /** Recorta a BOARD_ROWS enlaces (sin dejar un separador colgando al final). */
+  function trimRows(all, showAll) {
+    const rows = [];
+    let count = 0;
+    for (const row of all) {
+      if (isBookmark(row)) {
+        if (!showAll && count >= BOARD_ROWS) break;
+        count++;
+      }
+      rows.push(row);
+    }
+    while (rows.length && isSeparator(rows[rows.length - 1])) rows.pop();
+    const total = all.filter(isBookmark).length;
+    return { rows, hidden: total - count, total };
+  }
+
+  function stripSubList(subfolders, seen) {
+    return el('ul', { class: 'strip-subs' }, ...subfolders.map((sub) => stripSubItem(sub, seen)));
+  }
+
+  function stripSubItem(sub, seen) {
+    const open = state.stripOpen.has(sub.id);
+    const name = folderName(sub);
+    const movable = !isBuiltin(sub.id);
+    const label = t(open ? 'board.collapse' : 'board.expand');
+    const head = el(
+      'div',
+      {
+        class: 'strip-sub-head',
+        draggable: movable ? 'true' : null,
+        dataset: { id: sub.id, dropId: sub.id, dragId: movable ? sub.id : null },
+      },
+      el(
+        'button',
+        {
+          class: 'strip-sub-toggle',
+          type: 'button',
+          'aria-expanded': String(open),
+          title: `${name} — ${label}`,
+          dataset: { action: 'strip-sub', target: sub.id },
+        },
+        icon('chevron', 'strip-sub-chevron'),
+        icon(folderIcon(sub), 'strip-sub-icon'),
+        el('span', { class: 'strip-sub-name' }, highlight(name)),
+        el('span', { class: 'strip-sub-count', text: numberFmt.format(getCounts().get(sub.id) || 0) }),
+      ),
+      el(
+        'button',
+        {
+          class: 'icon-btn icon-btn-sm',
+          type: 'button',
+          title: t('action.more'),
+          'aria-label': t('action.more'),
+          'aria-haspopup': 'menu',
+          dataset: { action: 'folder-more' },
+        },
+        icon('more'),
+      ),
+    );
+    const li = paintFolder(
+      el('li', { class: open ? 'strip-sub is-open' : 'strip-sub', dataset: { folderId: sub.id } }, head),
+      sub.id,
+    );
+    if (!open) return li;
+
+    const body = el('div', { class: 'strip-sub-body' });
+    const showAll = state.boardShowAll.has(sub.id);
+    const { rows, hidden, total } = trimRows(boardRowsOf(sub), showAll);
+    const subs = sortNodes(sub.children.map(get).filter(isFolder), folderName);
+    if (rows.length) {
+      body.append(
+        el(
+          'ul',
+          { class: 'board-rows' },
+          ...rows.map((row) => {
+            seen.add(row.id);
+            return boardRowEl(row);
+          }),
+        ),
+      );
+    }
+    if (hidden > 0 || (showAll && total > BOARD_ROWS)) {
+      body.append(
+        el(
+          'button',
+          { class: 'board-more-rows', type: 'button', dataset: { action: 'board-rows', target: sub.id } },
+          showAll ? t('board.showLess') : tn('board.showMore', hidden),
+        ),
+      );
+    }
+    if (subs.length) body.append(stripSubList(subs, seen));
+    if (!rows.length && !subs.length) body.append(el('p', { class: 'strip-sub-empty', text: t('board.empty') }));
+    li.append(body);
+    return li;
+  }
+
+  /** Despliega o pliega una subcarpeta de la tira (y repinta solo esa rama). */
+  function toggleStripSub(id, li) {
+    if (state.stripOpen.has(id)) state.stripOpen.delete(id);
+    else state.stripOpen.add(id);
+    saveStripOpen();
+    const sub = get(id);
+    if (li && isFolder(sub)) li.replaceWith(stripSubItem(sub, new Set()));
+  }
+
   const saveBoardCollapsed = debounce(() => savePrefs({ boardCollapsed: [...state.boardCollapsed] }), 300);
+  // Tarjetas con «Mostrar N más» desplegado: se recuerda entre pestañas y sesiones.
+  const saveBoardShowAll = debounce(() => savePrefs({ boardShowAll: [...state.boardShowAll] }), 300);
 
   function toggleBoardCollapsed(id, card) {
     const collapse = !state.boardCollapsed.has(id);
@@ -1944,6 +2210,285 @@
       btn.setAttribute('aria-label', label);
     }
     saveBoardCollapsed();
+  }
+
+  // ----- Tira: carpetas elegidas, una al lado de otra -----
+
+  const saveStrip = () => savePrefs({ stripFolders: [...state.stripFolders] });
+  const inStrip = (id) => state.stripFolders.includes(id);
+
+  /** Carpetas de la tira que aún existen, en su orden. */
+  function stripFolderNodes() {
+    return state.stripFolders.map(get).filter((f) => isFolder(f) && f.id !== state.rootId);
+  }
+
+  function setStripFolders(list) {
+    state.stripFolders = [...new Set(list)];
+    saveStrip();
+    scheduleRender();
+  }
+
+  function toggleStrip(id) {
+    const f = get(id);
+    if (!isFolder(f)) return;
+    const name = folderName(f);
+    if (inStrip(id)) {
+      const before = [...state.stripFolders];
+      setStripFolders(before.filter((x) => x !== id));
+      toast(t('toast.stripRemoved', { name }), 'info', {
+        label: t('action.undo'),
+        run: () => setStripFolders(before),
+      });
+      return;
+    }
+    setStripFolders([...state.stripFolders, id]);
+    const showing = (isMinimal() ? minimalSelection() : state.selected) === VIEW_STRIP;
+    toast(
+      t('toast.stripAdded', { name }),
+      'info',
+      showing ? null : { label: t('strip.show'), run: () => selectView(VIEW_STRIP) },
+    );
+  }
+
+  /** Coloca una carpeta en la posición `index` de la tira (sin contarla a ella). */
+  function placeInStrip(id, index) {
+    const list = state.stripFolders.filter((x) => x !== id);
+    list.splice(clamp(index, 0, list.length), 0, id);
+    setStripFolders(list);
+  }
+
+  /** Hueco del final de la tira: abre el selector y acepta carpetas arrastradas. */
+  function stripAddTile() {
+    return el(
+      'button',
+      { class: 'strip-add', type: 'button', dataset: { action: 'strip-pick' } },
+      icon('plus'),
+      el('span', { text: t('strip.add') }),
+    );
+  }
+
+  /**
+   * Hueco de la tira para una carpeta arrastrada (desde la tira o desde el árbol):
+   * a la izquierda o a la derecha de la tarjeta bajo el puntero, o al final.
+   */
+  function stripSlot(event) {
+    if (state.viewKind !== 'strip' || state.dragFromGroup) return null;
+    const ids = state.dragIds;
+    if (ids.length !== 1 || !isFolder(get(ids[0]))) return null;
+    const id = ids[0];
+    const item = event.target.closest?.('#cards .board-card[data-folder-id], #cards .strip-add');
+    if (!item) return null;
+    const list = state.stripFolders.filter((x) => x !== id);
+    let index;
+    let after = false;
+    if (item.classList.contains('strip-add')) index = list.length;
+    else {
+      const rect = item.getBoundingClientRect();
+      after = event.clientX > rect.left + rect.width / 2;
+      const target = item.dataset.folderId;
+      if (target === id) return { el: item, after, x: true, noop: true, folderId: id, index: 0 };
+      index = list.indexOf(target) + (after ? 1 : 0);
+    }
+    const noop = inStrip(id) && state.stripFolders.indexOf(id) === index;
+    return { el: item, after, x: true, noop, folderId: id, index };
+  }
+
+  // ----- Elegir las carpetas de la tira en el árbol lateral -----
+  // Con la tira a la vista, el árbol entra en «modo selección»: cada carpeta lleva
+  // una casilla y un clic la añade o la quita (en vez de abrirla).
+
+  const stripPicking = () => !isMinimal() && currentShown() === VIEW_STRIP;
+
+  function toggleStripPick(id) {
+    if (!isFolder(get(id)) || id === state.rootId) return;
+    setStripFolders(inStrip(id) ? state.stripFolders.filter((x) => x !== id) : [...state.stripFolders, id]);
+  }
+
+  /** «Elegir carpetas»: muestra el árbol (cajón en móvil) y señala dónde marcar. */
+  function revealTreePicker() {
+    closeMenu();
+    // El modo minimalista no tiene árbol: se sale de él (y se queda en la tira).
+    if (isMinimal()) {
+      if (minimalSelection() !== VIEW_STRIP) selectView(VIEW_STRIP);
+      exitMinimal();
+      return;
+    }
+    if (!stripPicking()) selectView(VIEW_STRIP);
+    if (window.matchMedia('(max-width: 900px)').matches) openDrawer();
+    else if (!state.prefs.sidebarPanel) setPref('sidebarPanel', true);
+    const hint = $('#tree-pick-hint');
+    hint.classList.remove('is-flash');
+    void hint.offsetWidth; // reinicia la animación
+    hint.classList.add('is-flash');
+    hint.scrollIntoView({ block: 'nearest' });
+    $('#tree .tree-label')?.focus({ preventScroll: true });
+  }
+
+  // ----- Desplazamiento de la tira (sin barra visible) -----
+  // La rueda la mueve en horizontal (con suavizado), el fondo se puede agarrar y
+  // arrastrar con el ratón, y al arrastrar una tarjeta o un marcador cerca de un
+  // borde la tira avanza sola. Unos degradados en los bordes indican que hay más.
+
+  const stripEl = () => {
+    const cards = $('#cards');
+    return cards.classList.contains('is-strip') ? cards : null;
+  };
+  const stripMax = (cards) => Math.max(0, cards.scrollWidth - cards.clientWidth);
+
+  /** Marca en qué lados queda contenido oculto (para los degradados del CSS). */
+  function updateStripEdges() {
+    const cards = $('#cards');
+    const on = cards.classList.contains('is-strip');
+    const max = on ? stripMax(cards) : 0;
+    cards.classList.toggle('has-more-left', on && cards.scrollLeft > 1);
+    cards.classList.toggle('has-more-right', on && cards.scrollLeft < max - 1);
+    $('#content').classList.toggle('can-pan', max > 0);
+    // Altura máxima de las tarjetas: lo que queda de pantalla bajo la cabecera
+    // (cada tarjeta se desplaza por dentro; la página no).
+    if (on) {
+      const content = $('#content');
+      const top = cards.getBoundingClientRect().top - content.getBoundingClientRect().top + content.scrollTop;
+      cards.style.setProperty('--strip-h', `${Math.max(280, Math.floor(content.clientHeight - top - 36))}px`);
+    }
+  }
+
+  // Rueda: se acumula un destino y se llega a él poco a poco.
+  const wheelScroll = { target: 0, raf: 0 };
+
+  function stripWheel(event) {
+    const cards = stripEl();
+    if (!cards || event.ctrlKey || event.target.closest?.('#view-head, #home-bar')) return;
+    // El desplazamiento horizontal del touchpad (o Mayús+rueda) ya lo hace el navegador.
+    if (event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
+    // Sobre una tarjeta con más contenido del que cabe, la rueda la desplaza a ella.
+    const inner = event.target.closest?.('.board-inner');
+    if (inner && inner.scrollHeight > inner.clientHeight + 1) return;
+    const max = stripMax(cards);
+    if (!max) return;
+    const unit = event.deltaMode === 1 ? 40 : event.deltaMode === 2 ? cards.clientWidth : 1;
+    const delta = event.deltaY * unit;
+    const from = wheelScroll.raf ? wheelScroll.target : cards.scrollLeft;
+    // En el extremo, la rueda vuelve a ser de la página (por si se desplaza en vertical).
+    if ((delta < 0 && from <= 0) || (delta > 0 && from >= max - 1)) return;
+    event.preventDefault();
+    wheelScroll.target = clamp(from + delta, 0, max);
+    if (REDUCED_MOTION.matches) {
+      cards.scrollLeft = wheelScroll.target;
+      return;
+    }
+    if (wheelScroll.raf) return;
+    const step = () => {
+      const diff = wheelScroll.target - cards.scrollLeft;
+      if (Math.abs(diff) < 1 || !cards.classList.contains('is-strip')) {
+        if (cards.classList.contains('is-strip')) cards.scrollLeft = wheelScroll.target;
+        wheelScroll.raf = 0;
+        return;
+      }
+      cards.scrollLeft += diff * 0.22;
+      wheelScroll.raf = requestAnimationFrame(step);
+    };
+    wheelScroll.raf = requestAnimationFrame(step);
+  }
+
+  function stopWheelScroll() {
+    cancelAnimationFrame(wheelScroll.raf);
+    wheelScroll.raf = 0;
+  }
+
+  // Agarrar el fondo: lo que no es un enlace, un botón ni algo arrastrable.
+  const PAN_IGNORE = 'a, button, input, select, textarea, label, [draggable="true"], #view-head, #home-bar, #empty';
+  let pan = null;
+
+  function stripPointerDown(event) {
+    const cards = stripEl();
+    if (!cards || event.button !== 0 || event.pointerType !== 'mouse' || !stripMax(cards)) return;
+    if (event.target.closest?.(PAN_IGNORE)) return;
+    stopWheelScroll();
+    pan = { id: event.pointerId, x: event.clientX, left: cards.scrollLeft, moved: false, cards };
+  }
+
+  function stripPointerMove(event) {
+    if (!pan || event.pointerId !== pan.id) return;
+    const dx = event.clientX - pan.x;
+    if (!pan.moved) {
+      if (Math.abs(dx) < 5) return;
+      pan.moved = true;
+      try {
+        $('#content').setPointerCapture(pan.id);
+      } catch {
+        /* sin captura: el arrastre sigue mientras el puntero esté sobre el contenido */
+      }
+      document.documentElement.classList.add('is-panning');
+      window.getSelection?.()?.removeAllRanges();
+    }
+    event.preventDefault();
+    pan.cards.scrollLeft = pan.left - dx;
+  }
+
+  function stripPointerUp(event) {
+    if (!pan || event.pointerId !== pan.id) return;
+    const moved = pan.moved;
+    pan = null;
+    document.documentElement.classList.remove('is-panning');
+    // Que soltar tras arrastrar no cuente como clic (el clic llega justo después).
+    if (moved) {
+      const swallow = (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+      };
+      window.addEventListener('click', swallow, { capture: true, once: true });
+      setTimeout(() => window.removeEventListener('click', swallow, { capture: true }), 0);
+    }
+  }
+
+  // Bordes durante un arrastre (drag & drop): cuanto más cerca, más rápido.
+  const EDGE_ZONE = 90;
+  const EDGE_SPEED = 22;
+  const edgeScroll = { v: 0, at: 0, raf: 0 };
+
+  function stripEdgeScroll(event) {
+    const cards = stripEl();
+    if (!cards || !stripMax(cards) || !event.target.closest?.('#content')) {
+      edgeScroll.v = 0;
+      return;
+    }
+    const r = cards.getBoundingClientRect();
+    const zone = Math.min(EDGE_ZONE, r.width / 4);
+    const x = event.clientX;
+    let v = 0;
+    if (x < r.left + zone) v = -EDGE_SPEED * (1 - Math.max(0, x - r.left) / zone);
+    else if (x > r.right - zone) v = EDGE_SPEED * (1 - Math.max(0, r.right - x) / zone);
+    edgeScroll.v = v;
+    edgeScroll.at = performance.now();
+    if (!v || edgeScroll.raf) return;
+    stopWheelScroll();
+    const step = () => {
+      // dragover llega continuamente; si deja de llegar (fuera de la ventana), se para.
+      if (!edgeScroll.v || performance.now() - edgeScroll.at > 150 || !cards.classList.contains('is-strip')) {
+        edgeScroll.raf = 0;
+        return;
+      }
+      cards.scrollLeft += edgeScroll.v;
+      edgeScroll.raf = requestAnimationFrame(step);
+    };
+    edgeScroll.raf = requestAnimationFrame(step);
+  }
+
+  function stopEdgeScroll() {
+    edgeScroll.v = 0;
+    cancelAnimationFrame(edgeScroll.raf);
+    edgeScroll.raf = 0;
+  }
+
+  function bindStripScroll() {
+    const content = $('#content');
+    content.addEventListener('wheel', stripWheel, { passive: false });
+    content.addEventListener('pointerdown', stripPointerDown);
+    content.addEventListener('pointermove', stripPointerMove);
+    content.addEventListener('pointerup', stripPointerUp);
+    content.addEventListener('pointercancel', stripPointerUp);
+    $('#cards').addEventListener('scroll', updateStripEdges, { passive: true });
+    window.addEventListener('resize', debounce(updateStripEdges, 100));
   }
 
   function animateEntering(container) {
@@ -2102,7 +2647,23 @@
       ),
     );
 
-    return [faviconEl(n, title), main, meta, actions];
+    return [selectButton(title), faviconEl(n, title), main, meta, actions];
+  }
+
+  /** Casilla para la selección múltiple (su estado lo pone syncSelection). */
+  function selectButton(title) {
+    return el(
+      'button',
+      {
+        class: 'select-btn',
+        type: 'button',
+        title: t('card.select'),
+        'aria-label': t('card.selectNamed', { name: title }),
+        'aria-pressed': 'false',
+        dataset: { action: 'select' },
+      },
+      icon('check'),
+    );
   }
 
   /**
@@ -2214,6 +2775,13 @@
           text: t('empty.search.text', { q: state.query }),
           action: { label: t('empty.search.action'), run: clearSearch },
         };
+      } else if (view.kind === 'strip') {
+        spec = {
+          icon: 'strip',
+          title: t('empty.strip.title'),
+          text: t('empty.strip.text'),
+          action: { label: t('strip.pick'), run: revealTreePicker },
+        };
       } else if (view.key === VIEW_FAVORITES) {
         spec = {
           icon: 'star',
@@ -2251,14 +2819,17 @@
       return;
     }
     box.classList.toggle('is-error', error);
+    // replaceChildren() escribiría «null»: se filtran los que faltan.
     box.replaceChildren(
-      el('div', { class: 'empty-icon' }, icon(spec.icon)),
-      el('h2', { text: spec.title }),
-      el('p', { text: spec.text }),
-      spec.detail ? el('p', { class: 'empty-detail', text: spec.detail }) : null,
-      spec.action
-        ? el('button', { class: 'btn btn-primary', type: 'button', onclick: spec.action.run }, spec.action.label)
-        : null,
+      ...[
+        el('div', { class: 'empty-icon' }, icon(spec.icon)),
+        el('h2', { text: spec.title }),
+        el('p', { text: spec.text }),
+        spec.detail ? el('p', { class: 'empty-detail', text: spec.detail }) : null,
+        spec.action
+          ? el('button', { class: 'btn btn-primary', type: 'button', onclick: spec.action.run }, spec.action.label)
+          : null,
+      ].filter(Boolean),
     );
     box.hidden = false;
   }
@@ -2415,13 +2986,194 @@
 
     const ok = await confirmDialog({ title, message, confirmLabel: t('action.delete') });
     if (!ok) return;
+    await deleteNodes([n], done);
+  }
+
+  /** Borra los marcadores seleccionados (con confirmación y opción de deshacer). */
+  async function confirmDeleteMany(ids) {
+    const nodes = ids.map(get).filter(isBookmark);
+    if (!nodes.length) return;
+    if (nodes.length === 1) {
+      await confirmDelete(nodes[0]);
+      return;
+    }
+    const ok = await confirmDialog({
+      title: t('delete.many.title'),
+      message: tn('delete.many.message', nodes.length),
+      confirmLabel: t('action.delete'),
+    });
+    if (!ok) return;
+    clearSelection();
+    await deleteNodes(nodes, tn('toast.deletedMany', nodes.length));
+  }
+
+  // ----- Deshacer -----
+
+  const UNDO_TTL = 60_000;
+
+  /** Copia de un nodo y su contenido desde el modelo, con su posición: basta para recrearlo. */
+  function snapshotNode(id) {
+    const n = get(id);
+    const parent = get(n.parentId);
+    const copy = (node) => ({
+      id: node.id,
+      type: node.type,
+      title: node.title,
+      url: node.url,
+      children: isFolder(node) ? node.children.map(get).filter(Boolean).map(copy) : [],
+    });
+    return { ...copy(n), parentId: n.parentId, index: parent ? parent.children.indexOf(id) : -1 };
+  }
+
+  /** Muestra el aviso con «Deshacer»; también vale Ctrl+Z mientras siga reciente. */
+  function offerUndo(message, run) {
+    const entry = { run, at: Date.now() };
+    state.undo = entry;
+    toast(message, 'info', { label: t('action.undo'), run: () => runUndo(entry) });
+  }
+
+  async function runUndo(entry = state.undo) {
+    if (!entry || state.undo !== entry || Date.now() - entry.at > UNDO_TTL) return false;
+    state.undo = null;
     try {
-      if (isFolder(n)) await api.bookmarks.removeTree(n.id);
-      else await api.bookmarks.remove(n.id);
-      toast(done);
+      await entry.run();
+      toast(t('toast.undone'));
+    } catch (err) {
+      toast(t('toast.undoError', { error: err?.message || err }), 'error');
+    }
+    return true;
+  }
+
+  async function deleteNodes(nodes, message) {
+    const snaps = nodes.map((n) => snapshotNode(n.id));
+    const removed = [];
+    try {
+      for (const s of snaps) {
+        if (s.type === 'folder') await api.bookmarks.removeTree(s.id);
+        else await api.bookmarks.remove(s.id);
+        removed.push(s);
+      }
     } catch (err) {
       toast(t('toast.deleteError', { error: err?.message || err }), 'error');
     }
+    if (removed.length) offerUndo(message, () => restoreSnapshots(removed));
+  }
+
+  /** Vuelve a crear lo borrado en su sitio y pasa favoritos, grupos y ajustes a los ids nuevos. */
+  async function restoreSnapshots(snaps) {
+    const ids = new Map();
+    const create = async (s, parentId, index) => {
+      const info = { parentId };
+      if (index != null) info.index = index;
+      if (s.type === 'separator') info.type = 'separator';
+      else {
+        // Sin URL, Firefox crea una carpeta.
+        info.title = s.title;
+        if (s.type === 'bookmark') info.url = s.url;
+      }
+      const created = await api.bookmarks.create(info);
+      ids.set(s.id, created.id);
+      for (const child of s.children) await create(child, created.id, null);
+    };
+    try {
+      // En orden de posición, para que cada uno vuelva exactamente a su índice.
+      for (const s of snaps.toSorted((a, b) => a.index - b.index)) await create(s, s.parentId, Math.max(0, s.index));
+    } finally {
+      remapRefs(ids);
+    }
+  }
+
+  function remapRefs(ids) {
+    if (!ids.size) return;
+    const swap = (id) => ids.get(id) ?? id;
+    const swapAll = (set) => new Set([...set].map(swap));
+    state.favorites = swapAll(state.favorites);
+    for (const g of state.groups) g.items = [...new Set(g.items.map(swap))];
+    const colors = Object.create(null);
+    for (const [id, color] of Object.entries(state.folderColors)) colors[swap(id)] = color;
+    state.folderColors = colors;
+    state.boardCollapsed = swapAll(state.boardCollapsed);
+    state.boardShowAll = swapAll(state.boardShowAll);
+    state.stripFolders = [...new Set(state.stripFolders.map(swap))];
+    state.stripOpen = swapAll(state.stripOpen);
+    state.expanded = swapAll(state.expanded);
+    const patch = {
+      stripFolders: [...state.stripFolders],
+      stripOpen: [...state.stripOpen],
+      favorites: [...state.favorites],
+      groups: serializeGroups(),
+      folderColors: { ...state.folderColors },
+      boardCollapsed: [...state.boardCollapsed],
+      boardShowAll: [...state.boardShowAll],
+      expanded: [...state.expanded],
+    };
+    if (ids.has(state.prefs.homeFolder)) {
+      state.prefs.homeFolder = ids.get(state.prefs.homeFolder);
+      patch.homeFolder = state.prefs.homeFolder;
+    }
+    savePrefs(patch);
+    scheduleRender();
+  }
+
+  /** Posiciones actuales de unos nodos, para devolverlos a su sitio al deshacer. */
+  function positionsOf(ids) {
+    return ids.map((id) => {
+      const n = get(id);
+      return { id, parentId: n.parentId, index: get(n.parentId).children.indexOf(id) };
+    });
+  }
+
+  /**
+   * Deja un nodo en la posición final `index` de `parentId`. Firefox interpreta así
+   * el índice; Chrome lo cuenta antes de quitarlo de su sitio y se corrige.
+   */
+  async function placeAt(id, parentId, index) {
+    const moved = await api.bookmarks.move(id, { parentId, index });
+    if (typeof moved?.index === 'number' && moved.index < index) {
+      await api.bookmarks.move(id, { parentId, index: index + 1 });
+    }
+  }
+
+  /** Mueve `ids` (en ese orden) a `parentId`, justo antes de `beforeId` o al final. */
+  async function moveNodes(ids, parentId, beforeId = null) {
+    for (const id of ids) {
+      if (!beforeId) {
+        await api.bookmarks.move(id, { parentId });
+        continue;
+      }
+      const [[item], [anchor]] = await Promise.all([api.bookmarks.get(id), api.bookmarks.get(beforeId)]);
+      const same = item.parentId === parentId;
+      const index = same && item.index < anchor.index ? anchor.index - 1 : anchor.index;
+      if (!same || item.index !== index) await placeAt(id, parentId, index);
+    }
+  }
+
+  async function restorePositions(list) {
+    // En orden de posición: cada nodo vuelve a su índice sin descolocar a los anteriores.
+    for (const p of list.toSorted((a, b) => a.index - b.index)) {
+      if (get(p.id) && isFolder(get(p.parentId))) await placeAt(p.id, p.parentId, p.index);
+    }
+  }
+
+  /** Mueve con aviso y «Deshacer». */
+  async function moveWithUndo(ids, parentId, beforeId = null) {
+    const before = positionsOf(ids);
+    const changesFolder = before.some((p) => p.parentId !== parentId);
+    for (const id of ids) state.newIds.add(id);
+    try {
+      await moveNodes(ids, parentId, beforeId);
+    } catch (err) {
+      toast(t('toast.opError', { error: err?.message || err }), 'error');
+      if (ids.length > 1) offerUndo(t('toast.partialMove'), () => restorePositions(before));
+      return;
+    }
+    const folder = folderName(get(parentId));
+    const message = !changesFolder
+      ? t('toast.reordered')
+      : ids.length > 1
+        ? tn('toast.movedMany', ids.length, { folder })
+        : t('toast.movedTo', { folder });
+    offerUndo(message, () => restorePositions(before));
   }
 
   function confirmDialog({ title, message, confirmLabel, icon: iconName = 'trash', danger = true }) {
@@ -2466,11 +3218,29 @@
     box.hidden = !message;
   }
 
+  /** Diálogo «Mover a…» para varios marcadores a la vez (solo la carpeta de destino). */
+  function openMoveManyDialog(ids) {
+    if (!state.ready || !ids.length) return;
+    closeMenu();
+    state.editor = { mode: 'move-many', nodeId: null, ids };
+    $('#edit-heading').textContent = tn('selection.moveTitle', ids.length);
+    $('#edit-submit').textContent = t('editor.submitMove');
+    $('#edit-name-row').hidden = true;
+    $('#edit-url-row').hidden = true;
+    const parents = new Set(ids.map((id) => get(id)?.parentId));
+    const target = parents.size === 1 ? [...parents][0] : isFolder(get(state.selected)) ? state.selected : null;
+    fillFolderSelect($('#edit-parent'), target || defaultParentId(), null);
+    setEditorError('');
+    $('#edit-dialog').showModal();
+    $('#edit-parent').focus();
+  }
+
   function openEditor({ mode, node = null, parentId = null, focus = 'auto' }) {
     if (!state.ready) return;
     closeMenu();
     const folderMode = mode === 'new-folder' || (mode === 'edit' && isFolder(node));
     state.editor = { mode, nodeId: node?.id ?? null };
+    $('#edit-name-row').hidden = false;
 
     const headings = {
       'new-bookmark': t('editor.newBookmark'),
@@ -2508,6 +3278,22 @@
     const rawUrl = $('#edit-url').value.trim();
     const parentId = $('#edit-parent').value;
     const folderMode = mode === 'new-folder' || isFolder(node);
+
+    if (mode === 'move-many') {
+      if (!isFolder(get(parentId)) || parentId === state.rootId) {
+        setEditorError(t('editor.invalidParent'));
+        return;
+      }
+      const ids = state.editor.ids.filter((id) => isBookmark(get(id)));
+      dlg.close();
+      if (!ids.length) {
+        toast(t('editor.gone'), 'error');
+        return;
+      }
+      clearSelection();
+      await moveWithUndo(ids, parentId);
+      return;
+    }
 
     if (mode === 'edit' && !node) {
       dlg.close();
@@ -2555,10 +3341,13 @@
         if (name !== node.title.trim()) changes.title = name;
         if (!folderMode && url !== node.url) changes.url = url;
         if (Object.keys(changes).length) await api.bookmarks.update(node.id, changes);
-        if (parentId !== node.parentId) await api.bookmarks.move(node.id, { parentId });
-        toast(
-          parentId !== node.parentId ? t('toast.movedTo', { folder: folderName(get(parentId)) }) : t('toast.saved'),
-        );
+        if (parentId !== node.parentId) {
+          const before = positionsOf([node.id]);
+          await api.bookmarks.move(node.id, { parentId });
+          offerUndo(t('toast.movedTo', { folder: folderName(get(parentId)) }), () => restorePositions(before));
+        } else {
+          toast(t('toast.saved'));
+        }
       }
       dlg.close();
     } catch (err) {
@@ -2690,10 +3479,11 @@
     box.hidden = !message;
   }
 
-  function openGroupDialog({ group = null, addBookmarkId = null } = {}) {
+  function openGroupDialog({ group = null, addBookmarkId = null, addBookmarkIds = [] } = {}) {
     if (!state.ready) return;
     closeMenu();
-    state.groupEditor = { id: group?.id ?? null, addBookmarkId };
+    const ids = addBookmarkId ? [addBookmarkId, ...addBookmarkIds] : addBookmarkIds;
+    state.groupEditor = { id: group?.id ?? null, addBookmarkIds: [...new Set(ids)] };
     $('#group-heading').textContent = t(group ? 'group.edit' : 'groups.new');
     $('#group-submit').textContent = t(group ? 'action.save' : 'editor.submitCreate');
     const nameInput = $('#group-name');
@@ -2732,7 +3522,7 @@
       $('#group-name').focus();
       return;
     }
-    const { id, addBookmarkId } = state.groupEditor;
+    const { id, addBookmarkIds } = state.groupEditor;
     if (id) {
       const g = getGroup(id);
       dlg.close();
@@ -2747,13 +3537,12 @@
       return;
     }
     const g = { id: newGroupId(), name, color, items: [], collapsed: false };
-    if (addBookmarkId && isBookmark(get(addBookmarkId))) {
-      g.items.push(addBookmarkId);
-      state.newGroupItem = `${g.id}|${addBookmarkId}`;
-    }
+    g.items = addBookmarkIds.filter((bid) => isBookmark(get(bid)));
+    if (g.items.length === 1) state.newGroupItem = `${g.id}|${g.items[0]}`;
     state.groups.push(g);
     saveGroups();
     dlg.close();
+    if (addBookmarkIds.length > 1) clearSelection();
     showGroupsPanel();
     toast(t('toast.groupCreated', { name }));
   }
@@ -2987,6 +3776,37 @@
     );
   }
 
+  /** Añade varios marcadores a un grupo (los que ya estaban no se duplican). */
+  function addManyToGroup(gid, ids) {
+    const g = getGroup(gid);
+    if (!g) return;
+    const added = ids.filter((id) => isBookmark(get(id)) && !g.items.includes(id));
+    if (!added.length) {
+      toast(t('toast.alreadyInGroup', { name: g.name }));
+      return;
+    }
+    g.items.push(...added);
+    g.collapsed = false;
+    saveGroups();
+    clearSelection();
+    toast(tn('toast.addedManyToGroup', added.length, { name: g.name }));
+  }
+
+  function openGroupMenuForMany(ids, anchor) {
+    if (!state.groups.length) {
+      openGroupDialog({ addBookmarkIds: ids });
+      return;
+    }
+    openMenu(
+      [
+        ...state.groups.map((g) => ({ label: g.name, dot: g.color, run: () => addManyToGroup(g.id, ids) })),
+        '-',
+        { label: t('menu.newGroup'), icon: 'plus', run: () => openGroupDialog({ addBookmarkIds: ids }) },
+      ],
+      anchor,
+    );
+  }
+
   // ---------------------------------------------------------------------------
   // Menú contextual
   // ---------------------------------------------------------------------------
@@ -3008,6 +3828,11 @@
         run: () => selectView(n.parentId),
       },
       { label: t('menu.addToGroup'), icon: 'groups', run: () => openAddToGroupMenu(n, state.menuAnchor) },
+      {
+        label: t(state.selection.has(n.id) ? 'menu.unselect' : 'menu.select'),
+        icon: 'check',
+        run: () => toggleSelected(n.id),
+      },
       '-',
       { label: t('menu.delete'), icon: 'trash', danger: true, run: () => confirmDelete(n) },
     ];
@@ -3055,6 +3880,9 @@
     const folderIds = new Set([
       ...Object.keys(state.folderColors),
       ...state.boardCollapsed,
+      ...state.boardShowAll,
+      ...state.stripFolders,
+      ...state.stripOpen,
       ...state.expanded,
       state.prefs.homeFolder,
     ]);
@@ -3090,6 +3918,9 @@
       groups: serializeGroups(),
       folderColors: { ...state.folderColors },
       boardCollapsed: [...state.boardCollapsed],
+      boardShowAll: [...state.boardShowAll],
+      stripFolders: [...state.stripFolders],
+      stripOpen: [...state.stripOpen],
       expanded: [...state.expanded],
       refs: { bookmarks, folders },
     };
@@ -3204,6 +4035,9 @@
         groups,
         folderColors,
         boardCollapsed: mapFolders(data.boardCollapsed),
+        boardShowAll: mapFolders(data.boardShowAll),
+        stripFolders: mapFolders(data.stripFolders),
+        stripOpen: mapFolders(data.stripOpen),
         expanded: mapFolders(data.expanded),
       },
       missing: missing.size,
@@ -3332,6 +4166,11 @@
       },
       { label: t('menu.folderColor'), icon: 'palette', run: () => openFolderColorMenu(f.id, state.menuAnchor) },
       homeId() !== f.id && { label: t('menu.setHome'), icon: 'home', run: () => setHomeFolder(f.id) },
+      {
+        label: t(inStrip(f.id) ? 'menu.stripRemove' : 'menu.stripAdd'),
+        icon: 'strip',
+        run: () => toggleStrip(f.id),
+      },
       !builtin && '-',
       !builtin && { label: t('menu.rename'), icon: 'edit', run: () => openEditor({ mode: 'edit', node: f }) },
       !builtin && {
@@ -3433,20 +4272,29 @@
   // Arrastrar y soltar
   // ---------------------------------------------------------------------------
 
-  function canMoveInto(nodeId, targetId) {
-    const node = get(nodeId);
+  /** Se pueden meter todos en la carpeta y al menos uno cambia de sitio. */
+  function canMoveInto(nodeIds, targetId) {
     const target = get(targetId);
-    if (!node || !isFolder(target) || targetId === state.rootId || isBuiltin(nodeId)) return false;
-    if (node.parentId === targetId) return false;
-    if (isFolder(node) && isInside(targetId, nodeId)) return false;
-    return true;
+    if (!isFolder(target) || targetId === state.rootId || !nodeIds.length) return false;
+    let changes = false;
+    for (const id of nodeIds) {
+      const node = get(id);
+      if (!node || isBuiltin(id)) return false;
+      if (isFolder(node) && isInside(targetId, id)) return false;
+      if (node.parentId !== targetId) changes = true;
+    }
+    return changes;
   }
+
+  const hasLink = (dataTransfer) => {
+    const types = dataTransfer ? [...dataTransfer.types] : [];
+    return types.includes('text/x-moz-url') || types.includes('text/uri-list');
+  };
 
   function canDropOn(targetId, dataTransfer) {
     if (!targetId || targetId === state.rootId || !isFolder(get(targetId))) return false;
-    if (state.dragId) return canMoveInto(state.dragId, targetId);
-    const types = dataTransfer ? [...dataTransfer.types] : [];
-    return types.includes('text/x-moz-url') || types.includes('text/uri-list');
+    if (state.dragIds.length) return canMoveInto(state.dragIds, targetId);
+    return hasLink(dataTransfer);
   }
 
   function extractDroppedLink(dt) {
@@ -3482,10 +4330,126 @@
 
   function endDrag() {
     state.dragId = null;
+    state.dragIds = [];
     state.dragFromGroup = null;
     document.body.classList.remove('is-dragging');
+    stopEdgeScroll();
     for (const node of document.querySelectorAll('.is-drag-source')) node.classList.remove('is-drag-source');
     setDropTarget(null);
+    setDropSlot(null);
+  }
+
+  function setDropSlot(slot) {
+    const prev = state.dropSlot;
+    if (prev?.el === slot?.el && prev?.after === slot?.after && prev?.x === slot?.x) return;
+    prev?.el.classList.remove('is-drop-before', 'is-drop-after', 'is-drop-x');
+    state.dropSlot = slot;
+    if (!slot) return;
+    slot.el.classList.add(slot.after ? 'is-drop-after' : 'is-drop-before');
+    slot.el.classList.toggle('is-drop-x', slot.x);
+  }
+
+  const REORDER_ITEMS =
+    '#cards .card[data-id], #cards .card-sep[data-id], #cards .board-row[data-id], #cards .board-sep[data-id]';
+  const FOLDER_SLOT_ITEMS = '#folder-grid .folder-tile[data-id], #cards .board-card[data-folder-id]';
+
+  const gridColumns = (node) => getComputedStyle(node).gridTemplateColumns.trim().split(/\s+/).length;
+
+  /**
+   * Hueco para una carpeta arrastrada sobre un bloque de carpeta o una tarjeta del
+   * tablero: solo en los bordes (el centro sigue siendo «meter dentro»).
+   */
+  function folderEdge(item, event) {
+    const rect = item.getBoundingClientRect();
+    const x = item.classList.contains('folder-tile') && gridColumns($('#folder-grid')) > 1;
+    if (x) {
+      const band = rect.width * 0.25;
+      if (event.clientX < rect.left + band) return { after: false, x };
+      if (event.clientX > rect.right - band) return { after: true, x };
+      return null;
+    }
+    const band = clamp(rect.height * 0.25, 10, 22);
+    if (event.clientY < rect.top + band) return { after: false, x };
+    if (event.clientY > rect.bottom - band) return { after: true, x };
+    return null;
+  }
+
+  /**
+   * Hueco de la sección principal donde caería lo arrastrado: antes o después del
+   * marcador (o carpeta) bajo el puntero, con su índice real en la carpeta.
+   */
+  function reorderSlot(event) {
+    if (!state.reorderable || state.dragFromGroup) return null;
+    const ids = state.dragIds;
+    const folderDrag = ids.length === 1 && isFolder(get(ids[0]));
+    if (ids.length ? !folderDrag && !ids.every((id) => isBookmark(get(id))) : !hasLink(event.dataTransfer)) return null;
+
+    let item;
+    let edge;
+    if (folderDrag) {
+      item = event.target.closest?.(FOLDER_SLOT_ITEMS);
+      edge = item && folderEdge(item, event);
+    } else {
+      item = event.target.closest?.(REORDER_ITEMS);
+      if (item) {
+        // Cuadrícula con varias columnas: en horizontal; lista y tablero: en vertical.
+        const cards = $('#cards');
+        const x = item.classList.contains('card') && !cards.classList.contains('is-list') && gridColumns(cards) > 1;
+        const rect = item.getBoundingClientRect();
+        edge = {
+          x,
+          after: x ? event.clientX > rect.left + rect.width / 2 : event.clientY > rect.top + rect.height / 2,
+        };
+      }
+    }
+    if (!edge) return null;
+    const node = get(item.dataset.id || item.dataset.folderId);
+    // La tarjeta de la propia carpeta abierta no se reordena (sus hermanas no se ven).
+    if (!node || ids.includes(node.id) || node.id === state.viewFolderId) return null;
+    const parent = get(node.parentId);
+    if (!isFolder(parent) || parent.id === state.rootId) return null;
+    if (folderDrag && (isBuiltin(ids[0]) || isInside(parent.id, ids[0]))) return null;
+
+    const index = parent.children.indexOf(node.id) + (edge.after ? 1 : 0);
+    // Se coloca delante del primer hermano que no se mueve (o al final).
+    const beforeId = parent.children.slice(index).find((id) => !ids.includes(id)) ?? null;
+    let noop = false;
+    if (ids.length === 1 && get(ids[0]).parentId === parent.id) {
+      const current = parent.children.indexOf(ids[0]);
+      noop = index === current || index === current + 1;
+    }
+    return { el: item, after: edge.after, x: edge.x, parentId: parent.id, index, beforeId, noop };
+  }
+
+  async function dropOnSlot(slot, ids, link) {
+    if (ids.length) {
+      await moveWithUndo(ids, slot.parentId, slot.beforeId);
+      return;
+    }
+    const url = link && normalizeUrl(link.url);
+    if (!url) {
+      toast(t('toast.dropInvalid'), 'error');
+      return;
+    }
+    try {
+      await api.bookmarks.create({
+        parentId: slot.parentId,
+        index: slot.index,
+        title: link.title || hostOf(url) || url,
+        url,
+      });
+      toast(t('toast.dropSaved', { folder: folderName(get(slot.parentId)) }));
+    } catch (err) {
+      toast(t('toast.opError', { error: err?.message || err }), 'error');
+    }
+  }
+
+  /** Etiqueta «N marcadores» que acompaña al puntero al arrastrar varios. */
+  function setDragCount(dt, n) {
+    const badge = el('div', { class: 'drag-count', text: tn('drag.count', n) });
+    document.body.append(badge);
+    dt.setDragImage(badge, -12, -12);
+    setTimeout(() => badge.remove(), 0);
   }
 
   function bindDragAndDrop() {
@@ -3493,16 +4457,26 @@
       const source = event.target.closest?.('[data-drag-id]');
       if (!source) return;
       const n = get(source.dataset.dragId);
-      if (!n || isBuiltin(n.id)) {
+      const stripHead = state.viewKind === 'strip' && source.classList.contains('board-head');
+      if (!n || n.id === state.rootId || (isBuiltin(n.id) && !stripHead)) {
         event.preventDefault();
         return;
       }
       closeMenu();
       state.dragId = n.id;
       state.dragFromGroup = source.dataset.fromGroup || null;
+      // Arrastrar un marcador seleccionado arrastra toda la selección.
+      const many = !state.dragFromGroup && state.selection.has(n.id) && state.selection.size > 1;
+      state.dragIds = many ? selectedIds() : [n.id];
       const dt = event.dataTransfer;
       dt.effectAllowed = 'copyMove';
       dt.setData(DND_TYPE, n.id);
+      if (many) {
+        setDragCount(dt, state.dragIds.length);
+        for (const node of document.querySelectorAll(SELECTABLE)) {
+          if (state.selection.has(node.dataset.id)) node.classList.add('is-drag-source');
+        }
+      }
       if (n.url) {
         // Permite también soltar el marcador en la barra de pestañas o en otra app.
         dt.setData('text/x-moz-url', `${n.url}\n${bookmarkTitle(n)}`);
@@ -3517,8 +4491,9 @@
 
     document.addEventListener('dragend', endDrag);
 
-    // Soltar un marcador sobre un grupo (o sobre «Nuevo grupo») del panel derecho.
-    const draggedBookmark = () => (state.dragId && isBookmark(get(state.dragId)) ? state.dragId : null);
+    // Soltar marcadores sobre un grupo (o sobre «Nuevo grupo») del panel derecho.
+    const draggedBookmarks = () =>
+      state.dragIds.length && state.dragIds.every((id) => isBookmark(get(id))) ? state.dragIds : null;
     // Un elemento arrastrado desde un grupo solo se mueve en Firefox si se suelta
     // sobre una carpeta concreta, no sobre el fondo del contenido.
     const folderDropTarget = (event) => {
@@ -3528,9 +4503,11 @@
     };
 
     document.addEventListener('dragover', (event) => {
+      stripEdgeScroll(event);
       const groupTarget = event.target.closest?.('[data-group-drop]');
       if (groupTarget) {
-        if (!draggedBookmark()) {
+        setDropSlot(null);
+        if (!draggedBookmarks()) {
           setDropTarget(null);
           return;
         }
@@ -3539,6 +4516,25 @@
         setDropTarget(groupTarget);
         return;
       }
+      // Tira: una carpeta soltada junto a una tarjeta se coloca ahí (o se añade).
+      const strip = stripSlot(event);
+      if (strip) {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = inStrip(strip.folderId) ? 'move' : 'copy';
+        setDropTarget(null);
+        setDropSlot(strip.noop ? null : strip);
+        return;
+      }
+      // Reordenar: antes o después de un marcador de la sección principal.
+      const slot = reorderSlot(event);
+      if (slot) {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = state.dragIds.length ? 'move' : 'copy';
+        setDropTarget(null);
+        setDropSlot(slot.noop ? null : slot);
+        return;
+      }
+      setDropSlot(null);
       const target = folderDropTarget(event);
       const targetId = target?.dataset.dropId;
       if (!canDropOn(targetId, event.dataTransfer)) {
@@ -3546,31 +4542,54 @@
         return;
       }
       event.preventDefault();
-      event.dataTransfer.dropEffect = state.dragId ? 'move' : 'copy';
+      event.dataTransfer.dropEffect = state.dragIds.length ? 'move' : 'copy';
       // El contenedor principal no se resalta entero; solo carpetas concretas.
       setDropTarget(target.id === 'content' ? null : target);
     });
 
     document.addEventListener('dragleave', (event) => {
-      if (!event.relatedTarget) setDropTarget(null);
+      if (!event.relatedTarget) {
+        setDropTarget(null);
+        setDropSlot(null);
+      }
     });
 
     document.addEventListener('drop', async (event) => {
       const groupTarget = event.target.closest?.('[data-group-drop]');
       if (groupTarget) {
-        const bookmarkId = draggedBookmark();
+        const bookmarkIds = draggedBookmarks();
         const fromGroup = state.dragFromGroup;
         endDrag();
-        if (!bookmarkId) return;
+        if (!bookmarkIds) return;
         event.preventDefault();
         const gid = groupTarget.dataset.groupDrop;
-        if (gid === 'new') openGroupDialog({ addBookmarkId: bookmarkId });
-        else addToGroup(gid, bookmarkId, fromGroup);
+        if (gid === 'new') openGroupDialog({ addBookmarkIds: bookmarkIds });
+        else if (bookmarkIds.length > 1) addManyToGroup(gid, bookmarkIds);
+        else addToGroup(gid, bookmarkIds[0], fromGroup);
+        return;
+      }
+      const strip = stripSlot(event);
+      if (strip) {
+        event.preventDefault();
+        endDrag();
+        if (!strip.noop) placeInStrip(strip.folderId, strip.index);
+        return;
+      }
+      const slot = reorderSlot(event);
+      if (slot) {
+        event.preventDefault();
+        const ids = state.dragIds;
+        // Los datos de un enlace externo solo se pueden leer durante el evento.
+        const link = ids.length ? null : extractDroppedLink(event.dataTransfer);
+        endDrag();
+        if (slot.noop) return;
+        if (ids.length > 1) clearSelection();
+        dropOnSlot(slot, ids, link);
         return;
       }
       const target = folderDropTarget(event);
       const targetId = target?.dataset.dropId;
-      const dragId = state.dragId;
+      const ids = state.dragIds;
       if (!canDropOn(targetId, event.dataTransfer)) {
         endDrag();
         return;
@@ -3579,9 +4598,13 @@
       endDrag();
       const destination = folderName(get(targetId));
       try {
-        if (dragId) {
-          await api.bookmarks.move(dragId, { parentId: targetId });
-          toast(t('toast.movedTo', { folder: destination }));
+        if (ids.length) {
+          if (ids.length > 1) clearSelection();
+          // Los que ya están en esa carpeta se quedan donde están.
+          await moveWithUndo(
+            ids.filter((id) => get(id).parentId !== targetId),
+            targetId,
+          );
         } else {
           const link = extractDroppedLink(event.dataTransfer);
           const url = link && normalizeUrl(link.url);
@@ -3599,27 +4622,153 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Selección múltiple: Ctrl/⌘+clic, Mayús+clic (rango) o la casilla de cada marcador
+  // ---------------------------------------------------------------------------
+
+  const SELECTABLE = '#cards .card[data-id], #cards .board-row[data-id]';
+  const shownSelectable = () => [...document.querySelectorAll(SELECTABLE)].map((node) => node.dataset.id);
+
+  /** Seleccionados en el orden en que se ven (los que no están a la vista, al final). */
+  function selectedIds() {
+    const ordered = shownSelectable().filter((id) => state.selection.has(id));
+    for (const id of state.viewItemIds) if (state.selection.has(id) && !ordered.includes(id)) ordered.push(id);
+    for (const id of state.selection) if (!ordered.includes(id)) ordered.push(id);
+    return ordered.filter((id) => isBookmark(get(id)));
+  }
+
+  function toggleSelected(id, force) {
+    if (!isBookmark(get(id))) return;
+    const on = force ?? !state.selection.has(id);
+    if (on) state.selection.add(id);
+    else state.selection.delete(id);
+    state.selAnchor = id;
+    syncSelection();
+  }
+
+  function selectRange(fromId, toId) {
+    const shown = shownSelectable();
+    const a = shown.indexOf(fromId);
+    const b = shown.indexOf(toId);
+    if (a === -1 || b === -1) {
+      toggleSelected(toId, true);
+      return;
+    }
+    for (const id of shown.slice(Math.min(a, b), Math.max(a, b) + 1)) state.selection.add(id);
+    state.selAnchor = toId;
+    syncSelection();
+  }
+
+  /** Todos los marcadores de la vista, también los de páginas aún no cargadas. */
+  function selectAll() {
+    for (const id of [...shownSelectable(), ...state.viewItemIds]) if (isBookmark(get(id))) state.selection.add(id);
+    syncSelection();
+  }
+
+  function clearSelection() {
+    if (!state.selection.size) return;
+    state.selection.clear();
+    state.selAnchor = null;
+    syncSelection();
+  }
+
+  function syncSelection() {
+    for (const id of state.selection) if (!isBookmark(get(id))) state.selection.delete(id);
+    const count = state.selection.size;
+    document.body.classList.toggle('has-selection', count > 0);
+    for (const node of document.querySelectorAll(SELECTABLE)) {
+      const on = state.selection.has(node.dataset.id);
+      node.classList.toggle('is-selected', on);
+      node.querySelector('.select-btn')?.setAttribute('aria-pressed', String(on));
+    }
+    $('#selection-bar').hidden = count === 0;
+    if (count) $('#selection-count').textContent = tn('selection.count', count);
+  }
+
+  /**
+   * Clics en la sección principal (fase de captura): con Ctrl/⌘ o Mayús, en la
+   * casilla, o con una selección activa, el clic selecciona en vez de abrir.
+   */
+  function handleSelectClick(event) {
+    const host = event.target.closest(SELECTABLE);
+    if (!host || event.button !== 0) return;
+    const action = event.target.closest('[data-action]')?.dataset.action;
+    const modifier = event.ctrlKey || event.metaKey || event.shiftKey;
+    if (action !== 'select' && !modifier) {
+      // Con selección activa, los botones propios (destacar, ⋯, ruta) siguen funcionando.
+      if (!state.selection.size || (action && action !== 'open-blocked')) return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.shiftKey && state.selAnchor && state.selAnchor !== host.dataset.id)
+      selectRange(state.selAnchor, host.dataset.id);
+    else toggleSelected(host.dataset.id);
+  }
+
+  function handleSelectionBar(event) {
+    const btn = event.target.closest('[data-sel]');
+    if (!btn) return;
+    const ids = selectedIds();
+    switch (btn.dataset.sel) {
+      case 'open':
+        openAllInTabs(ids.map(get), t('selection.name'));
+        break;
+      case 'move':
+        openMoveManyDialog(ids);
+        break;
+      case 'group':
+        openGroupMenuForMany(ids, btn);
+        break;
+      case 'delete':
+        confirmDeleteMany(ids);
+        break;
+      case 'all':
+        selectAll();
+        break;
+      case 'clear':
+        clearSelection();
+        break;
+      default:
+        break;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Toasts y panel lateral móvil
   // ---------------------------------------------------------------------------
 
-  function toast(message, type = 'info') {
+  /** Aviso breve; `action` ({ label, run }) añade un botón, p. ej. «Deshacer». */
+  function toast(message, type = 'info', action = null) {
     const node = el(
       'div',
       { class: `toast toast-${type}`, role: type === 'error' ? 'alert' : 'status' },
       icon(type === 'error' ? 'alert' : 'check'),
       el('span', { text: message }),
     );
+    const leave = () => {
+      node.classList.add('is-leaving');
+      node.addEventListener('animationend', () => node.remove(), { once: true });
+      setTimeout(() => node.remove(), 500);
+    };
+    if (action) {
+      node.append(
+        el(
+          'button',
+          {
+            class: 'toast-action',
+            type: 'button',
+            onclick: () => {
+              leave();
+              action.run();
+            },
+          },
+          action.label,
+        ),
+      );
+    }
     const box = $('#toasts');
     box.append(node);
     while (box.children.length > 3) box.firstElementChild.remove();
-    setTimeout(
-      () => {
-        node.classList.add('is-leaving');
-        node.addEventListener('animationend', () => node.remove(), { once: true });
-        setTimeout(() => node.remove(), 500);
-      },
-      type === 'error' ? 5000 : 3000,
-    );
+    setTimeout(leave, action ? 7000 : type === 'error' ? 5000 : 3000);
   }
 
   const openDrawer = () => document.body.classList.add('nav-open');
@@ -3674,10 +4823,14 @@
       const row = event.target.closest('.tree-row');
       if (!actionEl || !row) return;
       if (actionEl.dataset.action === 'toggle') toggleExpanded(row.dataset.id);
-      else if (actionEl.dataset.action === 'select') selectView(row.dataset.id);
+      else if (actionEl.dataset.action === 'select') {
+        if (state.treePicking) toggleStripPick(row.dataset.id);
+        else selectView(row.dataset.id);
+      }
     });
     tree.addEventListener('dblclick', (event) => {
       const row = event.target.closest('.tree-row');
+      if (state.treePicking) return; // dos clics ya marcan y desmarcan
       if (row && event.target.closest('.tree-label') && row.parentElement.querySelector(':scope > .tree-collapse')) {
         toggleExpanded(row.dataset.id);
       }
@@ -3685,7 +4838,7 @@
     tree.addEventListener('keydown', handleTreeKeys);
 
     // Clic central en una carpeta (árbol, bloque o ruta): abre sus marcadores en pestañas.
-    const FOLDER_TARGETS = '.tree-row, .folder-tile, .crumb, .board-head, .board-sub';
+    const FOLDER_TARGETS = '.tree-row, .folder-tile, .crumb, .board-head, .board-sub, .strip-sub-head';
     const folderIdFrom = (target) => {
       const host = target.closest?.(FOLDER_TARGETS);
       return host ? host.dataset.id || host.dataset.target : null;
@@ -3723,14 +4876,24 @@
         openMenu(item ? groupItemMenu(item, g) : groupMenu(g), { x: event.clientX, y: event.clientY });
         return;
       }
+      const navView = event.target.closest('#views [data-view]');
+      if (navView && isView(navView.dataset.view)) {
+        event.preventDefault();
+        openMenu(viewMenu(navView.dataset.view), { x: event.clientX, y: event.clientY });
+        return;
+      }
       const host = event.target.closest(
-        '.tree-row, .folder-tile, .card, .card-sep, .board-row, .board-sep, .board-head',
+        '.tree-row, .folder-tile, .card, .card-sep, .board-row, .board-sep, .board-head, .strip-sub-head',
       );
       const n = get(host?.dataset.id);
       if (!n) return;
       event.preventDefault();
       openMenu(menuFor(n), { x: event.clientX, y: event.clientY });
     });
+
+    // Selección múltiple (antes que abrir enlaces o ejecutar acciones)
+    $('#content').addEventListener('click', handleSelectClick, true);
+    $('#selection-bar').addEventListener('click', handleSelectionBar);
 
     // Contenido principal (delegación)
     $('#content').addEventListener('click', (event) => {
@@ -3762,6 +4925,7 @@
           const id = actionEl.dataset.target;
           if (state.boardShowAll.has(id)) state.boardShowAll.delete(id);
           else state.boardShowAll.add(id);
+          saveBoardShowAll();
           renderMain();
           break;
         }
@@ -3769,10 +4933,27 @@
         case 'crumb':
           selectView(actionEl.dataset.target);
           break;
+        case 'strip-sub': {
+          const id = actionEl.dataset.target;
+          toggleStripSub(id, actionEl.closest('.strip-sub'));
+          // La rama se repinta: el foco vuelve a su botón (para seguir con el teclado).
+          $(`.strip-sub[data-folder-id="${CSS.escape(id)}"] > .strip-sub-head .strip-sub-toggle`)?.focus({
+            preventScroll: true,
+          });
+          break;
+        }
+        case 'strip-pick':
+          revealTreePicker();
+          break;
         default:
           break;
       }
     });
+
+    // Tira: elegir carpetas (en el árbol) y desplazamiento (rueda, arrastre del fondo)
+    $('#strip-pick-btn').addEventListener('click', revealTreePicker);
+    $('#home-set-btn').addEventListener('click', setHomeHere);
+    bindStripScroll();
 
     // Controles de vista
     $('#open-all-btn').addEventListener('click', openAllInView);
@@ -3943,7 +5124,25 @@
         event.preventDefault();
         search.focus();
         search.select();
+      } else if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 'z' && !typing) {
+        if (state.undo) {
+          event.preventDefault();
+          runUndo();
+        }
+      } else if (
+        (event.ctrlKey || event.metaKey) &&
+        event.key.toLowerCase() === 'a' &&
+        !typing &&
+        state.selection.size
+      ) {
+        event.preventDefault();
+        selectAll();
       } else if (event.key === 'Delete' && !typing) {
+        if (state.selection.size) {
+          event.preventDefault();
+          confirmDeleteMany(selectedIds());
+          return;
+        }
         const host = event.target.closest?.('.card, .folder-tile, .tree-row, .board-row');
         const n = get(host?.dataset.id);
         if (n) {
@@ -3952,6 +5151,7 @@
         }
       } else if (event.key === 'Escape') {
         if (!menu.hidden) closeMenu(true);
+        else if (state.selection.size) clearSelection();
         else if (isMinimal() && state.homeNav) selectView(homeId());
         else if (document.body.classList.contains('nav-open')) closeDrawer();
         else if (document.body.classList.contains('groups-open')) closeGroupsOverlay();
@@ -4023,7 +5223,8 @@
     state.ready = true;
     $('#live').classList.remove('is-error');
     $('#controls').hidden = false;
-    state.selected = resolveSelection(state.prefs.lastFolder);
+    // Cada panel nuevo empieza en la carpeta de inicio, también fuera del modo minimalista.
+    state.selected = homeId();
     expandAncestors(state.selected);
     render();
     scrollSelectedIntoView();
