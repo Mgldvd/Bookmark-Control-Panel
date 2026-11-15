@@ -173,7 +173,9 @@ bookmarks/
   con clic derecho aparecen los colores como puntos y un clic se lo aplica (igual que a las
   carpetas); se recuerda y va en la copia de seguridad.
   Cada tarjeta cabe en la pantalla y tiene su propio scroll vertical: la rueda sobre una tarjeta
-  con más contenido la desplaza a ella; en el resto de la tira, la mueve de lado. Se guarda en
+  con más contenido la desplaza a ella; en el resto de la tira, la mueve de lado. Un gesto de rueda
+  que va moviendo la tira de lado sigue de lado aunque pase sobre tarjetas con scroll, y una tarjeta
+  solo toma la rueda si el puntero lleva un momento sobre ella (no al cruzarla hacia otra columna). Se guarda en
   `browser.storage.local`, va en la copia de seguridad y puede ser la carpeta de inicio (también
   en el modo minimalista).
   **Perfiles de la tira**: una barra centrada sobre la tira (también en el modo minimalista)

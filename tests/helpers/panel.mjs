@@ -56,6 +56,8 @@ const EXPOSE = [
   'moveStripProfile',
   'deleteStripProfile',
   'profileMenu',
+  'stripWheel',
+  'trackStripHover',
 ];
 
 const noop = () => {};
@@ -253,6 +255,8 @@ export async function openPanel({
 } = {}) {
   const timers = [];
   const toasts = [];
+  // Reloj de performance.now() que avanza la prueba (ms).
+  const clock = { now: 0 };
   const byId = new Map();
   const bySelector = new Map();
   const element = (key, map) => {
@@ -276,6 +280,10 @@ export async function openPanel({
     URLSearchParams,
     Intl,
     setTimeout: (fn) => timers.push(fn),
+    performance: { now: () => clock.now },
+    // Sin fotogramas: las animaciones no avanzan (las pruebas fijan scrollLeft a mano).
+    requestAnimationFrame: () => 0,
+    cancelAnimationFrame: noop,
     clearTimeout: noop,
     IntersectionObserver: class {
       observe() {}
@@ -332,6 +340,7 @@ export async function openPanel({
     stored,
     toasts,
     document,
+    clock,
     /** Ejecuta los temporizadores pendientes (debounce) y espera a que se guarde. */
     async flush() {
       while (timers.length) timers.shift()();

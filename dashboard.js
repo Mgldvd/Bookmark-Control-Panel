@@ -2739,24 +2739,56 @@
   }
 
   // Rueda: se acumula un destino y se llega a él poco a poco.
-  const wheelScroll = { target: 0, raf: 0 };
+  // Cada «gesto» de rueda (golpes separados por menos de WHEEL_LATCH ms) se queda
+  // en el eje con el que empezó: mientras la tira avanza de lado, las tarjetas con
+  // scroll propio que pasan bajo el puntero no lo roban. Y una tarjeta solo se
+  // desplaza en vertical si el puntero lleva un momento sobre ella (HOVER_SETTLE),
+  // no si solo está cruzándola de camino a otra columna.
+  const WHEEL_LATCH = 300;
+  const HOVER_SETTLE = 150;
+  const wheelScroll = { target: 0, raf: 0, axis: null, at: 0 };
+  const stripHover = { el: null, since: 0 };
+
+  /** Tarjeta (su parte con scroll) bajo el puntero, y desde cuándo. */
+  function trackStripHover(event) {
+    const inner = event.target.closest?.('.board-inner') || null;
+    if (inner === stripHover.el) return;
+    stripHover.el = inner;
+    stripHover.since = performance.now();
+  }
 
   function stripWheel(event) {
     const cards = stripEl();
     if (!cards || event.ctrlKey || event.target.closest?.('#view-head, #home-bar, #strip-profiles')) return;
     // El desplazamiento horizontal del touchpad (o Mayús+rueda) ya lo hace el navegador.
     if (event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
-    // Sobre una tarjeta con más contenido del que cabe, la rueda la desplaza a ella.
-    const inner = event.target.closest?.('.board-inner');
-    if (inner && inner.scrollHeight > inner.clientHeight + 1) return;
+    const now = performance.now();
+    const latched = now - wheelScroll.at < WHEEL_LATCH ? wheelScroll.axis : null;
+    wheelScroll.at = now;
+    // Con la rueda, la tira se mueve bajo el puntero quieto: también cuenta como llegar a otra tarjeta.
+    trackStripHover(event);
+    // Sobre una tarjeta con más contenido del que cabe, la rueda la desplaza a ella
+    // (salvo en mitad de un gesto horizontal, o si el puntero solo está de paso).
+    const inner = stripHover.el;
+    const scrollable = inner && inner.scrollHeight > inner.clientHeight + 1;
+    if (scrollable && (latched === 'y' || (latched !== 'x' && now - stripHover.since >= HOVER_SETTLE))) {
+      wheelScroll.axis = 'y';
+      return;
+    }
     const max = stripMax(cards);
     if (!max) return;
     stopMomentum();
     const unit = event.deltaMode === 1 ? 40 : event.deltaMode === 2 ? cards.clientWidth : 1;
     const delta = event.deltaY * unit;
     const from = wheelScroll.raf ? wheelScroll.target : cards.scrollLeft;
-    // En el extremo, la rueda vuelve a ser de la página (por si se desplaza en vertical).
-    if ((delta < 0 && from <= 0) || (delta > 0 && from >= max - 1)) return;
+    // En el extremo, la rueda vuelve a ser de la página (por si se desplaza en vertical);
+    // si el gesto ya iba de lado, se queda ahí quieta (sin desplazar la tarjeta de debajo).
+    if ((delta < 0 && from <= 0) || (delta > 0 && from >= max - 1)) {
+      if (latched === 'x') event.preventDefault();
+      else wheelScroll.axis = null;
+      return;
+    }
+    wheelScroll.axis = 'x';
     event.preventDefault();
     wheelScroll.target = clamp(from + delta, 0, max);
     if (REDUCED_MOTION.matches) {
@@ -2943,6 +2975,7 @@
     content.addEventListener('wheel', stripWheel, { passive: false });
     content.addEventListener('pointerdown', stripPointerDown);
     content.addEventListener('pointermove', stripPointerMove);
+    content.addEventListener('pointermove', trackStripHover, { passive: true });
     content.addEventListener('pointerup', stripPointerUp);
     content.addEventListener('pointercancel', stripPointerUp);
     $('#cards').addEventListener('scroll', updateStripEdges, { passive: true });

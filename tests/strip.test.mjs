@@ -299,3 +299,72 @@ test('perfiles: van en la copia de seguridad y una copia antigua llena el perfil
   assert.equal('stripProfiles' in oldPlan.values, false, 'sin perfiles en la copia, no se tocan');
   assert.deepEqual([...oldPlan.values.stripFolders], ['H']);
 });
+
+// ----- Rueda en la tira: las tarjetas con scroll propio no se lo roban al gesto horizontal -----
+
+test('rueda: una tarjeta solo se desplaza en vertical si el puntero se ha posado y no hay un gesto de lado', async () => {
+  const env = await openPanel({ stored: { homeFolder: 'view:strip', stripFolders: ['F', 'G'] } });
+  const cards = env.document.getElementById('cards');
+  cards.classList.add('is-strip');
+  Object.assign(cards, { scrollWidth: 2000, clientWidth: 1000, scrollLeft: 0 });
+  // Dos tarjetas con más contenido del que cabe (scroll vertical propio).
+  const innerA = fakeElement({ classes: ['board-inner'] });
+  const innerB = fakeElement({ classes: ['board-inner'] });
+  for (const inner of [innerA, innerB]) Object.assign(inner, { scrollHeight: 800, clientHeight: 300 });
+  const over = (inner) => ({ closest: (sel) => (sel === '.board-inner' ? inner : null) });
+  const wheel = (inner, deltaY = 100) => {
+    const event = {
+      deltaX: 0,
+      deltaY,
+      deltaMode: 0,
+      target: over(inner),
+      prevented: false,
+      preventDefault() {
+        event.prevented = true;
+      },
+    };
+    env.panel.stripWheel(event);
+    return event.prevented; // true: la tira se mueve de lado; false: la tarjeta en vertical
+  };
+  const at = (ms) => {
+    env.clock.now = ms;
+  };
+
+  // El puntero se posa en A y se queda: la rueda desplaza la tarjeta.
+  at(1000);
+  env.panel.trackStripHover({ target: over(innerA) });
+  at(1200);
+  assert.equal(wheel(innerA), false, 'posado sobre la tarjeta: scroll vertical');
+
+  // Cruzando hacia otra columna (acaba de llegar a B): la tira se mueve de lado.
+  at(2000);
+  env.panel.trackStripHover({ target: over(innerB) });
+  at(2050);
+  assert.equal(wheel(innerB), true, 'recién llegado a la tarjeta: la tira sigue de lado');
+
+  // Mientras dura el gesto, sigue de lado aunque el puntero se pose en la tarjeta.
+  at(2250);
+  assert.equal(wheel(innerB), true);
+  at(2500);
+  assert.equal(wheel(innerB), true, 'gesto horizontal en curso: no se lo roba la tarjeta');
+
+  // Tras una pausa, el siguiente golpe ya es de la tarjeta (el puntero lleva rato en ella).
+  at(3000);
+  assert.equal(wheel(innerB), false, 'después de una pausa: scroll vertical');
+  // Y ese gesto vertical se queda en vertical.
+  at(3100);
+  assert.equal(wheel(innerB), false);
+
+  // Al final de la tira, un gesto que iba de lado no pasa a desplazar la tarjeta de debajo.
+  at(5000);
+  cards.scrollLeft = 1000;
+  env.panel.trackStripHover({ target: over(innerA) });
+  at(5010);
+  assert.equal(wheel(innerA, -100), true, 'de lado (hacia la izquierda)');
+  cards.scrollLeft = 1000;
+  at(5100);
+  assert.equal(wheel(innerA, 100), true, 'en el extremo, el gesto lateral se queda quieto');
+  // Tras una pausa, en el extremo la rueda vuelve a ser de la tarjeta.
+  at(6000);
+  assert.equal(wheel(innerA, 100), false);
+});
