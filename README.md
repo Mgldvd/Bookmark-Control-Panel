@@ -167,6 +167,9 @@ bookmarks/
   nombre) y muestran sus enlaces y sus propias subcarpetas; se recuerda cuáles están abiertas.
   **Expandir todo** (en la cabecera) despliega de una vez todas las subcarpetas de la tira y abre
   las tarjetas plegadas; **Contraer todo** vuelve a plegarlas.
+  Los **separadores** de Firefox se ven como una línea clara entre enlaces (con «Orden original»);
+  con clic derecho aparecen los colores como puntos y un clic se lo aplica (igual que a las
+  carpetas); se recuerda y va en la copia de seguridad.
   Cada tarjeta cabe en la pantalla y tiene su propio scroll vertical: la rueda sobre una tarjeta
   con más contenido la desplaza a ella; en el resto de la tira, la mueve de lado. Se guarda en
   `browser.storage.local`, va en la copia de seguridad y puede ser la carpeta de inicio (también

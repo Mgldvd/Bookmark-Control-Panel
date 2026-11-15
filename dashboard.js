@@ -111,6 +111,7 @@
     stripFolders: [],
     stripOpen: [],
     folderColors: {},
+    separatorColors: {},
     expanded: ['menu________', 'toolbar_____', 'unfiled_____'],
     favorites: [],
   });
@@ -206,6 +207,7 @@
     // Subcarpetas desplegadas dentro de las tarjetas de la tira.
     stripOpen: new Set(),
     folderColors: Object.create(null),
+    separatorColors: Object.create(null),
   };
 
   // ---------------------------------------------------------------------------
@@ -703,6 +705,7 @@
       for (const [id, color] of Object.entries(p.folderColors)) if (GROUP_COLORS.includes(color)) colors[id] = color;
       state.folderColors = colors;
     }
+    if (isColorMap(p.separatorColors)) state.separatorColors = cleanColors(p.separatorColors);
     if (SORTS.includes(p.sort)) prefs.sort = p.sort;
     if (typeof p.lastFolder === 'string') prefs.lastFolder = p.lastFolder;
     if (typeof p.homeFolder === 'string' && p.homeFolder) prefs.homeFolder = p.homeFolder;
@@ -1904,12 +1907,15 @@
   /** Fila reutilizable por id (como las tarjetas): un cambio no recarga los favicons. */
   function boardRowEl(n) {
     if (isSeparator(n))
-      return el('li', {
-        class: 'board-sep',
-        role: 'separator',
-        'aria-label': t('separator.label'),
-        dataset: { id: n.id },
-      });
+      return paintSeparator(
+        el('li', {
+          class: 'board-sep',
+          role: 'separator',
+          'aria-label': t('separator.label'),
+          dataset: { id: n.id },
+        }),
+        n.id,
+      );
     const groups = state.groupIndex.get(n.id) || [];
     const sig = [
       n.title,
@@ -2568,7 +2574,7 @@
       let card = state.cardEls.get(n.id);
       if (isSeparator(n)) {
         if (!card) {
-          card = el('div', { class: 'card-sep', role: 'separator', dataset: { id: n.id } });
+          card = paintSeparator(el('div', { class: 'card-sep', role: 'separator', dataset: { id: n.id } }), n.id);
           state.cardEls.set(n.id, card);
         }
         card.setAttribute('aria-label', t('separator.label'));
@@ -3150,6 +3156,9 @@
     const colors = Object.create(null);
     for (const [id, color] of Object.entries(state.folderColors)) colors[swap(id)] = color;
     state.folderColors = colors;
+    const sepColors = Object.create(null);
+    for (const [id, color] of Object.entries(state.separatorColors)) sepColors[swap(id)] = color;
+    state.separatorColors = sepColors;
     state.boardCollapsed = swapAll(state.boardCollapsed);
     state.boardShowAll = swapAll(state.boardShowAll);
     state.stripFolders = [...new Set(state.stripFolders.map(swap))];
@@ -3161,6 +3170,7 @@
       favorites: [...state.favorites],
       groups: serializeGroups(),
       folderColors: { ...state.folderColors },
+      separatorColors: { ...state.separatorColors },
       boardCollapsed: [...state.boardCollapsed],
       boardShowAll: [...state.boardShowAll],
       expanded: [...state.expanded],
@@ -3957,6 +3967,12 @@
       const f = get(id);
       if (isFolder(f)) folders[id] = { title: f.title, path: rawFolderPath(id) };
     }
+    // Los separadores no tienen título ni URL: se reconocen por su carpeta y su posición.
+    const separators = {};
+    for (const id of Object.keys(state.separatorColors)) {
+      const ref = separatorRef(id);
+      if (ref) separators[id] = ref;
+    }
     const prefs = {};
     for (const key of Object.keys(BACKUP_PREFS)) prefs[key] = state.prefs[key];
     let app = '';
@@ -3975,12 +3991,13 @@
       favorites: [...state.favorites],
       groups: serializeGroups(),
       folderColors: { ...state.folderColors },
+      separatorColors: Object.fromEntries(Object.entries(state.separatorColors).filter(([id]) => separators[id])),
       boardCollapsed: [...state.boardCollapsed],
       boardShowAll: [...state.boardShowAll],
       stripFolders: [...state.stripFolders],
       stripOpen: [...state.stripOpen],
       expanded: [...state.expanded],
-      refs: { bookmarks, folders },
+      refs: { bookmarks, folders, separators },
     };
   }
 
@@ -4007,6 +4024,7 @@
   function makeRemapper(refs) {
     const bookmarkRefs = isPlainObject(refs?.bookmarks) ? refs.bookmarks : {};
     const folderRefs = isPlainObject(refs?.folders) ? refs.folders : {};
+    const separatorRefs = isPlainObject(refs?.separators) ? refs.separators : {};
     let byUrl = null;
     let byPath = null;
     const buildIndex = () => {
@@ -4041,6 +4059,15 @@
         buildIndex();
         return byPath.get(ref.path)?.id ?? null;
       },
+      separator(id) {
+        if (typeof id !== 'string') return null;
+        if (isSeparator(get(id))) return id;
+        const ref = Object.hasOwn(separatorRefs, id) ? separatorRefs[id] : null;
+        if (!isPlainObject(ref) || typeof ref.path !== 'string' || !Number.isInteger(ref.nth)) return null;
+        buildIndex();
+        const parent = byPath.get(ref.path);
+        return parent?.children.map(get).filter(isSeparator)[ref.nth]?.id ?? null;
+      },
     };
   }
 
@@ -4072,6 +4099,13 @@
         if (found) folderColors[found] = color;
       }
     }
+    const separatorColors = {};
+    if (isPlainObject(data.separatorColors)) {
+      for (const [id, color] of Object.entries(data.separatorColors)) {
+        const found = GROUP_COLORS.includes(color) ? map.separator(id) : null;
+        if (found) separatorColors[found] = color;
+      }
+    }
     const prefs = {};
     if (isPlainObject(data.prefs)) {
       for (const [key, valid] of Object.entries(BACKUP_PREFS)) {
@@ -4092,6 +4126,7 @@
         favorites,
         groups,
         folderColors,
+        separatorColors,
         boardCollapsed: mapFolders(data.boardCollapsed),
         boardShowAll: mapFolders(data.boardShowAll),
         stripFolders: mapFolders(data.stripFolders),
@@ -4184,22 +4219,75 @@
     scheduleRender();
   }
 
-  function openFolderColorMenu(id, anchor) {
-    const current = state.folderColors[id] || null;
-    const fallback = { x: innerWidth / 2, y: innerHeight / 3 };
-    openMenu(
-      [
-        ...GROUP_COLORS.map((c) => ({
-          label: t(`color.${c}`),
-          dot: c,
-          checked: current === c,
-          run: () => setFolderColor(id, c),
-        })),
-        '-',
-        { label: t('color.default'), dot: 'default', checked: !current, run: () => setFolderColor(id, null) },
-      ],
-      anchor instanceof Element ? (anchor.isConnected ? anchor : fallback) : anchor || fallback,
+  /**
+   * Fila de colores para un menú (openMenu la pinta como puntos): un clic elige el
+   * color y el último punto («Predeterminado») lo quita.
+   */
+  const colorRow = (current, set) => ({ colors: true, current: current || null, set });
+
+  /** Puntos de color dentro del menú: un clic elige y cierra. */
+  function menuColors(item) {
+    const swatch = (color, label) =>
+      el(
+        'button',
+        {
+          class: color ? 'menu-swatch' : 'menu-swatch is-default',
+          type: 'button',
+          role: 'menuitemradio',
+          title: label,
+          'aria-label': label,
+          'aria-checked': String(item.current === color),
+          dataset: { color: color || null },
+          onclick: () => {
+            closeMenu();
+            item.set(color);
+          },
+        },
+        el('span', { class: 'menu-swatch-dot' }),
+      );
+    return el(
+      'div',
+      { class: 'menu-colors', role: 'group', 'aria-label': t('menu.color') },
+      el('span', { class: 'menu-colors-label', text: t('menu.color') }),
+      el(
+        'div',
+        { class: 'menu-swatches' },
+        ...GROUP_COLORS.map((c) => swatch(c, t(`color.${c}`))),
+        swatch(null, t('color.default')),
+      ),
     );
+  }
+
+  // ----- Color de los separadores (también solo en esta extensión) -----
+
+  const isColorMap = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+  function cleanColors(map) {
+    const colors = Object.create(null);
+    for (const [id, color] of Object.entries(map)) if (GROUP_COLORS.includes(color)) colors[id] = color;
+    return colors;
+  }
+
+  function paintSeparator(node, id) {
+    const color = state.separatorColors[id];
+    node.classList.toggle('has-color', !!color);
+    if (color) node.dataset.color = color;
+    else delete node.dataset.color;
+    return node;
+  }
+
+  function setSeparatorColor(id, color) {
+    if (GROUP_COLORS.includes(color)) state.separatorColors[id] = color;
+    else delete state.separatorColors[id];
+    savePrefs({ separatorColors: { ...state.separatorColors } });
+    scheduleRender();
+  }
+
+  /** Carpeta (por ruta) y posición entre sus separadores: lo que identifica a uno en otro perfil. */
+  function separatorRef(id) {
+    const n = get(id);
+    const parent = isSeparator(n) ? get(n.parentId) : null;
+    if (!isFolder(parent)) return null;
+    return { path: rawFolderPath(parent.id), nth: parent.children.map(get).filter(isSeparator).indexOf(n) };
   }
 
   function folderMenu(f) {
@@ -4222,13 +4310,14 @@
         icon: 'folder-plus',
         run: () => openEditor({ mode: 'new-folder', parentId: f.id }),
       },
-      { label: t('menu.folderColor'), icon: 'palette', run: () => openFolderColorMenu(f.id, state.menuAnchor) },
       homeId() !== f.id && { label: t('menu.setHome'), icon: 'home', run: () => setHomeFolder(f.id) },
       {
         label: t(inStrip(f.id) ? 'menu.stripRemove' : 'menu.stripAdd'),
         icon: 'strip',
         run: () => toggleStrip(f.id),
       },
+      '-',
+      colorRow(state.folderColors[f.id], (c) => setFolderColor(f.id, c)),
       !builtin && '-',
       !builtin && { label: t('menu.rename'), icon: 'edit', run: () => openEditor({ mode: 'edit', node: f }) },
       !builtin && {
@@ -4242,7 +4331,11 @@
   }
 
   function separatorMenu(s) {
-    return [{ label: t('menu.deleteSeparator'), icon: 'trash', danger: true, run: () => confirmDelete(s) }];
+    return [
+      colorRow(state.separatorColors[s.id], (c) => setSeparatorColor(s.id, c)),
+      '-',
+      { label: t('menu.deleteSeparator'), icon: 'trash', danger: true, run: () => confirmDelete(s) },
+    ];
   }
 
   function menuFor(n) {
@@ -4260,22 +4353,24 @@
       ...entries.map((item) =>
         item === '-'
           ? el('div', { class: 'menu-sep', role: 'separator' })
-          : el(
-              'button',
-              {
-                class: item.danger ? 'menu-item is-danger' : 'menu-item',
-                type: 'button',
-                role: 'checked' in item ? 'menuitemcheckbox' : 'menuitem',
-                'aria-checked': 'checked' in item ? String(!!item.checked) : null,
-                onclick: () => {
-                  closeMenu();
-                  item.run();
+          : item.colors
+            ? menuColors(item)
+            : el(
+                'button',
+                {
+                  class: item.danger ? 'menu-item is-danger' : 'menu-item',
+                  type: 'button',
+                  role: 'checked' in item ? 'menuitemcheckbox' : 'menuitem',
+                  'aria-checked': 'checked' in item ? String(!!item.checked) : null,
+                  onclick: () => {
+                    closeMenu();
+                    item.run();
+                  },
                 },
-              },
-              item.dot ? el('span', { class: 'menu-dot', dataset: { color: item.dot } }) : icon(item.icon),
-              el('span', { class: 'menu-label', text: item.label }),
-              item.checked ? icon('check', 'menu-check') : null,
-            ),
+                item.dot ? el('span', { class: 'menu-dot', dataset: { color: item.dot } }) : icon(item.icon),
+                el('span', { class: 'menu-label', text: item.label }),
+                item.checked ? icon('check', 'menu-check') : null,
+              ),
       ),
     );
     menu.classList.remove('is-open');
@@ -4296,7 +4391,7 @@
     menu.style.left = `${clamp(x, 8, innerWidth - width - 8)}px`;
     menu.style.top = `${clamp(y, 8, innerHeight - height - 8)}px`;
     requestAnimationFrame(() => menu.classList.add('is-open'));
-    menu.querySelector('.menu-item')?.focus();
+    menu.querySelector('.menu-item, .menu-swatch')?.focus();
   }
 
   function closeMenu(restoreFocus = false) {
@@ -4309,15 +4404,27 @@
   }
 
   function handleMenuKeys(event) {
-    const items = [...$('#menu').querySelectorAll('.menu-item:not(:disabled)')];
-    const index = items.indexOf(document.activeElement);
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    // Cada opción es una parada; la fila de colores cuenta como una sola.
+    const stops = [...$('#menu').querySelectorAll('.menu-item:not(:disabled), .menu-swatches')];
+    const active = document.activeElement;
+    const index = stops.findIndex((stop) => stop === active || stop.contains(active));
+    const focusStop = (stop) =>
+      (stop?.classList.contains('menu-swatches')
+        ? stop.querySelector('[aria-checked="true"]') || stop.firstElementChild
+        : stop
+      )?.focus();
+    if (active?.classList.contains('menu-swatch') && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
+      event.preventDefault();
+      const row = [...active.parentElement.children];
+      const at = row.indexOf(active) + (event.key === 'ArrowRight' ? 1 : -1);
+      row[(at + row.length) % row.length].focus();
+    } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
       const delta = event.key === 'ArrowDown' ? 1 : -1;
-      items[(index + delta + items.length) % items.length]?.focus();
+      focusStop(stops[(index + delta + stops.length) % stops.length]);
     } else if (event.key === 'Home' || event.key === 'End') {
       event.preventDefault();
-      (event.key === 'Home' ? items[0] : items[items.length - 1])?.focus();
+      focusStop(event.key === 'Home' ? stops[0] : stops[stops.length - 1]);
     } else if (event.key === 'Escape') {
       event.preventDefault();
       closeMenu(true);

@@ -45,6 +45,9 @@ const EXPOSE = [
   'toggleStripPick',
   'toggleStripSub',
   'toggleStripExpandAll',
+  'setSeparatorColor',
+  'separatorMenu',
+  'planImport',
   'stripAllExpanded',
 ];
 
