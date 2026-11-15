@@ -64,6 +64,85 @@
   --pill: 0px;
 }
 
+/* Color principal (Ajustes → Apariencia): sin data-accent se usa el índigo de :root.
+   En claro son tonos con contraste suficiente bajo texto blanco; el resto de
+   variantes (hover, suave, texto encima) se derivan del color elegido. */
+:root[data-accent='blue'] {
+  --accent: light-dark(#2563eb, #60a5fa);
+}
+:root[data-accent='teal'] {
+  --accent: light-dark(#0f766e, #2dd4bf);
+}
+:root[data-accent='green'] {
+  --accent: light-dark(#15803d, #4ade80);
+}
+:root[data-accent='amber'] {
+  --accent: light-dark(#b45309, #fbbf24);
+}
+:root[data-accent='orange'] {
+  --accent: light-dark(#c2410c, #fb923c);
+}
+:root[data-accent='red'] {
+  --accent: light-dark(#dc2626, #f87171);
+}
+:root[data-accent='pink'] {
+  --accent: light-dark(#db2777, #f472b6);
+}
+:root[data-accent='violet'] {
+  --accent: light-dark(#9333ea, #c084fc);
+}
+:root[data-accent='slate'] {
+  --accent: light-dark(#56657a, #94a3b8);
+}
+:root[data-accent] {
+  --accent-hover: light-dark(
+    color-mix(in srgb, var(--accent) 86%, black),
+    color-mix(in srgb, var(--accent) 78%, white)
+  );
+  --accent-contrast: light-dark(#ffffff, color-mix(in srgb, var(--accent) 14%, #121212));
+  --accent-soft: light-dark(
+    color-mix(in srgb, var(--accent) 9%, #ffffff),
+    color-mix(in srgb, var(--accent) 16%, #1f1f1f)
+  );
+}
+
+/* Color general de las carpetas (Ajustes → Apariencia → Colores): sin
+   data-folder-color se usa el amarillo de :root. Las carpetas y grupos con
+   color propio, y el color de las columnas, lo sustituyen localmente. */
+:root[data-folder-color] {
+  --folder-bg: color-mix(in srgb, var(--folder-fg) 15%, var(--surface));
+}
+:root[data-folder-color='indigo'] {
+  --folder-fg: var(--c-indigo);
+}
+:root[data-folder-color='blue'] {
+  --folder-fg: var(--c-blue);
+}
+:root[data-folder-color='teal'] {
+  --folder-fg: var(--c-teal);
+}
+:root[data-folder-color='green'] {
+  --folder-fg: var(--c-green);
+}
+:root[data-folder-color='amber'] {
+  --folder-fg: var(--c-amber);
+}
+:root[data-folder-color='orange'] {
+  --folder-fg: var(--c-orange);
+}
+:root[data-folder-color='red'] {
+  --folder-fg: var(--c-red);
+}
+:root[data-folder-color='pink'] {
+  --folder-fg: var(--c-pink);
+}
+:root[data-folder-color='violet'] {
+  --folder-fg: var(--c-violet);
+}
+:root[data-folder-color='slate'] {
+  --folder-fg: var(--c-slate);
+}
+
 :root[data-theme='light'] {
   color-scheme: light;
 }
@@ -1898,12 +1977,6 @@ label.set-row {
   line-height: 1.45;
   color: var(--text-3);
 }
-.set-row.is-disabled {
-  opacity: 0.45;
-}
-.set-row.is-disabled * {
-  cursor: default;
-}
 
 /* Selector segmentado (tema, bordes, idioma, grosor) */
 .choice-group {
@@ -2043,8 +2116,13 @@ label.set-row {
 .swatch[data-color='auto'] {
   --g: var(--folder-fg);
 }
+.swatch[data-color='default'] {
+  --g: light-dark(#c4870b, #f0c05a); /* el amarillo de siempre (--folder-fg de :root) */
+}
 .swatch[data-color='auto'] .swatch-dot {
-  background: conic-gradient(#5046e5, #0d9488, #d97706, #dc2626, #db2777, #5046e5);
+  /* Sigue al color de las carpetas: punto de ese color con un aro discontinuo. */
+  outline: 1.5px dashed var(--g);
+  outline-offset: 2px;
 }
 
 /* Vista previa de la franja con dos tarjetas de ejemplo */

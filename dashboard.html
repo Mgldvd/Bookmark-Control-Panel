@@ -837,6 +837,56 @@
               </div>
             </div>
 
+            <h4 class="set-heading" data-i18n="settings.colors">Colors</h4>
+            <div class="set-group">
+              <div class="set-row set-row-stack">
+                <span class="set-text">
+                  <span data-i18n="settings.accent">Main color</span>
+                  <small data-i18n="settings.accentHint"
+                    >The color of buttons, the selection and other highlighted elements.</small
+                  >
+                </span>
+                <div
+                  class="swatches swatches-inline"
+                  id="accent-colors"
+                  role="radiogroup"
+                  aria-label="Main color"
+                  data-i18n-attr="aria-label:settings.accent"
+                ></div>
+              </div>
+              <div class="set-row set-row-stack">
+                <span class="set-text">
+                  <span data-i18n="folderColor.label">Folder color</span>
+                  <small data-i18n="folderColor.hint"
+                    >Folder icons and cards in every view. Folders with their own color keep it.</small
+                  >
+                </span>
+                <div
+                  class="swatches swatches-inline"
+                  id="folder-colors"
+                  role="radiogroup"
+                  aria-label="Folder color"
+                  data-i18n-attr="aria-label:folderColor.label"
+                ></div>
+              </div>
+              <div class="set-row set-row-stack" id="stripe-color-row">
+                <span class="set-text">
+                  <span data-i18n="columnColor.label">Column color</span>
+                  <small data-i18n="columnColor.hint"
+                    >Folder columns in board view. “Folder color” uses the one above; folders with their own color keep
+                    it.</small
+                  >
+                </span>
+                <div
+                  class="swatches swatches-inline"
+                  id="stripe-colors"
+                  role="radiogroup"
+                  aria-label="Column color"
+                  data-i18n-attr="aria-label:columnColor.label"
+                ></div>
+              </div>
+            </div>
+
             <h4 class="set-heading" data-i18n="settings.layout">Layout</h4>
             <div class="set-group">
               <div class="set-row">
@@ -927,21 +977,6 @@
                 </span>
                 <input class="switch" type="checkbox" id="opt-stripe" />
               </label>
-              <div class="set-row set-row-stack" id="stripe-color-row">
-                <span class="set-text">
-                  <span data-i18n="stripe.color">Color</span>
-                  <small data-i18n="stripe.colorHint"
-                    >“Folder color” uses the usual color. Folders with their own color keep it.</small
-                  >
-                </span>
-                <div
-                  class="swatches swatches-inline"
-                  id="stripe-colors"
-                  role="radiogroup"
-                  aria-label="Color"
-                  data-i18n-attr="aria-label:stripe.color"
-                ></div>
-              </div>
               <div class="set-row" id="stripe-width-row">
                 <span class="set-text"><span data-i18n="stripe.width">Thickness</span></span>
                 <div

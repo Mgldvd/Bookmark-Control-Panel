@@ -15,6 +15,15 @@ try {
   if (corners === 'round' || corners === 'semi' || corners === 'square') {
     document.documentElement.dataset.corners = corners;
   }
+  // Color principal: sin atributo se usa el índigo de siempre.
+  const accent = localStorage.getItem('bd-accent');
+  if (/^(blue|teal|green|amber|orange|red|pink|violet|slate)$/.test(accent || '')) {
+    document.documentElement.dataset.accent = accent;
+  }
+  const folderColor = localStorage.getItem('bd-folder-color');
+  if (/^(indigo|blue|teal|green|amber|orange|red|pink|violet|slate)$/.test(folderColor || '')) {
+    document.documentElement.dataset.folderColor = folderColor;
+  }
   // Franja de las tarjetas: "visible|color|grosor" (p. ej. "1|auto|3").
   const [stripe, stripeColor, stripeWidth] = (localStorage.getItem('bd-stripe') || '').split('|');
   if (stripe === '0') document.documentElement.dataset.stripe = 'off';

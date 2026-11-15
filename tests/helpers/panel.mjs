@@ -58,6 +58,8 @@ const EXPOSE = [
   'profileMenu',
   'stripWheel',
   'trackStripHover',
+  'setPref',
+  'applyAccent',
 ];
 
 const noop = () => {};

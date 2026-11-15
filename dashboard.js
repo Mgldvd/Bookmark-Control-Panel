@@ -59,6 +59,10 @@
   const GROUP_NAME_MAX = 60;
   const VIEW_MODES = ['grid', 'list', 'board'];
   const CORNERS = ['round', 'semi', 'square'];
+  // Color principal de la interfaz (botones, selección, foco…): 'indigo' es el de siempre.
+  const ACCENT_COLORS = GROUP_COLORS;
+  // Color general de las carpetas: 'default' es el amarillo de siempre.
+  const FOLDER_COLORS = ['default', ...GROUP_COLORS];
   // Franja de color a la izquierda de las tarjetas: color general y grosor (px).
   const STRIPE_COLORS = ['auto', ...GROUP_COLORS];
   const STRIPE_WIDTHS = [2, 3, 5, 8];
@@ -89,6 +93,8 @@
   const DEFAULT_PREFS = Object.freeze({
     lang: DEFAULT_LANG,
     corners: 'round',
+    accentColor: 'indigo',
+    folderColor: 'default',
     sidebarPanel: true,
     minimal: false,
     homeFolder: 'toolbar_____',
@@ -129,6 +135,8 @@
     prefs: {
       lang: DEFAULT_PREFS.lang,
       corners: DEFAULT_PREFS.corners,
+      accentColor: DEFAULT_PREFS.accentColor,
+      folderColor: DEFAULT_PREFS.folderColor,
       sidebarPanel: DEFAULT_PREFS.sidebarPanel,
       minimal: DEFAULT_PREFS.minimal,
       homeFolder: DEFAULT_PREFS.homeFolder,
@@ -701,6 +709,8 @@
     if (LANGS.includes(p.lang)) prefs.lang = p.lang;
     if (THEMES.includes(p.theme)) prefs.theme = p.theme;
     if (CORNERS.includes(p.corners)) prefs.corners = p.corners;
+    if (ACCENT_COLORS.includes(p.accentColor)) prefs.accentColor = p.accentColor;
+    if (FOLDER_COLORS.includes(p.folderColor)) prefs.folderColor = p.folderColor;
     if (VIEW_MODES.includes(p.view)) prefs.view = p.view;
     if (Array.isArray(p.boardCollapsed))
       state.boardCollapsed = new Set(p.boardCollapsed.filter((x) => typeof x === 'string'));
@@ -761,6 +771,7 @@
     savePrefs({ [key]: value });
     if (key === 'theme') applyTheme(true);
     if (key === 'corners') applyCorners();
+    if (key === 'accentColor' || key === 'folderColor') applyAccent();
     if (key === 'sidebarPanel') applySidebar();
     if (key === 'minimal' || key === 'homeFolder') applyMinimal();
     if (key === 'stripe' || key === 'stripeColor' || key === 'stripeWidth') applyStripe();
@@ -783,6 +794,7 @@
     applyPrefs(incoming);
     if (incoming.lang !== undefined) applyLanguage();
     applyCorners();
+    applyAccent();
     applySidebar();
     applyMinimal();
     applyStripe();
@@ -840,6 +852,25 @@
     document.documentElement.dataset.corners = corners;
     try {
       localStorage.setItem('bd-corners', corners);
+    } catch {
+      /* sin localStorage: solo afecta al primer pintado */
+    }
+  }
+
+  /**
+   * Color principal de la interfaz y color general de las carpetas (atributos en
+   * <html>, ver CSS); sin atributo se usan los de siempre (índigo y amarillo).
+   */
+  function applyAccent() {
+    const { accentColor, folderColor } = state.prefs;
+    const root = document.documentElement;
+    if (accentColor === DEFAULT_PREFS.accentColor) delete root.dataset.accent;
+    else root.dataset.accent = accentColor;
+    if (folderColor === DEFAULT_PREFS.folderColor) delete root.dataset.folderColor;
+    else root.dataset.folderColor = folderColor;
+    try {
+      localStorage.setItem('bd-accent', accentColor);
+      localStorage.setItem('bd-folder-color', folderColor);
     } catch {
       /* sin localStorage: solo afecta al primer pintado */
     }
@@ -1157,6 +1188,10 @@
     for (const radio of form.querySelectorAll('input[name="lang"]')) radio.checked = radio.value === state.prefs.lang;
     for (const radio of form.querySelectorAll('input[name="corners"]'))
       radio.checked = radio.value === state.prefs.corners;
+    for (const radio of form.querySelectorAll('input[name="accent-color"]'))
+      radio.checked = radio.value === state.prefs.accentColor;
+    for (const radio of form.querySelectorAll('input[name="folder-color"]'))
+      radio.checked = radio.value === state.prefs.folderColor;
     $('#opt-newtab').checked = state.prefs.openInNewTab;
     $('#opt-subfolders').checked = state.prefs.includeSubfolders;
     $('#opt-favicons').checked = state.prefs.showFavicons;
@@ -1171,10 +1206,6 @@
     const width = state.prefs.stripe ? state.prefs.stripeWidth : 0;
     for (const radio of form.querySelectorAll('input[name="stripe-width"]'))
       radio.checked = Number(radio.value) === width;
-    // Sin franja, el color no aplica (el grosor sí: elegir uno la vuelve a mostrar).
-    const colorRow = $('#stripe-color-row');
-    colorRow.classList.toggle('is-disabled', !state.prefs.stripe);
-    for (const input of colorRow.querySelectorAll('input')) input.disabled = !state.prefs.stripe;
   }
 
   /** Grosor de la franja: 0 («Ninguno») la oculta; cualquier otro la muestra con ese grosor. */
@@ -1191,17 +1222,17 @@
     syncControls();
   }
 
-  /** Muestras de color de la franja (Ajustes → Apariencia). Los textos se traducen con translateStatic. */
-  function buildStripeSwatches() {
-    $('#stripe-colors').replaceChildren(
-      ...STRIPE_COLORS.map((c) => {
+  /** Muestras de color de Ajustes → Apariencia. Los textos se traducen con translateStatic. */
+  function buildSwatches(container, name, colors) {
+    container.replaceChildren(
+      ...colors.map((c) => {
         const key = c === 'auto' ? 'stripe.auto' : `color.${c}`;
         return el(
           'label',
           { class: 'swatch', title: t(key), dataset: { color: c, i18nAttr: `title:${key}` } },
           el('input', {
             type: 'radio',
-            name: 'stripe-color',
+            name,
             value: c,
             'aria-label': t(key),
             dataset: { i18nAttr: `aria-label:${key}` },
@@ -4349,6 +4380,8 @@
     lang: (v) => LANGS.includes(v),
     theme: (v) => THEMES.includes(v),
     corners: (v) => CORNERS.includes(v),
+    accentColor: (v) => ACCENT_COLORS.includes(v),
+    folderColor: (v) => FOLDER_COLORS.includes(v),
     sidebarPanel: (v) => typeof v === 'boolean',
     minimal: (v) => typeof v === 'boolean',
     stripe: (v) => typeof v === 'boolean',
@@ -4628,6 +4661,7 @@
     applyLanguage();
     applyTheme(true);
     applyCorners();
+    applyAccent();
     applySidebar();
     applyMinimal();
     applyStripe();
@@ -5596,7 +5630,9 @@
       $('#settings-dialog').showModal();
       $(`#stab-${state.settingsTab}`).focus();
     });
-    buildStripeSwatches();
+    buildSwatches($('#accent-colors'), 'accent-color', ACCENT_COLORS);
+    buildSwatches($('#folder-colors'), 'folder-color', FOLDER_COLORS);
+    buildSwatches($('#stripe-colors'), 'stripe-color', STRIPE_COLORS);
     const settingsTabs = $('#settings-tabs');
     settingsTabs.addEventListener('click', (event) => {
       const tab = event.target.closest('[role="tab"]');
@@ -5701,6 +5737,8 @@
       if (input.name === 'theme') setPref('theme', input.value);
       else if (input.name === 'lang') setPref('lang', input.value);
       else if (input.name === 'corners') setPref('corners', input.value);
+      else if (input.name === 'accent-color') setPref('accentColor', input.value);
+      else if (input.name === 'folder-color') setPref('folderColor', input.value);
       else if (input.id === 'opt-minimal') {
         if (input.checked) enterMinimal();
         else setPref('minimal', false);
@@ -5865,6 +5903,7 @@
     await loadPrefs();
     if (state.prefs.lang !== lang) applyLanguage();
     applyCorners();
+    applyAccent();
     applySidebar();
     applyMinimal();
     applyStripe();

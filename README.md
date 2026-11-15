@@ -215,9 +215,18 @@ bookmarks/
   usan menos; en móvil siempre una.
 - **Borde izquierdo de las tarjetas** (Ajustes → Apariencia → Borde de las tarjetas): la franja de
   color de las tarjetas del tablero y de los grupos se puede ocultar, cambiar de grosor (ninguno,
-  fino, normal, grueso, extra; «Ninguno» equivale a apagar el interruptor) y de color general. El color general tiñe las tarjetas de carpeta que
-  no tienen color propio (las que sí lo tienen lo conservan; los grupos mantienen el suyo). Con
+  fino, normal, grueso, extra; «Ninguno» equivale a apagar el interruptor); su color es el de las
+  columnas (Ajustes → Apariencia → Colores). Los grupos mantienen el suyo. Con
   vista previa en vivo; se aplica antes del primer pintado y entra en la copia de seguridad.
+- **Color principal** (Ajustes → Apariencia): el color de los botones, la selección, el foco y demás
+  elementos destacados se elige entre diez (índigo, el de siempre, azul, turquesa, verde, ámbar,
+  naranja, rojo, rosa, violeta y gris), con variantes para tema claro y oscuro. Se aplica antes del
+  primer pintado, se sincroniza entre pestañas y entra en la copia de seguridad.
+- **Color de las carpetas y de las columnas** (Ajustes → Apariencia → Colores): el amarillo de las
+  carpetas (iconos, tarjetas de carpeta y columnas del tablero) se puede cambiar por cualquiera de
+  los diez colores, y las columnas del tablero pueden llevar otro distinto («Color de carpeta» sigue
+  al anterior). Las carpetas con color propio lo conservan. El color de las columnas ya no depende
+  de que el borde izquierdo esté visible.
 - **Estilo de bordes** (Ajustes → Bordes): esquinas redondeadas, semi o rectas en toda la
   interfaz (tarjetas, botones, menús, diálogos, buscador…). Se aplica antes del primer pintado,
   como el tema, y se sincroniza entre pestañas.
