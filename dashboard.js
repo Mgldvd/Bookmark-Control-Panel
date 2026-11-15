@@ -110,6 +110,8 @@
     boardShowAll: [],
     stripFolders: [],
     stripOpen: [],
+    stripProfiles: [],
+    stripProfile: '',
     folderColors: {},
     separatorColors: {},
     expanded: ['menu________', 'toolbar_____', 'unfiled_____'],
@@ -202,6 +204,13 @@
     // Carpetas de la tira, en su orden (pueden quedar ids de carpetas borradas:
     // no se muestran, y «Deshacer» las vuelve a enlazar).
     stripFolders: [],
+    // Perfiles de la tira: distintas selecciones de carpetas ({ id, name, folders }).
+    // Las del activo son siempre las de stripFolders.
+    stripProfiles: [],
+    stripProfile: '',
+    // Perfil cuyo nombre se está editando en la barra, y el que recibe el foco al repintar.
+    profileRenaming: null,
+    profileFocus: null,
     viewKind: null,
     treePicking: false,
     // Subcarpetas desplegadas dentro de las tarjetas de la tira.
@@ -698,8 +707,8 @@
     if (Array.isArray(p.boardShowAll))
       state.boardShowAll = new Set(p.boardShowAll.filter((x) => typeof x === 'string'));
     if (Array.isArray(p.stripOpen)) state.stripOpen = new Set(p.stripOpen.filter((x) => typeof x === 'string'));
-    if (Array.isArray(p.stripFolders))
-      state.stripFolders = [...new Set(p.stripFolders.filter((x) => typeof x === 'string'))];
+    if (Array.isArray(p.stripProfiles) || typeof p.stripProfile === 'string' || Array.isArray(p.stripFolders))
+      applyStripProfiles(p);
     if (p.folderColors && typeof p.folderColors === 'object' && !Array.isArray(p.folderColors)) {
       const colors = Object.create(null);
       for (const [id, color] of Object.entries(p.folderColors)) if (GROUP_COLORS.includes(color)) colors[id] = color;
@@ -1737,6 +1746,7 @@
     const board = strip || viewMode() === 'board';
     $('#content').classList.toggle('is-strip-view', strip);
     renderHomeBar(view);
+    renderStripProfiles(view.kind);
 
     // Carpetas (en el tablero cada carpeta es una tarjeta propia)
     const folderGrid = $('#folder-grid');
@@ -2296,7 +2306,12 @@
 
   // ----- Tira: carpetas elegidas, una al lado de otra -----
 
-  const saveStrip = () => savePrefs({ stripFolders: [...state.stripFolders] });
+  const saveStrip = () =>
+    savePrefs({
+      stripFolders: [...state.stripFolders],
+      stripProfiles: serializeProfiles(),
+      stripProfile: state.stripProfile,
+    });
   const inStrip = (id) => state.stripFolders.includes(id);
 
   /** Carpetas de la tira que aún existen, en su orden. */
@@ -2308,6 +2323,295 @@
     state.stripFolders = [...new Set(list)];
     saveStrip();
     scheduleRender();
+  }
+
+  // ----- Perfiles de la tira: varias selecciones de carpetas, una activa -----
+
+  const PROFILE_NAME_MAX = 40;
+  const cleanIds = (list) => [...new Set((Array.isArray(list) ? list : []).filter((x) => typeof x === 'string'))];
+
+  function sanitizeProfiles(list) {
+    const out = [];
+    const ids = new Set();
+    for (const raw of Array.isArray(list) ? list : []) {
+      if (!isPlainObject(raw) || typeof raw.id !== 'string' || !raw.id || ids.has(raw.id)) continue;
+      ids.add(raw.id);
+      const name = typeof raw.name === 'string' ? raw.name.trim().slice(0, PROFILE_NAME_MAX) : '';
+      const color = GROUP_COLORS.includes(raw.color) ? raw.color : '';
+      out.push({ id: raw.id, name, color, folders: cleanIds(raw.folders) });
+    }
+    return out;
+  }
+
+  /**
+   * Aplica perfiles y perfil activo guardados. Siempre queda al menos uno (el primero
+   * se crea a partir de la tira de antes de que existieran los perfiles), y si llega
+   * stripFolders (otra pestaña, una copia antigua) son las carpetas del activo.
+   */
+  function applyStripProfiles(p) {
+    if (Array.isArray(p.stripProfiles)) state.stripProfiles = sanitizeProfiles(p.stripProfiles);
+    if (typeof p.stripProfile === 'string') state.stripProfile = p.stripProfile;
+    if (!state.stripProfiles.length)
+      state.stripProfiles = [{ id: 'default', name: '', color: '', folders: [...state.stripFolders] }];
+    let active = state.stripProfiles.find((x) => x.id === state.stripProfile);
+    if (!active) {
+      active = state.stripProfiles[0];
+      state.stripProfile = active.id;
+    }
+    if (Array.isArray(p.stripFolders)) active.folders = cleanIds(p.stripFolders);
+    state.stripFolders = [...active.folders];
+  }
+
+  const activeProfile = () => state.stripProfiles.find((x) => x.id === state.stripProfile) || state.stripProfiles[0];
+  const profileName = (pr) => pr?.name || t('strip.profileDefault');
+
+  /** Copia de los perfiles para guardar (el activo, con las carpetas de la tira). */
+  function serializeProfiles() {
+    return state.stripProfiles.map((pr) => ({
+      id: pr.id,
+      name: pr.name,
+      color: pr.color || '',
+      folders: pr.id === state.stripProfile ? [...state.stripFolders] : [...pr.folders],
+    }));
+  }
+
+  /** Activa un perfil (sin guardar): su selección pasa a ser la tira. */
+  function activateProfile(pr) {
+    // Solo si el activo sigue en la lista (al eliminarlo ya no está).
+    const current = state.stripProfiles.find((x) => x.id === state.stripProfile);
+    if (current) current.folders = [...state.stripFolders];
+    state.stripProfile = pr.id;
+    state.stripFolders = [...pr.folders];
+    // Otra selección de carpetas: la tira empieza desde el principio.
+    if (momentum.raf) stopMomentum();
+    if (wheelScroll.raf) stopWheelScroll();
+    $('#cards').scrollLeft = 0;
+  }
+
+  function commitProfiles() {
+    saveStrip();
+    scheduleRender();
+  }
+
+  function switchStripProfile(id) {
+    const pr = state.stripProfiles.find((x) => x.id === id);
+    if (!pr || id === state.stripProfile) return;
+    activateProfile(pr);
+    state.profileFocus = id;
+    commitProfiles();
+  }
+
+  const newProfileId = () => `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+
+  /** Perfil nuevo (vacío, o copia de `fromId`) justo después del de origen; queda activo. */
+  function addStripProfile(fromId = null) {
+    const from = fromId ? state.stripProfiles.find((x) => x.id === fromId) : null;
+    if (from) activeProfile().folders = [...state.stripFolders];
+    const names = new Set(state.stripProfiles.map(profileName));
+    let name;
+    if (from) name = t('strip.profileCopy', { name: profileName(from) });
+    else {
+      let n = state.stripProfiles.length + 1;
+      while (names.has(t('strip.profileNew', { n }))) n++;
+      name = t('strip.profileNew', { n });
+    }
+    const pr = {
+      id: newProfileId(),
+      name: name.slice(0, PROFILE_NAME_MAX),
+      color: from?.color || '',
+      folders: from ? [...from.folders] : [],
+    };
+    const at = from ? state.stripProfiles.indexOf(from) + 1 : state.stripProfiles.length;
+    state.stripProfiles.splice(at, 0, pr);
+    activateProfile(pr);
+    // Se le pone nombre nada más crearlo.
+    state.profileRenaming = pr.id;
+    commitProfiles();
+    return pr.id;
+  }
+
+  function renameStripProfile(id, name) {
+    const pr = state.stripProfiles.find((x) => x.id === id);
+    const clean = String(name ?? '')
+      .trim()
+      .slice(0, PROFILE_NAME_MAX);
+    // Vacío: se queda como estaba.
+    if (!pr || !clean || clean === pr.name) return;
+    pr.name = clean;
+    commitProfiles();
+  }
+
+  function setProfileColor(id, color) {
+    const pr = state.stripProfiles.find((x) => x.id === id);
+    if (!pr) return;
+    pr.color = GROUP_COLORS.includes(color) ? color : '';
+    commitProfiles();
+  }
+
+  function moveStripProfile(id, step) {
+    const list = state.stripProfiles;
+    const from = list.findIndex((x) => x.id === id);
+    const to = from + step;
+    if (from < 0 || to < 0 || to >= list.length) return;
+    list.splice(to, 0, ...list.splice(from, 1));
+    state.profileFocus = id;
+    commitProfiles();
+  }
+
+  function deleteStripProfile(id) {
+    const list = state.stripProfiles;
+    const index = list.findIndex((x) => x.id === id);
+    if (index < 0 || list.length < 2) return;
+    activeProfile().folders = [...state.stripFolders];
+    const before = list.map((x) => ({ ...x, folders: [...x.folders] }));
+    const beforeActive = state.stripProfile;
+    const [removed] = list.splice(index, 1);
+    if (id === beforeActive) activateProfile(list[Math.min(index, list.length - 1)]);
+    commitProfiles();
+    toast(t('toast.profileDeleted', { name: profileName(removed) }), 'info', {
+      label: t('action.undo'),
+      run: () => {
+        state.stripProfiles = before;
+        state.stripProfile = '';
+        activateProfile(before.find((x) => x.id === beforeActive) || before[0]);
+        commitProfiles();
+      },
+    });
+  }
+
+  function profileMenu(id) {
+    const list = state.stripProfiles;
+    const index = list.findIndex((x) => x.id === id);
+    if (index < 0) return [];
+    return [
+      id !== state.stripProfile && { label: t('strip.profileOpen'), icon: 'strip', run: () => switchStripProfile(id) },
+      { label: t('menu.rename'), icon: 'edit', run: () => startProfileRename(id) },
+      { label: t('strip.profileDuplicate'), icon: 'copy', run: () => addStripProfile(id) },
+      '-',
+      colorRow(list[index].color, (c) => setProfileColor(id, c)),
+      list.length > 1 && '-',
+      index > 0 && { label: t('strip.profileMoveLeft'), icon: 'arrow-left', run: () => moveStripProfile(id, -1) },
+      index < list.length - 1 && {
+        label: t('strip.profileMoveRight'),
+        icon: 'arrow-right',
+        run: () => moveStripProfile(id, 1),
+      },
+      list.length > 1 && '-',
+      list.length > 1 && {
+        label: t('strip.profileDelete'),
+        icon: 'trash',
+        danger: true,
+        run: () => deleteStripProfile(id),
+      },
+    ];
+  }
+
+  function startProfileRename(id) {
+    if (!state.stripProfiles.some((x) => x.id === id)) return;
+    state.profileRenaming = id;
+    renderStripProfiles();
+  }
+
+  function finishProfileRename(input, save) {
+    const id = input.dataset.profileId;
+    if (state.profileRenaming !== id) return;
+    state.profileRenaming = null;
+    state.profileFocus = id;
+    if (save) renameStripProfile(id, input.value);
+    renderStripProfiles();
+  }
+
+  /** Barra de perfiles, sobre la tira (también en el modo minimalista). */
+  function renderStripProfiles(kind = state.viewKind) {
+    const bar = $('#strip-profiles');
+    const show = kind === 'strip';
+    bar.hidden = !show;
+    if (!show) return;
+    // No se rehace mientras se escribe un nombre (un repintado se llevaría lo escrito).
+    const editing = bar.querySelector('.strip-profile-input');
+    if (editing && editing.dataset.profileId === state.profileRenaming) return;
+    const live = (ids) => ids.filter((id) => id !== state.rootId && isFolder(get(id))).length;
+    const chips = state.stripProfiles.map((pr) => {
+      const active = pr.id === state.stripProfile;
+      const color = pr.color || null;
+      if (pr.id === state.profileRenaming) {
+        return el('input', {
+          class: 'strip-profile-input',
+          type: 'text',
+          value: pr.name || profileName(pr),
+          maxlength: PROFILE_NAME_MAX,
+          'aria-label': t('strip.profileName'),
+          dataset: { profileId: pr.id, color },
+        });
+      }
+      const folders = tn('strip.profileFolders', live(active ? state.stripFolders : pr.folders));
+      return el(
+        'button',
+        {
+          class: 'strip-profile',
+          type: 'button',
+          'aria-pressed': String(active),
+          title: `${profileName(pr)} · ${folders}\n${t('strip.profileHint')}`,
+          dataset: { action: 'profile', profileId: pr.id, color },
+        },
+        color && el('span', { class: 'strip-profile-dot', 'aria-hidden': 'true' }),
+        el('span', { class: 'strip-profile-name', text: profileName(pr) }),
+      );
+    });
+    const tool = (action, iconName, label) =>
+      el(
+        'button',
+        { class: 'strip-profile-tool', type: 'button', title: label, 'aria-label': label, dataset: { action } },
+        icon(iconName),
+      );
+    const more = t('strip.profileMore', { name: profileName(activeProfile()) });
+    bar.replaceChildren(
+      el(
+        'div',
+        { class: 'strip-profile-pill' },
+        el('div', { class: 'strip-profile-list', role: 'group', 'aria-label': t('strip.profiles') }, ...chips),
+        el('span', { class: 'strip-profile-sep', 'aria-hidden': 'true' }),
+        tool('profile-add', 'plus', t('strip.profileAddTitle')),
+        tool('profile-more', 'more', more),
+      ),
+    );
+    const input = bar.querySelector('.strip-profile-input');
+    if (input) {
+      input.focus();
+      input.select();
+      input.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+    } else if (state.profileFocus) {
+      bar.querySelector(`.strip-profile[data-profile-id="${CSS.escape(state.profileFocus)}"]`)?.focus();
+    }
+    state.profileFocus = null;
+  }
+
+  function bindStripProfiles() {
+    const bar = $('#strip-profiles');
+    bar.addEventListener('dblclick', (event) => {
+      const chip = event.target.closest('.strip-profile');
+      if (chip) startProfileRename(chip.dataset.profileId);
+    });
+    bar.addEventListener('keydown', (event) => {
+      const input = event.target.closest('.strip-profile-input');
+      if (input) {
+        if (event.key === 'Enter' || event.key === 'Escape') {
+          event.preventDefault();
+          event.stopPropagation();
+          finishProfileRename(input, event.key === 'Enter');
+        }
+        return;
+      }
+      const chip = event.target.closest('.strip-profile');
+      if (chip && event.key === 'F2') {
+        event.preventDefault();
+        startProfileRename(chip.dataset.profileId);
+      }
+    });
+    bar.addEventListener('focusout', (event) => {
+      const input = event.target.closest?.('.strip-profile-input');
+      if (input) finishProfileRename(input, true);
+    });
   }
 
   function toggleStrip(id) {
@@ -2408,7 +2712,7 @@
 
   // ----- Desplazamiento de la tira (sin barra visible) -----
   // La rueda la mueve en horizontal (con suavizado), el fondo se puede agarrar y
-  // arrastrar con el ratón, y al arrastrar una tarjeta o un marcador cerca de un
+  // arrastrar con el ratón (al soltarlo sigue con inercia y se va frenando), y al arrastrar una tarjeta o un marcador cerca de un
   // borde la tira avanza sola. Unos degradados en los bordes indican que hay más.
 
   const stripEl = () => {
@@ -2439,7 +2743,7 @@
 
   function stripWheel(event) {
     const cards = stripEl();
-    if (!cards || event.ctrlKey || event.target.closest?.('#view-head, #home-bar')) return;
+    if (!cards || event.ctrlKey || event.target.closest?.('#view-head, #home-bar, #strip-profiles')) return;
     // El desplazamiento horizontal del touchpad (o Mayús+rueda) ya lo hace el navegador.
     if (event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
     // Sobre una tarjeta con más contenido del que cabe, la rueda la desplaza a ella.
@@ -2447,6 +2751,7 @@
     if (inner && inner.scrollHeight > inner.clientHeight + 1) return;
     const max = stripMax(cards);
     if (!max) return;
+    stopMomentum();
     const unit = event.deltaMode === 1 ? 40 : event.deltaMode === 2 ? cards.clientWidth : 1;
     const delta = event.deltaY * unit;
     const from = wheelScroll.raf ? wheelScroll.target : cards.scrollLeft;
@@ -2478,15 +2783,26 @@
   }
 
   // Agarrar el fondo: lo que no es un enlace, un botón ni algo arrastrable.
-  const PAN_IGNORE = 'a, button, input, select, textarea, label, [draggable="true"], #view-head, #home-bar, #empty';
+  const PAN_IGNORE =
+    'a, button, input, select, textarea, label, [draggable="true"], #view-head, #home-bar, #strip-profiles, #empty';
   let pan = null;
 
   function stripPointerDown(event) {
     const cards = stripEl();
     if (!cards || event.button !== 0 || event.pointerType !== 'mouse' || !stripMax(cards)) return;
+    // Un clic mientras la tira aún se desliza la detiene (y no abre lo que haya debajo).
+    if (stopMomentum() > MOMENTUM_GRAB) swallowNextClick();
     if (event.target.closest?.(PAN_IGNORE)) return;
     stopWheelScroll();
-    pan = { id: event.pointerId, x: event.clientX, left: cards.scrollLeft, moved: false, cards };
+    const now = performance.now();
+    pan = {
+      id: event.pointerId,
+      x: event.clientX,
+      left: cards.scrollLeft,
+      moved: false,
+      cards,
+      samples: [{ t: now, x: event.clientX }],
+    };
   }
 
   function stripPointerMove(event) {
@@ -2505,22 +2821,81 @@
     }
     event.preventDefault();
     pan.cards.scrollLeft = pan.left - dx;
+    // Últimas posiciones, para saber a qué velocidad iba el ratón al soltar.
+    const now = performance.now();
+    pan.samples.push({ t: now, x: event.clientX });
+    while (pan.samples.length > 2 && now - pan.samples[0].t > MOMENTUM_WINDOW) pan.samples.shift();
   }
 
   function stripPointerUp(event) {
     if (!pan || event.pointerId !== pan.id) return;
-    const moved = pan.moved;
+    const { moved, samples, cards } = pan;
     pan = null;
     document.documentElement.classList.remove('is-panning');
+    if (!moved) return;
     // Que soltar tras arrastrar no cuente como clic (el clic llega justo después).
-    if (moved) {
-      const swallow = (e) => {
-        e.stopPropagation();
-        e.preventDefault();
-      };
-      window.addEventListener('click', swallow, { capture: true, once: true });
-      setTimeout(() => window.removeEventListener('click', swallow, { capture: true }), 0);
-    }
+    swallowNextClick();
+    if (event.type === 'pointerup') startMomentum(cards, releaseVelocity(samples));
+  }
+
+  function swallowNextClick() {
+    const swallow = (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+    };
+    window.addEventListener('click', swallow, { capture: true, once: true });
+    setTimeout(() => window.removeEventListener('click', swallow, { capture: true }), 0);
+  }
+
+  // Inercia al soltar: la tira sigue a la velocidad del gesto y se frena poco a poco.
+  const MOMENTUM_WINDOW = 100; // ms de movimiento que cuentan para la velocidad
+  const MOMENTUM_FRICTION = 0.95; // velocidad que se conserva cada 16 ms
+  const MOMENTUM_MIN = 0.02; // px/ms: por debajo, se para
+  const MOMENTUM_GRAB = 0.1; // px/ms: por encima, un clic solo la detiene
+  const MOMENTUM_MAX = 6; // px/ms: tope para un lanzamiento muy brusco
+  const momentum = { v: 0, raf: 0 };
+
+  /** Velocidad del puntero (px/ms, positiva hacia la derecha) al soltar. */
+  function releaseVelocity(samples) {
+    const last = samples.at(-1);
+    const first = samples.find((s) => last.t - s.t <= MOMENTUM_WINDOW) || last;
+    // Si se paró antes de soltar, no hay lanzamiento.
+    if (performance.now() - last.t > 60 || last.t - first.t < 8) return 0;
+    return clamp((last.x - first.x) / (last.t - first.t), -MOMENTUM_MAX, MOMENTUM_MAX);
+  }
+
+  function startMomentum(cards, velocity) {
+    stopMomentum();
+    // La tira va al revés que el ratón: arrastrar a la izquierda muestra lo de la derecha.
+    if (REDUCED_MOTION.matches || Math.abs(velocity) < MOMENTUM_MIN * 5) return;
+    momentum.v = -velocity;
+    let pos = cards.scrollLeft;
+    let prev = performance.now();
+    const step = (now) => {
+      const dt = Math.min(now - prev, 50);
+      prev = now;
+      const max = stripMax(cards);
+      pos = clamp(pos + momentum.v * dt, 0, max);
+      cards.scrollLeft = pos;
+      momentum.v *= MOMENTUM_FRICTION ** (dt / 16);
+      const atEdge = (pos <= 0 && momentum.v < 0) || (pos >= max && momentum.v > 0);
+      if (Math.abs(momentum.v) < MOMENTUM_MIN || atEdge || !cards.classList.contains('is-strip')) {
+        momentum.v = 0;
+        momentum.raf = 0;
+        return;
+      }
+      momentum.raf = requestAnimationFrame(step);
+    };
+    momentum.raf = requestAnimationFrame(step);
+  }
+
+  /** Detiene la inercia; devuelve la velocidad que llevaba (px/ms). */
+  function stopMomentum() {
+    const v = momentum.raf ? Math.abs(momentum.v) : 0;
+    cancelAnimationFrame(momentum.raf);
+    momentum.raf = 0;
+    momentum.v = 0;
+    return v;
   }
 
   // Bordes durante un arrastre (drag & drop): cuanto más cerca, más rápido.
@@ -2544,6 +2919,7 @@
     edgeScroll.at = performance.now();
     if (!v || edgeScroll.raf) return;
     stopWheelScroll();
+    stopMomentum();
     const step = () => {
       // dragover llega continuamente; si deja de llegar (fuera de la ventana), se para.
       if (!edgeScroll.v || performance.now() - edgeScroll.at > 150 || !cards.classList.contains('is-strip')) {
@@ -3180,10 +3556,12 @@
     state.boardCollapsed = swapAll(state.boardCollapsed);
     state.boardShowAll = swapAll(state.boardShowAll);
     state.stripFolders = [...new Set(state.stripFolders.map(swap))];
+    for (const pr of state.stripProfiles) pr.folders = [...new Set(pr.folders.map(swap))];
     state.stripOpen = swapAll(state.stripOpen);
     state.expanded = swapAll(state.expanded);
     const patch = {
       stripFolders: [...state.stripFolders],
+      stripProfiles: serializeProfiles(),
       stripOpen: [...state.stripOpen],
       favorites: [...state.favorites],
       groups: serializeGroups(),
@@ -3968,6 +4346,7 @@
       ...state.boardCollapsed,
       ...state.boardShowAll,
       ...state.stripFolders,
+      ...state.stripProfiles.flatMap((pr) => pr.folders),
       ...state.stripOpen,
       ...state.expanded,
       state.prefs.homeFolder,
@@ -4013,6 +4392,8 @@
       boardCollapsed: [...state.boardCollapsed],
       boardShowAll: [...state.boardShowAll],
       stripFolders: [...state.stripFolders],
+      stripProfiles: serializeProfiles(),
+      stripProfile: state.stripProfile,
       stripOpen: [...state.stripOpen],
       expanded: [...state.expanded],
       refs: { bookmarks, folders, separators },
@@ -4148,6 +4529,11 @@
         boardCollapsed: mapFolders(data.boardCollapsed),
         boardShowAll: mapFolders(data.boardShowAll),
         stripFolders: mapFolders(data.stripFolders),
+        // Copias anteriores a los perfiles: solo traen la tira (va al perfil activo).
+        ...(Array.isArray(data.stripProfiles) && {
+          stripProfiles: sanitizeProfiles(data.stripProfiles).map((pr) => ({ ...pr, folders: mapFolders(pr.folders) })),
+          ...(typeof data.stripProfile === 'string' && { stripProfile: data.stripProfile }),
+        }),
         stripOpen: mapFolders(data.stripOpen),
         expanded: mapFolders(data.expanded),
       },
@@ -5059,6 +5445,12 @@
         openMenu(item ? groupItemMenu(item, g) : groupMenu(g), { x: event.clientX, y: event.clientY });
         return;
       }
+      const profileChip = event.target.closest('.strip-profile');
+      if (profileChip) {
+        event.preventDefault();
+        openMenu(profileMenu(profileChip.dataset.profileId), { x: event.clientX, y: event.clientY });
+        return;
+      }
       const navView = event.target.closest('#views [data-view]');
       if (navView && isView(navView.dataset.view)) {
         event.preventDefault();
@@ -5128,6 +5520,15 @@
         case 'strip-pick':
           revealTreePicker();
           break;
+        case 'profile':
+          switchStripProfile(actionEl.dataset.profileId);
+          break;
+        case 'profile-add':
+          addStripProfile();
+          break;
+        case 'profile-more':
+          openMenu(profileMenu(state.stripProfile), actionEl);
+          break;
         default:
           break;
       }
@@ -5138,6 +5539,7 @@
     $('#strip-expand-btn').addEventListener('click', toggleStripExpandAll);
     $('#home-set-btn').addEventListener('click', setHomeHere);
     bindStripScroll();
+    bindStripProfiles();
 
     // Controles de vista
     $('#open-all-btn').addEventListener('click', openAllInView);

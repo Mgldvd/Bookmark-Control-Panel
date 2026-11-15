@@ -156,7 +156,7 @@ bookmarks/
 - **Tira**: vista especial (barra lateral, bajo «Recientes») con las carpetas que elijas, una al
   lado de otra como tarjetas del tablero en una sola fila. No tiene barra de desplazamiento: se
   mueve con la **rueda del ratón** (en horizontal; al llegar al extremo la rueda vuelve a ser de la
-  página), **agarrando el fondo** y arrastrando, o acercando a un borde lo que estés arrastrando
+  página), **agarrando el fondo** y arrastrando (al soltarlo sigue con inercia y se va frenando), o acercando a un borde lo que estés arrastrando
   (una tarjeta o un marcador). Un degradado en los bordes indica que hay más. Las carpetas se
   eligen en el **árbol de la barra lateral**: con la Tira abierta, cada carpeta muestra una
   casilla y un clic la añade (al final) o la quita, en vez de abrirla; «Elegir carpetas» lleva
@@ -176,6 +176,13 @@ bookmarks/
   con más contenido la desplaza a ella; en el resto de la tira, la mueve de lado. Se guarda en
   `browser.storage.local`, va en la copia de seguridad y puede ser la carpeta de inicio (también
   en el modo minimalista).
+  **Perfiles de la tira**: una barra centrada sobre la tira (también en el modo minimalista)
+  guarda distintas selecciones de carpetas; un clic cambia de una a otra. **+** crea un perfil
+  vacío (con el nombre listo para escribir) y **⋯** o el clic derecho en una pestaña permiten
+  renombrarlo (también doble clic o F2), duplicarlo, ponerle **color** (punto delante del nombre y
+  pestaña teñida cuando está activo), moverlo o eliminarlo (con «Deshacer»; siempre queda uno).
+  La tira que había antes pasa a ser el perfil «Principal». Se sincronizan entre pestañas y van en
+  la copia de seguridad.
 - **Carpeta de inicio**: cada pestaña nueva del panel empieza en la carpeta o vista marcada con
   «Usar como página de inicio», tanto en el panel normal como en el modo minimalista. Cualquier
   vista (también la **Tira**) se marca como inicio con el botón de la casa de la cabecera (se

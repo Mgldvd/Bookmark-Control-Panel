@@ -50,6 +50,12 @@ const EXPOSE = [
   'planImport',
   'stripAllExpanded',
   'stripSubsOf',
+  'switchStripProfile',
+  'addStripProfile',
+  'renameStripProfile',
+  'moveStripProfile',
+  'deleteStripProfile',
+  'profileMenu',
 ];
 
 const noop = () => {};

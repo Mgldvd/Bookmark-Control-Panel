@@ -178,3 +178,124 @@ test('«Expandir todo» abre las tarjetas y despliega todas las subcarpetas; «C
   assert.deepEqual(Array.from(stored.stripOpen), []);
   assert.deepEqual(Array.from(stored.boardCollapsed), [], 'contraer no pliega las tarjetas');
 });
+
+// ----- Perfiles: distintas selecciones de carpetas para la tira -----
+
+test('perfiles: la tira de antes pasa a ser el primero; cada uno guarda su selección', async () => {
+  const stored = { stripFolders: ['F'] };
+  const env = await openPanel({ stored });
+  const { state, panel } = env;
+  assert.equal(state.stripProfiles.length, 1, 'sin perfiles guardados, se crea uno con la tira de siempre');
+  const main = state.stripProfile;
+  assert.deepEqual([...state.stripFolders], ['F']);
+
+  const work = panel.addStripProfile();
+  assert.equal(state.stripProfile, work, 'el nuevo queda activo');
+  assert.deepEqual([...state.stripFolders], [], 'y empieza vacío');
+  assert.equal(state.profileRenaming, work, 'con su nombre listo para escribir');
+  panel.toggleStrip('G');
+  panel.toggleStrip('H');
+  await env.flush();
+  assert.deepEqual(stored.stripFolders, ['G', 'H']);
+  assert.equal(stored.stripProfile, work);
+
+  panel.switchStripProfile(main);
+  await env.flush();
+  assert.deepEqual([...state.stripFolders], ['F'], 'al volver, la selección del primero');
+  assert.deepEqual(
+    stored.stripProfiles.map((pr) => pr.folders),
+    [['F'], ['G', 'H']],
+  );
+
+  // Otra pestaña (o una recarga) abre el perfil guardado.
+  const again = await openPanel({ stored });
+  assert.equal(again.state.stripProfile, main);
+  again.panel.switchStripProfile(work);
+  assert.deepEqual([...again.state.stripFolders], ['G', 'H']);
+});
+
+test('perfiles: renombrar, duplicar, reordenar y eliminar (con «Deshacer»)', async () => {
+  const stored = { stripFolders: ['F'] };
+  const env = await openPanel({ stored });
+  const { state, panel } = env;
+  const main = state.stripProfile;
+
+  panel.renameStripProfile(main, '  Trabajo  ');
+  panel.renameStripProfile(main, '   ');
+  assert.equal(state.stripProfiles[0].name, 'Trabajo', 'sin espacios; vacío no cambia el nombre');
+
+  const copy = panel.addStripProfile(main);
+  assert.equal(state.stripProfiles[1].id, copy, 'la copia va justo detrás');
+  assert.deepEqual([...state.stripFolders], ['F'], 'con las mismas carpetas');
+  assert.match(state.stripProfiles[1].name, /Trabajo/);
+  panel.toggleStrip('G');
+  assert.deepEqual([...state.stripProfiles[0].folders], ['F'], 'cambiar la copia no toca el original');
+
+  panel.moveStripProfile(copy, -1);
+  assert.deepEqual(
+    Array.from(state.stripProfiles, (pr) => pr.id),
+    [copy, main],
+  );
+
+  panel.deleteStripProfile(copy);
+  await env.flush();
+  assert.equal(state.stripProfiles.length, 1);
+  assert.equal(state.stripProfile, main, 'se pasa al perfil que queda');
+  assert.deepEqual([...state.stripFolders], ['F']);
+  assert.equal(
+    panel.profileMenu(main).some((item) => item && item.danger),
+    false,
+    'el último perfil no se puede eliminar',
+  );
+  panel.deleteStripProfile(main);
+  assert.equal(state.stripProfiles.length, 1);
+
+  env.toasts.at(-1).action.run();
+  await env.flush();
+  assert.deepEqual(
+    Array.from(state.stripProfiles, (pr) => pr.id),
+    [copy, main],
+    '«Deshacer» lo devuelve a su sitio',
+  );
+  assert.equal(state.stripProfile, copy, 'y vuelve a estar activo');
+  assert.deepEqual([...state.stripFolders], ['F', 'G']);
+  assert.deepEqual(stored.stripFolders, ['F', 'G']);
+});
+
+test('perfiles: van en la copia de seguridad y una copia antigua llena el perfil activo', async () => {
+  const env = await openPanel({ stored: { stripFolders: ['F'] } });
+  const work = env.panel.addStripProfile();
+  env.panel.toggleStrip('G');
+  // Color desde su menú (fila de muestras); la copia lo hereda.
+  env.panel
+    .profileMenu(work)
+    .find((item) => item && item.colors)
+    .set('teal');
+  assert.equal(env.state.stripProfiles[1].color, 'teal');
+  const copy = env.panel.addStripProfile(work);
+  assert.equal(env.state.stripProfiles[2].color, 'teal');
+  env.panel.deleteStripProfile(copy);
+  env.panel.switchStripProfile(work);
+  const backup = env.panel.buildBackup();
+  assert.deepEqual(JSON.parse(JSON.stringify(backup.stripProfiles.map((pr) => pr.folders))), [['F'], ['G']]);
+  assert.equal(backup.stripProfile, work);
+  assert.deepEqual(
+    Array.from(backup.stripProfiles, (pr) => pr.color),
+    ['', 'teal'],
+  );
+  assert.ok(backup.refs.folders.F && backup.refs.folders.G, 'las carpetas de todos los perfiles, con su ruta');
+
+  const plan = env.panel.planImport(backup);
+  assert.deepEqual(JSON.parse(JSON.stringify(plan.values.stripProfiles.map((pr) => pr.folders))), [['F'], ['G']]);
+  assert.equal(plan.values.stripProfile, work);
+  const odd = env.panel.planImport({
+    ...backup,
+    stripProfiles: [{ id: 'z', name: 'Z', color: 'neon', folders: ['F'] }],
+  });
+  assert.equal(odd.values.stripProfiles[0].color, '', 'un color desconocido se descarta');
+
+  const { stripProfiles: _p, stripProfile: _a, ...old } = backup;
+  const oldPlan = env.panel.planImport({ ...old, stripFolders: ['H'] });
+  assert.equal('stripProfiles' in oldPlan.values, false, 'sin perfiles en la copia, no se tocan');
+  assert.deepEqual([...oldPlan.values.stripFolders], ['H']);
+});
