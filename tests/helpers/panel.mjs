@@ -49,6 +49,7 @@ const EXPOSE = [
   'separatorMenu',
   'planImport',
   'stripAllExpanded',
+  'stripSubsOf',
 ];
 
 const noop = () => {};

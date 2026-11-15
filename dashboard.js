@@ -1644,10 +1644,10 @@
   }
 
   /** Marcadores directos con sus separadores (sin separadores al principio, al final ni seguidos). */
-  function withSeparators(children) {
+  function withSeparators(children, keep = isBookmark) {
     const rows = [];
     for (const c of children) {
-      if (isBookmark(c)) rows.push(c);
+      if (keep(c)) rows.push(c);
       else if (isSeparator(c) && rows.length && !isSeparator(rows[rows.length - 1])) rows.push(c);
     }
     while (rows.length && isSeparator(rows[rows.length - 1])) rows.pop();
@@ -1824,12 +1824,22 @@
     return sortNodes(children.filter(isBookmark), bookmarkTitle);
   }
 
+  /**
+   * Subcarpetas de la tira. En orden manual van en el orden de Firefox y con los
+   * separadores que hay entre ellas; si no, por nombre y sin separadores.
+   */
+  function stripSubsOf(folder) {
+    const children = folder.children.map(get);
+    if (state.prefs.sort === 'manual') return withSeparators(children, isFolder);
+    return sortNodes(children.filter(isFolder), folderName);
+  }
+
   function boardSections(view) {
     if (view.kind === 'strip') {
       return view.folders.map((f) => ({
         folder: f,
         rows: boardRowsOf(f),
-        subfolders: sortNodes(f.children.map(get).filter(isFolder), folderName),
+        subfolders: stripSubsOf(f),
       }));
     }
     if (view.kind === 'folder') {
@@ -2111,7 +2121,15 @@
   }
 
   function stripSubList(subfolders, seen) {
-    return el('ul', { class: 'strip-subs' }, ...subfolders.map((sub) => stripSubItem(sub, seen)));
+    return el(
+      'ul',
+      { class: 'strip-subs' },
+      ...subfolders.map((sub) => {
+        if (!isSeparator(sub)) return stripSubItem(sub, seen);
+        seen.add(sub.id);
+        return boardRowEl(sub);
+      }),
+    );
   }
 
   function stripSubItem(sub, seen) {
@@ -2162,7 +2180,7 @@
     const body = el('div', { class: 'strip-sub-body' });
     const showAll = state.boardShowAll.has(sub.id);
     const { rows, hidden, total } = trimRows(boardRowsOf(sub), showAll);
-    const subs = sortNodes(sub.children.map(get).filter(isFolder), folderName);
+    const subs = stripSubsOf(sub);
     if (rows.length) {
       body.append(
         el(

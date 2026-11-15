@@ -72,3 +72,34 @@ test('el menú de un separador muestra los colores en fila y elegir uno lo aplic
   await env.flush();
   assert.deepEqual({ ...stored.separatorColors }, {}, 'el último punto quita el color');
 });
+
+test('en la tira, las subcarpetas desplegadas muestran los separadores que hay entre ellas', async () => {
+  const sep = (id) => ({ id, type: 'separator' });
+  const sub = (id) => ({ id, type: 'folder', title: id, children: [] });
+  const tree = {
+    id: 'root________',
+    type: 'folder',
+    children: [
+      {
+        id: 'toolbar_____',
+        type: 'folder',
+        title: 'Toolbar',
+        children: [
+          {
+            id: 'F',
+            type: 'folder',
+            title: 'F',
+            children: [sep('s0'), sub('B'), sep('s1'), sep('s2'), sub('A'), sep('s3')],
+          },
+        ],
+      },
+      { id: 'unfiled_____', type: 'folder', title: 'Other', children: [] },
+    ],
+  };
+  const env = await openPanel({ stored: {}, bookmarks: fakeBookmarks(tree) });
+  const ids = () => Array.from(env.panel.stripSubsOf(env.panel.get('F')), (n) => n.id);
+  assert.deepEqual(ids(), ['B', 's1', 'A'], 'orden de Firefox, sin separadores sueltos ni seguidos');
+
+  env.state.prefs.sort = 'name-asc';
+  assert.deepEqual(ids(), ['A', 'B'], 'ordenadas por nombre: sin separadores');
+});
