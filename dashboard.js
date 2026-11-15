@@ -1707,6 +1707,7 @@
     $('#sort').disabled = !!view.fixedOrder;
     $('#subfolders-chip').hidden = view.kind !== 'folder';
     $('#strip-pick-btn').hidden = view.kind !== 'strip';
+    renderStripExpandBtn(view.kind);
     renderHomeSetBtn(view);
     $('#view-modes').hidden = view.kind === 'strip';
     $('#open-all-btn').hidden = !view.items.some((n) => isOpenable(n.url));
@@ -2190,6 +2191,62 @@
     saveStripOpen();
     const sub = get(id);
     if (li && isFolder(sub)) li.replaceWith(stripSubItem(sub, new Set()));
+    renderStripExpandBtn();
+  }
+
+  /** Todas las subcarpetas (a cualquier profundidad) de las tarjetas de la tira. */
+  function stripSubfolderIds() {
+    const ids = [];
+    const walk = (folder) => {
+      for (const child of folder.children.map(get)) {
+        if (!isFolder(child)) continue;
+        ids.push(child.id);
+        walk(child);
+      }
+    };
+    stripFolderNodes().forEach(walk);
+    return ids;
+  }
+
+  /** ¿Está todo a la vista? Tarjetas sin plegar y cada subcarpeta desplegada. */
+  function stripAllExpanded() {
+    const cards = stripFolderNodes();
+    if (!cards.length) return false;
+    return (
+      cards.every((f) => !state.boardCollapsed.has(f.id)) && stripSubfolderIds().every((id) => state.stripOpen.has(id))
+    );
+  }
+
+  /**
+   * «Expandir todo»: abre las tarjetas plegadas y despliega todas sus subcarpetas.
+   * «Contraer todo»: pliega las subcarpetas (las tarjetas siguen abiertas).
+   */
+  function toggleStripExpandAll() {
+    const ids = stripSubfolderIds();
+    if (stripAllExpanded()) {
+      ids.forEach((id) => state.stripOpen.delete(id));
+    } else {
+      ids.forEach((id) => state.stripOpen.add(id));
+      stripFolderNodes().forEach((f) => state.boardCollapsed.delete(f.id));
+      saveBoardCollapsed();
+    }
+    saveStripOpen();
+    renderMain();
+  }
+
+  function renderStripExpandBtn(kind = state.viewKind) {
+    const btn = $('#strip-expand-btn');
+    if (!btn) return;
+    const show = kind === 'strip' && stripFolderNodes().length > 0;
+    btn.hidden = !show;
+    if (!show) return;
+    const all = stripAllExpanded();
+    const title = t(all ? 'strip.collapseAllTitle' : 'strip.expandAllTitle');
+    btn.title = title;
+    btn.setAttribute('aria-label', title);
+    btn.setAttribute('aria-pressed', String(all));
+    btn.querySelector('use')?.setAttribute('href', all ? '#i-collapse-all' : '#i-expand-all');
+    btn.querySelector('.strip-expand-label').textContent = t(all ? 'strip.collapseAll' : 'strip.expandAll');
   }
 
   const saveBoardCollapsed = debounce(() => savePrefs({ boardCollapsed: [...state.boardCollapsed] }), 300);
@@ -2210,6 +2267,7 @@
       btn.setAttribute('aria-label', label);
     }
     saveBoardCollapsed();
+    renderStripExpandBtn();
   }
 
   // ----- Tira: carpetas elegidas, una al lado de otra -----
@@ -4952,6 +5010,7 @@
 
     // Tira: elegir carpetas (en el árbol) y desplazamiento (rueda, arrastre del fondo)
     $('#strip-pick-btn').addEventListener('click', revealTreePicker);
+    $('#strip-expand-btn').addEventListener('click', toggleStripExpandAll);
     $('#home-set-btn').addEventListener('click', setHomeHere);
     bindStripScroll();
 

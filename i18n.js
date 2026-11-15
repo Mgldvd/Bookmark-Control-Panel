@@ -54,6 +54,10 @@ globalThis.BD_I18N = Object.freeze({
     'strip.subtitleEmpty': 'Your chosen folders, side by side',
     'strip.selected': { one: '{n} in the strip', other: '{n} in the strip' },
     'strip.treeHint': 'Check the folders for the strip',
+    'strip.expandAll': 'Expand all',
+    'strip.collapseAll': 'Collapse all',
+    'strip.expandAllTitle': 'Expand every subfolder in the strip',
+    'strip.collapseAllTitle': 'Collapse every subfolder in the strip',
     'empty.strip.title': 'The strip is empty',
     'empty.strip.text':
       'Check folders in the sidebar tree to see them here side by side. You can also drag a folder here or use “Add to strip” in its menu.',
@@ -449,6 +453,10 @@ globalThis.BD_I18N = Object.freeze({
     'strip.subtitleEmpty': 'Tus carpetas elegidas, una al lado de otra',
     'strip.selected': { one: '{n} en la tira', other: '{n} en la tira' },
     'strip.treeHint': 'Marca las carpetas de la tira',
+    'strip.expandAll': 'Expandir todo',
+    'strip.collapseAll': 'Contraer todo',
+    'strip.expandAllTitle': 'Desplegar todas las subcarpetas de la tira',
+    'strip.collapseAllTitle': 'Plegar todas las subcarpetas de la tira',
     'empty.strip.title': 'La tira está vacía',
     'empty.strip.text':
       'Marca carpetas en el árbol de la barra lateral para verlas aquí una al lado de otra. También puedes arrastrar una carpeta aquí o usar «Añadir a la tira» en su menú.',

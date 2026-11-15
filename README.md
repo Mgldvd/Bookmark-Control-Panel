@@ -165,6 +165,8 @@ bookmarks/
   tarjeta a la izquierda o derecha de otra cambia su sitio (solo en la tira; Firefox no cambia).
   Dentro de cada tarjeta, las **subcarpetas se despliegan** como un árbol (flecha o clic en su
   nombre) y muestran sus enlaces y sus propias subcarpetas; se recuerda cuáles están abiertas.
+  **Expandir todo** (en la cabecera) despliega de una vez todas las subcarpetas de la tira y abre
+  las tarjetas plegadas; **Contraer todo** vuelve a plegarlas.
   Cada tarjeta cabe en la pantalla y tiene su propio scroll vertical: la rueda sobre una tarjeta
   con más contenido la desplaza a ella; en el resto de la tira, la mueve de lado. Se guarda en
   `browser.storage.local`, va en la copia de seguridad y puede ser la carpeta de inicio (también

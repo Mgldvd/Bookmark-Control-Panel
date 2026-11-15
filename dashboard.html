@@ -27,6 +27,8 @@
       </symbol>
       <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6" /></symbol>
       <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></symbol>
+      <symbol id="i-expand-all" viewBox="0 0 24 24"><path d="m7 15 5 5 5-5M7 9l5-5 5 5" /></symbol>
+      <symbol id="i-collapse-all" viewBox="0 0 24 24"><path d="m7 20 5-5 5 5M7 4l5 5 5-5" /></symbol>
       <symbol id="i-star" viewBox="0 0 24 24">
         <path d="m12 2.5 2.9 5.9 6.6 1-4.8 4.6 1.1 6.5L12 17.4l-5.8 3.1 1.1-6.5-4.8-4.6 6.6-1Z" />
       </symbol>
@@ -391,6 +393,18 @@
                   >
                     <svg class="icon"><use href="#i-folder-plus" /></svg>
                     <span data-i18n="strip.pick">Choose folders</span>
+                  </button>
+                  <button
+                    class="btn"
+                    id="strip-expand-btn"
+                    type="button"
+                    hidden
+                    aria-pressed="false"
+                    title="Expand every subfolder in the strip"
+                    aria-label="Expand every subfolder in the strip"
+                  >
+                    <svg class="icon"><use href="#i-expand-all" /></svg>
+                    <span class="strip-expand-label">Expand all</span>
                   </button>
                   <button
                     class="btn"

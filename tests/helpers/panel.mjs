@@ -44,6 +44,8 @@ const EXPOSE = [
   'stripPicking',
   'toggleStripPick',
   'toggleStripSub',
+  'toggleStripExpandAll',
+  'stripAllExpanded',
 ];
 
 const noop = () => {};

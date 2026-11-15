@@ -155,3 +155,26 @@ test('las subcarpetas desplegadas en la tira se recuerdan y van en la copia de s
   await second.flush();
   assert.deepEqual(stored.stripOpen, ['H'], 'plegar también se recuerda');
 });
+
+test('«Expandir todo» abre las tarjetas y despliega todas las subcarpetas; «Contraer todo» las pliega', async () => {
+  const stored = {
+    homeFolder: 'view:strip',
+    stripFolders: ['toolbar_____'],
+    stripOpen: ['G'],
+    boardCollapsed: ['toolbar_____'],
+  };
+  const env = await openPanel({ stored });
+  assert.equal(env.panel.stripAllExpanded(), false);
+
+  env.panel.toggleStripExpandAll();
+  await env.flush();
+  assert.equal(env.panel.stripAllExpanded(), true);
+  assert.deepEqual(Array.from(stored.stripOpen).toSorted(), ['F', 'G', 'H']);
+  assert.deepEqual(Array.from(stored.boardCollapsed), [], 'la tarjeta plegada se abre');
+
+  env.panel.toggleStripExpandAll();
+  await env.flush();
+  assert.equal(env.panel.stripAllExpanded(), false);
+  assert.deepEqual(Array.from(stored.stripOpen), []);
+  assert.deepEqual(Array.from(stored.boardCollapsed), [], 'contraer no pliega las tarjetas');
+});
