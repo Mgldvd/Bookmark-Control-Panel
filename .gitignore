@@ -54,3 +54,8 @@ node_modules/
 
 # Development dependencies (Vite+)
 node_modules/
+
+# Generated publication fixtures and local API receipts
+store/demo-data.js
+store/upload-result.json
+store/publication-result.json

@@ -63,6 +63,13 @@ const EXPOSE = [
   'setPref',
   'applyAccent',
   'resolveBgLink',
+  'loadDataConsent',
+  'requestDataConsent',
+  'hasDataConsent',
+  'bgImage',
+  'isBgImageUrl',
+  'refreshUnsplash',
+  'faviconEl',
   'docTitle',
 ];
 
@@ -258,6 +265,10 @@ export async function openPanel({
   search = '',
   columns = 1,
   selectable = [],
+  dataCollection = [],
+  grantData = false,
+  fetchImpl,
+  imageRequests = [],
 } = {}) {
   const timers = [];
   const toasts = [];
@@ -285,6 +296,15 @@ export async function openPanel({
     URL,
     URLSearchParams,
     Intl,
+    fetch: fetchImpl,
+    Image: class {
+      set src(url) {
+        imageRequests.push(url);
+      }
+      decode() {
+        return Promise.resolve();
+      }
+    },
     setTimeout: (fn) => timers.push(fn),
     performance: { now: () => clock.now },
     // No frames: animations do not advance (the tests set scrollLeft by hand).
@@ -305,6 +325,13 @@ export async function openPanel({
     getComputedStyle: () => ({ gridTemplateColumns: Array(columns).fill('200px').join(' ') }),
     document,
     browser: {
+      permissions: {
+        getAll: async () => ({ data_collection: dataCollection }),
+        request: async ({ data_collection: requested }) => {
+          if (grantData) dataCollection = [...new Set([...dataCollection, ...requested])];
+          return grantData;
+        },
+      },
       bookmarks,
       runtime: { getManifest: () => ({ version: 'test' }), getURL: (p) => `moz-extension://test/${p}` },
       storage: {
@@ -337,6 +364,7 @@ export async function openPanel({
 
   const panel = context.__panel;
   panel.registerBookmarkListeners();
+  await panel.loadDataConsent();
   await panel.loadPrefs();
   await panel.start();
   return {

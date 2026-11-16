@@ -24,7 +24,8 @@ try {
   }
   if (bg && typeof bg === 'object') {
     const root = document.documentElement;
-    if (typeof bg.url === 'string' && /^(https?:|data:image\/)/.test(bg.url)) {
+    // Remote images wait for dashboard.js to check current data consent.
+    if (typeof bg.url === 'string' && bg.url.startsWith('data:image/')) {
       root.dataset.backdrop = 'image';
       root.style.setProperty('--bg-image', `url("${bg.url.replace(/["\\\s]/g, encodeURIComponent)}")`);
     }

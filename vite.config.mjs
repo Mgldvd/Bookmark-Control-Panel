@@ -8,7 +8,7 @@ import { defineConfig } from 'vite-plus';
 
 export default defineConfig({
   lint: {
-    ignorePatterns: ['dist/**', 'node_modules/**'],
+    ignorePatterns: ['dist/**', 'node_modules/**', 'store/demo-data.js'],
     // Pages of a Firefox WebExtension: browser DOM + the `browser` API.
     env: { browser: true, webextensions: true, es2024: true },
     categories: {
@@ -32,13 +32,13 @@ export default defineConfig({
     overrides: [
       {
         // Node tooling of the repository itself (including the tests).
-        files: ['vite.config.mjs', 'tests/**'],
+        files: ['vite.config.mjs', 'tests/**', 'scripts/**'],
         env: { browser: false, webextensions: false, node: true },
       },
     ],
   },
   fmt: {
-    ignorePatterns: ['dist/**', 'node_modules/**', 'package-lock.json'],
+    ignorePatterns: ['dist/**', 'node_modules/**', 'package-lock.json', 'store/demo-data.js'],
     // The style the code already had: single quotes, semicolons and trailing commas.
     singleQuote: true,
     semi: true,

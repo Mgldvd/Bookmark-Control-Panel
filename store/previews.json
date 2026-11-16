@@ -1,0 +1,90 @@
+[
+  {
+    "file": "media/01-board.png",
+    "caption": {
+      "en-US": "All your bookmark folders in a visual board. Fictional sample data.",
+      "es-ES": "Tus carpetas en un tablero visual. Datos ficticios."
+    },
+    "position": 0
+  },
+  {
+    "file": "media/02-grid-and-groups.png",
+    "caption": {
+      "en-US": "Grid view with personal project groups alongside your real folders.",
+      "es-ES": "Cuadrícula con grupos personales junto a las carpetas reales."
+    },
+    "position": 1
+  },
+  {
+    "file": "media/03-list.png",
+    "caption": {
+      "en-US": "Compact list view, starred links and colored folders.",
+      "es-ES": "Lista compacta, destacados y carpetas con colores."
+    },
+    "position": 2
+  },
+  {
+    "file": "media/04-strip-profiles.png",
+    "caption": {
+      "en-US": "Horizontal Strip with Work and Personal profiles.",
+      "es-ES": "Tira horizontal con perfiles para trabajo y uso personal."
+    },
+    "position": 3
+  },
+  {
+    "file": "media/05-masonry.png",
+    "caption": {
+      "en-US": "Masonry arranges selected folders into balanced columns.",
+      "es-ES": "Mosaico distribuye las carpetas seleccionadas en columnas."
+    },
+    "position": 4
+  },
+  {
+    "file": "media/06-minimal-gradient.png",
+    "caption": {
+      "en-US": "A minimal new tab workspace with a built-in gradient.",
+      "es-ES": "Nueva pestaña mínima con un degradado integrado."
+    },
+    "position": 5
+  },
+  {
+    "file": "media/07-starred-and-groups.png",
+    "caption": {
+      "en-US": "Keep favorites and project groups close at hand.",
+      "es-ES": "Destacados y grupos de proyectos siempre a mano."
+    },
+    "position": 6
+  },
+  {
+    "file": "media/08-light-theme.png",
+    "caption": {
+      "en-US": "Light theme with individual folder colors.",
+      "es-ES": "Tema claro con colores por carpeta."
+    },
+    "position": 7
+  },
+  {
+    "file": "media/09-spanish.png",
+    "caption": {
+      "en-US": "Spanish interface with the warm Sepia style.",
+      "es-ES": "Interfaz en español con el estilo Sepia."
+    },
+    "position": 8
+  },
+  {
+    "file": "media/10-settings.png",
+    "caption": {
+      "en-US": "Customize themes, styles, corners and accent colors.",
+      "es-ES": "Personaliza temas, estilos, esquinas y colores."
+    },
+    "position": 9
+  },
+  {
+    "file": "media/11-search.png",
+    "caption": {
+      "en-US": "Search across bookmark titles, URLs and folder paths.",
+      "es-ES": "Busca por títulos, direcciones y rutas de carpetas."
+    },
+    "position": 10
+  }
+]

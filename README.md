@@ -3,12 +3,11 @@
 A visual control panel for your **real** Firefox bookmarks, built as a WebExtension.
 It reads the bookmark tree directly with `browser.bookmarks`, **updates in real time**
 when you add, rename, move or delete bookmarks (from any window, the Library or Sync)
-and runs **100 % locally**: no server, no dependencies, no frameworks and no data sent to third parties.
+and processes your bookmark library **locally**: no developer server, runtime dependencies, frameworks, analytics or advertising. Optional favicons and remote backgrounds contact external services as described in [the privacy policy](store/privacy-en.md).
 
 > It used to be called **Bookmark Dashboard**. Since version 1.6.1 it is called **Bookmark Control Panel**,
 > but it keeps the internal id (`bookmark-dashboard@local-extension`): it updates over the previous
 > version without losing groups, colors or settings, and old backups can still be imported.
-> (Mozilla does not allow the word "Firefox" in the name of add-ons submitted for signing.)
 
 ---
 
@@ -63,17 +62,17 @@ and runs **100 % locally**: no server, no dependencies, no frameworks and no dat
 | `storage`   | Store preferences and starred items locally.                                      |
 
 `tabs.create` (opening a new tab) needs no permission. No host permissions are requested and
-`data_collection_permissions` declares `none`. The only other connections are the ones the user
-turns on in Settings → Background: the Unsplash API (`api.unsplash.com`, which answers with CORS,
+`data_collection_permissions` declares no required transmission, with optional consent for
+bookmark data (favicons) and authentication information/search terms (Unsplash). Connections also
+include custom remote background images explicitly selected by the user and the Unsplash API (`api.unsplash.com`, which answers with CORS,
 so it needs no host permission) and the background image itself.
 
 ### Favicons and privacy
 
-The WebExtensions API gives no access to Firefox's favicon cache. The panel requests
+The WebExtensions API gives no access to Firefox's favicon cache. Favicons are **off by default**. After enabling them and granting Firefox's optional bookmark-data consent, the panel requests
 `https://<site>/favicon.ico` **directly from each bookmarked site** (with `no-referrer`), never
 from third-party services such as Google. While loading or on failure, it shows an initial with a
-color derived from the domain. If you prefer the panel to **make no network connections at all**,
-turn off "Show favicons" in Settings.
+color derived from the domain. For **no automatic network connections**, keep favicons off and use no background, a built-in gradient, or an uploaded image. Opening a bookmark still visits its destination.
 
 ---
 
@@ -340,7 +339,21 @@ It comes enabled: `manifest.json` includes
 
 ---
 
-## 7. Permanent installation and signing
+## 7. Public AMO publication
+
+The public listing materials are in [`store/`](store/README.md): bilingual descriptions, privacy policies,
+reviewer notes, eleven 1280×800 screenshots using synthetic data, and a short Spanish MP4 presentation.
+The package contains only original, readable runtime files. There is no compilation or minification.
+
+Run `./package.sh` with a POSIX shell and Python 3 to create a reproducible ZIP. Development checks use
+`npm ci && npm run check`; dependencies are development tools and are not part of the extension.
+Do not upload `.env`, developer credentials, synthetic fixtures, or media inside the extension package.
+The AMO API client reads the existing ignored `.env` without executing it.
+
+No source license was present in the repository when preparing this release, so the listing retains
+**All Rights Reserved**. This does not add an open-source license or change ownership.
+
+### Permanent installation and private signing
 
 Firefox **Release and Beta** only install extensions **signed by Mozilla** permanently. Copying the
 files into the profile folder does not work: Firefox would disable the unsigned add-on. Signing is

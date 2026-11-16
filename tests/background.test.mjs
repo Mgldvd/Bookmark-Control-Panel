@@ -50,7 +50,7 @@ test('Unsplash photo pages become their image; other links stay as they are', as
 
 test('a custom image shows the backdrop; "None" removes it', async () => {
   const stored = {};
-  const env = await openPanel({ stored });
+  const env = await openPanel({ stored, dataCollection: ['authenticationInfo', 'searchTerms'] });
   const root = env.document.documentElement;
   env.panel.setPref('bgCustom', 'https://example.com/bg.jpg');
   env.panel.setPref('bgSource', 'custom');

@@ -1,0 +1,27 @@
+{
+  "name": {
+    "en-US": "Bookmark Control Panel",
+    "es-ES": "Bookmark Control Panel"
+  },
+  "slug": "bookmark-control-panel",
+  "default_locale": "en-US",
+  "summary": {
+    "en-US": "Organize your Firefox bookmarks with visual boards, groups, profiles and fast search. Includes a customizable new tab page.",
+    "es-ES": "Organiza tus marcadores de Firefox con tableros, grupos, perfiles y búsqueda rápida. Incluye una nueva pestaña personalizable."
+  },
+  "description": {
+    "en-US": "Turn your new tab into a visual workspace for your Firefox bookmarks.\n\nBookmark Control Panel works with your existing Firefox bookmark folders. Changes appear live across open panels and Firefox's Library.\n\n• Choose grid, list, board, horizontal Strip, or Masonry layouts.\n• Keep separate Strip and Masonry profiles for different projects.\n• Search instantly by title, URL, or folder, with accent-insensitive matching.\n• Create, edit, move, reorder, or delete bookmarks and folders. Use multiple selection and undo for supported moves and deletions.\n• Build personal groups without moving your Firefox bookmarks; mark favorites and color folders.\n• Customize light and dark themes, four visual styles, corner shapes, colors, built-in gradient backgrounds, and a minimal home view.\n• Export and import the extension's organizational settings. Firefox bookmarks remain managed by Firefox.\n• Use the interface in English or Spanish.\n\nNEW TAB: This extension replaces Firefox's new tab page with the dashboard. You can also open it from the toolbar or with Alt+Shift+B. It does not change your search engine.\n\nPRIVACY: No developer server, account, analytics, or advertising. Bookmarks and organizational settings are processed locally. Favicons are off by default and require optional Firefox data consent before contacting bookmarked sites. Unsplash backgrounds require a user-supplied free access key and optional consent to send that key and photo search to Unsplash. A custom remote background contacts its image host. Built-in gradients and uploaded images work locally. See the privacy policy for details.\n\nPERMISSIONS: Bookmarks access displays and edits your real bookmarks. Storage saves local groups and preferences. No host permissions are requested.\n\nThe screenshots use fictional sample data. Designed for Firefox desktop, version 142 or newer.",
+    "es-ES": "Convierte tu nueva pestaña en un espacio visual para tus marcadores de Firefox.\n\nBookmark Control Panel utiliza tus carpetas actuales de Firefox. Los cambios se reflejan en tiempo real entre paneles abiertos y la Biblioteca de Firefox.\n\n• Elige cuadrícula, lista, tablero, Tira horizontal o Mosaico.\n• Crea perfiles independientes de Tira y Mosaico para distintos proyectos.\n• Busca por título, URL o carpeta, sin distinguir acentos.\n• Crea, edita, mueve, reordena o elimina marcadores y carpetas. Utiliza selección múltiple y deshacer en movimientos y eliminaciones compatibles.\n• Crea grupos personales sin mover tus marcadores de Firefox; marca destacados y asigna colores a las carpetas.\n• Personaliza temas claros y oscuros, cuatro estilos visuales, esquinas, colores, degradados integrados y una página de inicio mínima.\n• Exporta e importa las preferencias de organización de la extensión. Firefox sigue gestionando tus marcadores.\n• Interfaz en español e inglés.\n\nNUEVA PESTAÑA: La extensión sustituye la página de nueva pestaña de Firefox por el panel. También se abre desde la barra de herramientas o con Alt+Shift+B. No modifica tu motor de búsqueda.\n\nPRIVACIDAD: Sin servidores del desarrollador, cuentas, analítica ni publicidad. Los marcadores y la organización se procesan localmente. Los favicons están desactivados por defecto y requieren consentimiento opcional de Firefox para contactar los sitios guardados. Los fondos de Unsplash requieren tu propia clave gratuita y consentimiento opcional para enviar la clave y la búsqueda de fotos a Unsplash. Un fondo remoto personalizado contacta el servidor de esa imagen. Los degradados integrados y las imágenes de tu equipo funcionan localmente. Consulta la política de privacidad.\n\nPERMISOS: El acceso a marcadores permite mostrar y editar los marcadores reales. El almacenamiento guarda grupos y preferencias locales. No se solicitan permisos de acceso a sitios web.\n\nLas capturas utilizan datos ficticios. Diseñada para Firefox de escritorio, versión 142 o posterior."
+  },
+  "homepage": {
+    "en-US": "https://github.com/Mgldvd/Bookmark-Control-Panel"
+  },
+  "support_url": {
+    "en-US": "https://github.com/Mgldvd/Bookmark-Control-Panel/issues"
+  },
+  "categories": {
+    "firefox": ["bookmarks"]
+  },
+  "requires_payment": false,
+  "is_experimental": false
+}

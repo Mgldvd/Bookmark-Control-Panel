@@ -19,6 +19,30 @@
 (() => {
   const api = globalThis.browser;
 
+  // Firefox grants these separately from access to local bookmarks.
+  const UNSPLASH_DATA = ['authenticationInfo', 'searchTerms'];
+  let dataConsent = new Set();
+
+  const hasDataConsent = (types) => types.every((type) => dataConsent.has(type));
+
+  async function loadDataConsent() {
+    try {
+      dataConsent = new Set((await api.permissions.getAll()).data_collection || []);
+    } catch {
+      dataConsent = new Set(); // Fail closed, including on unsupported browsers.
+    }
+  }
+
+  async function requestDataConsent(types) {
+    try {
+      const granted = await api.permissions.request({ data_collection: types });
+      await loadDataConsent();
+      return granted && hasDataConsent(types);
+    } catch {
+      return false;
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Constants
   // ---------------------------------------------------------------------------
@@ -159,7 +183,7 @@
     sort: 'manual',
     lastFolder: VIEW_ALL,
     openInNewTab: false,
-    showFavicons: true,
+    showFavicons: false,
     includeSubfolders: false,
     groupsPanel: true,
     groups: [],
@@ -995,7 +1019,7 @@
     if (v.length > 2048) return false;
     try {
       const u = new URL(v);
-      return u.protocol === 'https:' || u.protocol === 'http:';
+      return u.protocol === 'https:';
     } catch {
       return false;
     }
@@ -1055,7 +1079,7 @@
   /** The image to show now ('' = none). */
   function bgImage() {
     const { bgSource, bgCustom, unsplashPhoto } = state.prefs;
-    if (bgSource === 'unsplash') return unsplashPhoto?.url || '';
+    if (bgSource === 'unsplash') return hasDataConsent(UNSPLASH_DATA) ? unsplashPhoto?.url || '' : '';
     if (bgSource === 'custom') return bgCustom;
     return '';
   }
@@ -1172,7 +1196,7 @@
    */
   async function refreshUnsplash(force = false) {
     const { bgSource, unsplashKey, unsplashQuery, unsplashEvery, unsplashPhoto } = state.prefs;
-    if (bgSource !== 'unsplash' || unsplashBusy || !unsplashKey) return;
+    if (bgSource !== 'unsplash' || unsplashBusy || !unsplashKey || !hasDataConsent(UNSPLASH_DATA)) return;
     const fresh =
       unsplashPhoto && unsplashPhoto.query === unsplashQuery && Date.now() - unsplashPhoto.at < BG_EVERY[unsplashEvery];
     if (fresh && !force) return;
@@ -1199,16 +1223,17 @@
         at: Date.now(),
       };
       if (!isUnsplashPhoto(photo)) throw new Error(t('bg.errBad'));
+      if (!hasDataConsent(UNSPLASH_DATA)) return;
       await preloadImage(photo.url);
       // Unsplash asks to count it as a download when a photo is used as a background.
       const track = data?.links?.download_location;
-      if (typeof track === 'string' && track.startsWith(`${UNSPLASH_API}/`)) {
+      if (hasDataConsent(UNSPLASH_DATA) && typeof track === 'string' && track.startsWith(`${UNSPLASH_API}/`)) {
         fetch(`${track}${track.includes('?') ? '&' : '?'}client_id=${encodeURIComponent(unsplashKey)}`, {
           credentials: 'omit',
           referrerPolicy: 'no-referrer',
         }).catch(() => {});
       }
-      if (state.prefs.bgSource === 'unsplash') setBgPrefs({ unsplashPhoto: photo });
+      if (state.prefs.bgSource === 'unsplash' && hasDataConsent(UNSPLASH_DATA)) setBgPrefs({ unsplashPhoto: photo });
     } catch (err) {
       // Without a previous photo (or when asked by hand) the error is shown; otherwise the old one stays.
       if (force || !unsplashPhoto) toast(t('bg.unsplashError', { error: err?.message || err }), 'error');
@@ -3859,7 +3884,13 @@
     wrap.append(el('span', { class: 'favicon-letter', text: letter }));
 
     const u = parseUrl(n.url);
-    if (state.prefs.showFavicons && u && /^https?:$/.test(u.protocol) && !state.failedIcons.has(u.origin)) {
+    if (
+      state.prefs.showFavicons &&
+      hasDataConsent(['bookmarksInfo']) &&
+      u &&
+      /^https?:$/.test(u.protocol) &&
+      !state.failedIcons.has(u.origin)
+    ) {
       const img = el('img', {
         alt: '',
         loading: 'lazy',
@@ -3883,7 +3914,7 @@
         },
         { once: true },
       );
-      img.src = `${u.origin}/favicon.ico`;
+      img.src = `https://${u.host}/favicon.ico`;
       wrap.append(img);
     }
     return wrap;
@@ -6440,12 +6471,16 @@
     }
 
     // Settings
-    $('#settings-form').addEventListener('change', (event) => {
+    $('#settings-form').addEventListener('change', async (event) => {
       const input = event.target;
       if (input.name === 'theme') setPref('theme', input.value);
       else if (input.name === 'style') setPref('style', input.value);
       else if (input.name === 'bg-preset') setBgPrefs({ bgSource: 'preset', bgPreset: input.value });
       else if (input.name === 'bg-source') {
+        if (input.value === 'unsplash' && !(await requestDataConsent(UNSPLASH_DATA))) {
+          syncControls();
+          return;
+        }
         setPref('bgSource', input.value);
         refreshUnsplash();
       } else if (input.name === 'bg-every') {
@@ -6485,7 +6520,8 @@
         input.value = state.prefs.tabTitle; // shows the already cleaned name
       } else if (input.id === 'opt-favicons') {
         state.failedIcons.clear();
-        setPref('showFavicons', input.checked);
+        const enabled = input.checked && (await requestDataConsent(['bookmarksInfo']));
+        setPref('showFavicons', enabled);
       }
     });
     // Tab name: previewed live while typing; Enter confirms it
@@ -6672,7 +6708,19 @@
     bindUI();
     registerBookmarkListeners();
     api.storage.onChanged.addListener(handleStorageChange);
+    await loadDataConsent();
     await loadPrefs();
+    if (!hasDataConsent(['bookmarksInfo'])) state.prefs.showFavicons = false;
+    const updateDataConsent = async () => {
+      await loadDataConsent();
+      if (!hasDataConsent(['bookmarksInfo'])) setPref('showFavicons', false);
+      for (const card of document.querySelectorAll('[data-id]')) card._sig = '';
+      applyBackground();
+      scheduleRender();
+      syncControls();
+    };
+    api.permissions?.onRemoved?.addListener(updateDataConsent);
+    api.permissions?.onAdded?.addListener(updateDataConsent);
     if (state.prefs.lang !== lang) applyLanguage();
     applyCorners();
     applyAccent();

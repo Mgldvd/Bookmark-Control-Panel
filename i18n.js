@@ -195,7 +195,7 @@ globalThis.BD_I18N = Object.freeze({
     'bg.manual': 'Manually',
     'bg.key': 'Unsplash access key',
     'bg.keyHint':
-      'Unsplash asks for a free key: create an application at unsplash.com/developers and paste its “Access Key” here. It is stored only in this browser.',
+      'Unsplash asks for a free key: create an application at unsplash.com/developers and paste its “Access Key” here. It is saved in this browser and sent to Unsplash with your photo search after you grant permission.',
     'bg.next': 'Another photo',
     'bg.link': 'Image link',
     'bg.linkHint': 'The address of an image, or of a photo page on Unsplash (unsplash.com/photos/…).',
@@ -226,7 +226,7 @@ globalThis.BD_I18N = Object.freeze({
     'opt.subfoldersHint': 'When opening a folder, also show the bookmarks of all its subfolders.',
     'opt.favicons': 'Show favicons',
     'opt.faviconsHint':
-      'Requested directly from each site (/favicon.ico), never from third-party services. Turn it off so the extension makes no network connections at all.',
+      'Off by default. When enabled, Firefox asks permission to contact bookmarked sites directly for /favicon.ico. Sites receive your IP address; bookmark titles and full URLs are not sent.',
     'settings.tab': 'Browser tab',
     'opt.tabTitle': 'Tab name',
     'opt.tabTitleHint': 'The name shown on the dashboard tab. Leave it empty to use “Bookmarks”.',
@@ -700,7 +700,7 @@ globalThis.BD_I18N = Object.freeze({
     'bg.manual': 'A mano',
     'bg.key': 'Clave de acceso de Unsplash',
     'bg.keyHint':
-      'Unsplash pide una clave gratuita: crea una aplicación en unsplash.com/developers y pega aquí su “Access Key”. Solo se guarda en este navegador.',
+      'Unsplash pide una clave gratuita: crea una aplicación en unsplash.com/developers y pega aquí su “Access Key”. Se guarda en este navegador y se envía a Unsplash con tu búsqueda de fotos después de dar permiso.',
     'bg.next': 'Otra foto',
     'bg.link': 'Enlace de la imagen',
     'bg.linkHint': 'La dirección de una imagen, o de la página de una foto en Unsplash (unsplash.com/photos/…).',
@@ -731,7 +731,7 @@ globalThis.BD_I18N = Object.freeze({
     'opt.subfoldersHint': 'Al abrir una carpeta, muestra también los marcadores de todas sus subcarpetas.',
     'opt.favicons': 'Mostrar favicons',
     'opt.faviconsHint':
-      'Se piden directamente a cada sitio (/favicon.ico), nunca a servicios de terceros. Desactívalo para que la extensión no haga ninguna conexión de red.',
+      'Desactivados por defecto. Al activarlos, Firefox pide permiso para contactar cada sitio guardado y cargar /favicon.ico. Reciben tu dirección IP; no se envían títulos ni URLs completas.',
     'settings.tab': 'Pestaña del navegador',
     'opt.tabTitle': 'Nombre de la pestaña',
     'opt.tabTitleHint': 'El nombre que aparece en la pestaña del panel. Déjalo vacío para usar «Marcadores».',
