@@ -166,7 +166,10 @@ bookmarks/
   Dentro de cada tarjeta, las **subcarpetas se despliegan** como un árbol (flecha o clic en su
   nombre) y muestran sus enlaces y sus propias subcarpetas; se recuerda cuáles están abiertas.
   **Expandir todo** (en la cabecera) despliega de una vez todas las subcarpetas de la tira y abre
-  las tarjetas plegadas; **Contraer todo** vuelve a plegarlas.
+  las tarjetas plegadas; **Contraer todo** vuelve a plegarlas. En el modo minimalista, que oculta
+  la cabecera, ese botón general aparece como icono en la barra de perfiles, junto a «+». Además,
+  cada columna con subcarpetas tiene su propio botón en su cabecera (junto al contador) que hace
+  lo mismo solo con esa columna.
   Los **separadores** de Firefox se ven como una línea clara entre enlaces y entre subcarpetas,
   también dentro de las carpetas desplegadas (con «Orden original», que deja las subcarpetas en el
   orden de Firefox);
@@ -250,6 +253,12 @@ bookmarks/
   confirmación). Los grupos se guardan solo en `browser.storage.local`: **no crean, mueven ni
   borran marcadores de Firefox**. Por debajo de 1200 px el panel flota sobre el contenido y se
   abre con el botón de panel de la barra superior.
+- **Nombre de la pestaña** (Ajustes → General → Pestaña del navegador): el título de la pestaña
+  del panel se puede cambiar (vacío = «Bookmarks» / «Marcadores», según el idioma; hasta 60
+  caracteres) y se ve en vivo al escribir. «Mostrar la carpeta actual en la pestaña» antepone la
+  carpeta, vista o búsqueda («Barra de marcadores · Inicio»); apagado, la pestaña muestra solo el
+  nombre. Se aplica antes del primer pintado, se sincroniza entre pestañas y entra en la copia de
+  seguridad.
 - **Idioma**: inglés por defecto; español opcional en Ajustes → Language / Idioma. Se aplica al
   instante, se guarda en `browser.storage.local` y se sincroniza entre pestañas del panel.
 - Tema claro / oscuro / del sistema, vista cuadrícula/lista, orden (original, nombre A→Z / Z→A,

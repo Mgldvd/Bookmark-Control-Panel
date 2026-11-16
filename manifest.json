@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Bookmark Control Panel",
   "short_name": "Bookmarks",
-  "version": "1.13.0",
+  "version": "1.14.0",
   "description": "__MSG_extDescription__",
   "default_locale": "en",
   "author": "Bookmark Control Panel",

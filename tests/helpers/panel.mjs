@@ -45,6 +45,8 @@ const EXPOSE = [
   'toggleStripPick',
   'toggleStripSub',
   'toggleStripExpandAll',
+  'toggleStripCardExpand',
+  'stripCardExpanded',
   'setSeparatorColor',
   'separatorMenu',
   'planImport',
@@ -60,6 +62,7 @@ const EXPOSE = [
   'trackStripHover',
   'setPref',
   'applyAccent',
+  'docTitle',
 ];
 
 const noop = () => {};

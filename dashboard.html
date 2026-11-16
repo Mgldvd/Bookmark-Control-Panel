@@ -4,7 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
-    <title data-i18n="app.title">Bookmarks</title>
+    <!-- Sin data-i18n: el título lo ponen theme-init.js y dashboard.js (nombre elegido en Ajustes). -->
+    <title>Bookmarks</title>
     <link rel="icon" type="image/svg+xml" href="icons/icon.svg" />
     <script src="theme-init.js"></script>
     <script src="i18n.js" defer></script>
@@ -1059,6 +1060,37 @@
                   >
                 </span>
                 <input class="switch" type="checkbox" id="opt-favicons" />
+              </label>
+            </div>
+
+            <h4 class="set-heading" data-i18n="settings.tab">Browser tab</h4>
+            <div class="set-group">
+              <label class="set-row set-row-stack">
+                <span class="set-text">
+                  <span data-i18n="opt.tabTitle">Tab name</span>
+                  <small data-i18n="opt.tabTitleHint"
+                    >The name shown on the dashboard tab. Leave it empty to use “Bookmarks”.</small
+                  >
+                </span>
+                <input
+                  class="set-input"
+                  id="opt-tab-title"
+                  type="text"
+                  maxlength="60"
+                  autocomplete="off"
+                  spellcheck="false"
+                  placeholder="Bookmarks"
+                  data-i18n-attr="placeholder:app.title"
+                />
+              </label>
+              <label class="set-row">
+                <span class="set-text">
+                  <span data-i18n="opt.tabFolder">Show the current folder in the tab</span>
+                  <small data-i18n="opt.tabFolderHint"
+                    >Puts the folder, view or search in front of the name, for example “Toolbar · Bookmarks”.</small
+                  >
+                </span>
+                <input class="switch" type="checkbox" id="opt-tab-folder" />
               </label>
             </div>
 

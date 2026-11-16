@@ -40,6 +40,9 @@ try {
     document.documentElement.dataset.boardCols = cols;
     document.documentElement.style.setProperty('--board-cols', cols);
   }
+  // Nombre de la pestaña elegido en Ajustes (sin él queda el del HTML).
+  const tabTitle = localStorage.getItem('bd-tab-title');
+  if (tabTitle) document.title = tabTitle;
   if (localStorage.getItem('bd-minimal') === '1') {
     document.documentElement.classList.add('minimal');
   }

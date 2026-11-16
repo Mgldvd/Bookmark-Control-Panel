@@ -2757,7 +2757,18 @@ label.set-row {
   background: var(--surface);
   color: var(--accent);
 }
-
+/* «Expandir / Contraer todo» (toda la tira) en la barra de perfiles: solo en el modo
+   minimalista, donde no está la cabecera con su botón. Pulsado (todo a la vista), en color. */
+.strip-expand-tool,
+.strip-expand-tool[hidden] {
+  display: none;
+}
+.minimal .strip-expand-tool:not([hidden]) {
+  display: inline-grid;
+}
+.strip-expand-tool[aria-pressed='true'] {
+  color: var(--accent);
+}
 .tree-pick-hint {
   display: flex;
   align-items: center;
@@ -2960,6 +2971,15 @@ label.set-row {
 .board-card:hover .board-head > .icon-btn,
 .board-head:focus-within > .icon-btn {
   opacity: 1;
+}
+/* «Expandir / Contraer todo» de cada columna de la tira: siempre a la vista (también
+   en el modo minimalista, que no tiene el botón general); en color si todo está abierto. */
+.board-head > .strip-card-expand {
+  opacity: 1;
+  color: var(--text-3);
+}
+.board-head > .strip-card-expand[aria-pressed='true'] {
+  color: var(--accent);
 }
 
 .board-body {
@@ -3719,6 +3739,23 @@ label.set-row {
   font-size: 12px;
   outline: none;
 }
+.set-input {
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: calc(8px * var(--rf));
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+.set-input::placeholder {
+  color: var(--text-3);
+}
+.set-input:focus,
 .home-url input:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--focus-ring);

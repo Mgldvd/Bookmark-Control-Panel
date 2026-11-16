@@ -179,6 +179,32 @@ test('«Expandir todo» abre las tarjetas y despliega todas las subcarpetas; «C
   assert.deepEqual(Array.from(stored.boardCollapsed), [], 'contraer no pliega las tarjetas');
 });
 
+test('«Expandir todo» de una columna solo despliega las subcarpetas de esa columna', async () => {
+  const stored = {
+    homeFolder: 'view:strip',
+    stripFolders: ['toolbar_____', 'unfiled_____'],
+    boardCollapsed: ['toolbar_____', 'unfiled_____'],
+  };
+  const env = await openPanel({ stored });
+  const subA = await env.bookmarks.create({ parentId: 'unfiled_____', title: 'A' });
+  await env.flush();
+  assert.equal(env.panel.stripCardExpanded('toolbar_____'), false);
+
+  env.panel.toggleStripCardExpand('toolbar_____');
+  await env.flush();
+  assert.equal(env.panel.stripCardExpanded('toolbar_____'), true);
+  assert.deepEqual(Array.from(stored.stripOpen).toSorted(), ['F', 'G', 'H']);
+  assert.deepEqual(Array.from(stored.boardCollapsed), ['unfiled_____'], 'solo se abre esa tarjeta');
+  assert.equal(env.panel.stripCardExpanded('unfiled_____'), false, 'la otra columna no cambia');
+  assert.equal(env.state.stripOpen.has(subA.id), false);
+
+  env.panel.toggleStripCardExpand('toolbar_____');
+  await env.flush();
+  assert.equal(env.panel.stripCardExpanded('toolbar_____'), false);
+  assert.deepEqual(Array.from(stored.stripOpen), []);
+  assert.deepEqual(Array.from(stored.boardCollapsed), ['unfiled_____'], 'contraer no pliega la tarjeta');
+});
+
 // ----- Perfiles: distintas selecciones de carpetas para la tira -----
 
 test('perfiles: la tira de antes pasa a ser el primero; cada uno guarda su selección', async () => {

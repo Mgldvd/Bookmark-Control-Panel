@@ -68,6 +68,8 @@
   const STRIPE_WIDTHS = [2, 3, 5, 8];
   const BOARD_COLUMNS = ['auto', 1, 2, 3, 4, 5, 6]; // máximo de columnas del tablero
   const CONTENT_WIDTHS = ['normal', 'wide', 'full']; // ancho máximo del contenido
+  const TAB_TITLE_MAX = 60; // caracteres del nombre propio de la pestaña
+  const TAB_TITLE_KEY = 'bd-tab-title'; // copia rápida para theme-init.js
   const SETTINGS_TABS = ['appearance', 'general', 'home', 'backup', 'shortcuts'];
   const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)');
   const VT_MAX_CARDS = 60; // tarjetas que vuelan a su sitio en la transición (las visibles)
@@ -103,6 +105,8 @@
     stripeWidth: 3,
     boardColumns: 'auto',
     contentWidth: 'normal',
+    tabTitle: '', // nombre de la pestaña; vacío = el predeterminado («Bookmarks» / «Marcadores»)
+    tabTitleFolder: true, // anteponer la carpeta o búsqueda actual al nombre
     theme: 'auto',
     view: 'grid',
     sort: 'manual',
@@ -309,6 +313,10 @@
       .normalize('NFD')
       .replace(/\p{Diacritic}/gu, '')
       .toLowerCase();
+
+  /** Nombre de la pestaña tal como se guarda: una línea, sin espacios sobrantes y con tope de longitud. */
+  const cleanTabTitle = (v) =>
+    typeof v === 'string' ? [...v.replace(/\s+/g, ' ').trim()].slice(0, TAB_TITLE_MAX).join('').trim() : '';
 
   function debounce(fn, ms) {
     let timer = 0;
@@ -732,6 +740,7 @@
     if (STRIPE_WIDTHS.includes(p.stripeWidth)) prefs.stripeWidth = p.stripeWidth;
     if (BOARD_COLUMNS.includes(p.boardColumns)) prefs.boardColumns = p.boardColumns;
     if (CONTENT_WIDTHS.includes(p.contentWidth)) prefs.contentWidth = p.contentWidth;
+    if (typeof p.tabTitle === 'string') prefs.tabTitle = cleanTabTitle(p.tabTitle);
     for (const key of [
       'openInNewTab',
       'showFavicons',
@@ -740,6 +749,7 @@
       'sidebarPanel',
       'minimal',
       'stripe',
+      'tabTitleFolder',
     ]) {
       if (typeof p[key] === 'boolean') prefs[key] = p[key];
     }
@@ -776,6 +786,7 @@
     if (key === 'minimal' || key === 'homeFolder') applyMinimal();
     if (key === 'stripe' || key === 'stripeColor' || key === 'stripeWidth') applyStripe();
     if (key === 'boardColumns' || key === 'contentWidth') applyBoardColumns();
+    if (key === 'tabTitle' || key === 'tabTitleFolder') applyTabTitle();
     if (key === 'lang') applyLanguage();
     if (key === 'groupsPanel') applyGroupsPanel();
     if (key === 'includeSubfolders') state.limit = PAGE_SIZE;
@@ -799,6 +810,7 @@
     applyMinimal();
     applyStripe();
     applyBoardColumns();
+    applyTabTitle();
     applyGroupsPanel();
     applyTheme();
     syncControls();
@@ -837,6 +849,7 @@
     }
     translateStatic();
     applyTheme();
+    applyTabTitle(); // el nombre predeterminado depende del idioma
     invalidate(); // las rutas de carpeta incluyen nombres traducidos
     if (!state.ready) {
       // Textos que el render todavía no ha sustituido.
@@ -908,6 +921,30 @@
     try {
       localStorage.setItem('bd-board-cols', String(cols));
       localStorage.setItem('bd-content-width', width);
+    } catch {
+      /* sin localStorage: solo afecta al primer pintado */
+    }
+  }
+
+  /**
+   * Título de la pestaña: el nombre elegido (o el predeterminado del idioma) y,
+   * si está activado, delante la carpeta, vista o búsqueda que se está viendo.
+   */
+  function docTitle(view) {
+    const name = state.prefs.tabTitle || t('app.title');
+    if (!view || !state.prefs.tabTitleFolder) return name;
+    return view.kind === 'search'
+      ? t('doc.search', { q: state.query, name })
+      : t('doc.view', { title: view.title, name });
+  }
+
+  /** Aplica el nombre de la pestaña y guarda la copia rápida para theme-init.js. */
+  function applyTabTitle() {
+    // Con el panel listo, renderHeader() pone el título completo (con la carpeta).
+    if (!state.ready) document.title = docTitle(null);
+    try {
+      if (state.prefs.tabTitle) localStorage.setItem(TAB_TITLE_KEY, state.prefs.tabTitle);
+      else localStorage.removeItem(TAB_TITLE_KEY);
     } catch {
       /* sin localStorage: solo afecta al primer pintado */
     }
@@ -1195,6 +1232,10 @@
     $('#opt-newtab').checked = state.prefs.openInNewTab;
     $('#opt-subfolders').checked = state.prefs.includeSubfolders;
     $('#opt-favicons').checked = state.prefs.showFavicons;
+    $('#opt-tab-folder').checked = state.prefs.tabTitleFolder;
+    // No se toca el campo mientras se escribe en él (se perderían los espacios finales).
+    const tabTitleInput = $('#opt-tab-title');
+    if (document.activeElement !== tabTitleInput) tabTitleInput.value = state.prefs.tabTitle;
     $('#opt-stripe').checked = state.prefs.stripe;
     for (const radio of form.querySelectorAll('input[name="board-cols"]'))
       radio.checked = radio.value === String(state.prefs.boardColumns);
@@ -1755,8 +1796,7 @@
     $('#view-modes').hidden = view.kind === 'strip';
     $('#open-all-btn').hidden = !view.items.some((n) => isOpenable(n.url));
     $('#controls').hidden = false;
-    document.title =
-      view.kind === 'search' ? t('doc.search', { q: state.query }) : t('doc.view', { title: view.title });
+    document.title = docTitle(view);
   }
 
   function renderMain() {
@@ -2032,6 +2072,20 @@
     // La cabecera arrastra la carpeta entera (para reordenarla o moverla a otra).
     // En la tira también las carpetas raíz: ahí solo se cambia su sitio en la tira.
     const movable = !isBuiltin(f.id) || view.kind === 'strip';
+    // En la tira, cada columna con subcarpetas tiene su «Expandir / Contraer todo».
+    let expandAll = null;
+    if (view.kind === 'strip' && stripSubfolderIds([f]).length) {
+      expandAll = el(
+        'button',
+        {
+          class: 'icon-btn icon-btn-sm strip-card-expand',
+          type: 'button',
+          dataset: { action: 'strip-card-expand', target: f.id },
+        },
+        icon('expand-all'),
+      );
+      paintStripCardExpand(expandAll, stripCardExpanded(f.id));
+    }
     const head = el(
       'div',
       {
@@ -2063,6 +2117,7 @@
         ),
       ),
       el('span', { class: 'board-count', text: numberFmt.format(bookmarks.length) }),
+      expandAll,
       el(
         'button',
         {
@@ -2259,8 +2314,8 @@
     renderStripExpandBtn();
   }
 
-  /** Todas las subcarpetas (a cualquier profundidad) de las tarjetas de la tira. */
-  function stripSubfolderIds() {
+  /** Todas las subcarpetas (a cualquier profundidad) de las tarjetas de la tira (o de `roots`). */
+  function stripSubfolderIds(roots = stripFolderNodes()) {
     const ids = [];
     const walk = (folder) => {
       for (const child of folder.children.map(get)) {
@@ -2269,7 +2324,7 @@
         walk(child);
       }
     };
-    stripFolderNodes().forEach(walk);
+    roots.forEach(walk);
     return ids;
   }
 
@@ -2299,19 +2354,62 @@
     renderMain();
   }
 
-  function renderStripExpandBtn(kind = state.viewKind) {
-    const btn = $('#strip-expand-btn');
-    if (!btn) return;
-    const show = kind === 'strip' && stripFolderNodes().length > 0;
-    btn.hidden = !show;
-    if (!show) return;
-    const all = stripAllExpanded();
-    const title = t(all ? 'strip.collapseAllTitle' : 'strip.expandAllTitle');
+  /** ¿Está toda la columna `id` de la tira a la vista? Tarjeta abierta y cada subcarpeta desplegada. */
+  function stripCardExpanded(id) {
+    const f = get(id);
+    if (!isFolder(f) || state.boardCollapsed.has(id)) return false;
+    const ids = stripSubfolderIds([f]);
+    return ids.length > 0 && ids.every((sub) => state.stripOpen.has(sub));
+  }
+
+  /**
+   * «Expandir / Contraer todo» de una sola columna de la tira: lo mismo que el
+   * botón general, pero solo con esa tarjeta y sus subcarpetas.
+   */
+  function toggleStripCardExpand(id) {
+    const f = get(id);
+    if (!isFolder(f)) return;
+    const ids = stripSubfolderIds([f]);
+    if (stripCardExpanded(id)) {
+      ids.forEach((sub) => state.stripOpen.delete(sub));
+    } else {
+      ids.forEach((sub) => state.stripOpen.add(sub));
+      if (state.boardCollapsed.delete(id)) saveBoardCollapsed();
+    }
+    saveStripOpen();
+    renderMain();
+  }
+
+  /** Icono, título y estado del botón «Expandir / Contraer todo» de una columna. */
+  function paintStripCardExpand(btn, all) {
+    const title = t(all ? 'strip.cardCollapseAllTitle' : 'strip.cardExpandAllTitle');
     btn.title = title;
     btn.setAttribute('aria-label', title);
     btn.setAttribute('aria-pressed', String(all));
     btn.querySelector('use')?.setAttribute('href', all ? '#i-collapse-all' : '#i-expand-all');
-    btn.querySelector('.strip-expand-label').textContent = t(all ? 'strip.collapseAll' : 'strip.expandAll');
+  }
+
+  function renderStripExpandBtn(kind = state.viewKind) {
+    // Los botones de cada columna siguen a los cambios hechos a mano (flechas, plegar).
+    for (const btn of document.querySelectorAll('.strip-card-expand')) {
+      paintStripCardExpand(btn, stripCardExpanded(btn.dataset.target));
+    }
+    // El general: en la cabecera y su copia en la barra de perfiles (la única a la
+    // vista en el modo minimalista, que oculta la cabecera).
+    const show = kind === 'strip' && stripFolderNodes().length > 0;
+    const all = show && stripAllExpanded();
+    const title = t(all ? 'strip.collapseAllTitle' : 'strip.expandAllTitle');
+    for (const btn of [$('#strip-expand-btn'), $('#strip-profiles .strip-expand-tool')]) {
+      if (!btn) continue;
+      btn.hidden = !show;
+      if (!show) continue;
+      btn.title = title;
+      btn.setAttribute('aria-label', title);
+      btn.setAttribute('aria-pressed', String(all));
+      btn.querySelector('use')?.setAttribute('href', all ? '#i-collapse-all' : '#i-expand-all');
+      const label = btn.querySelector('.strip-expand-label');
+      if (label) label.textContent = t(all ? 'strip.collapseAll' : 'strip.expandAll');
+    }
   }
 
   const saveBoardCollapsed = debounce(() => savePrefs({ boardCollapsed: [...state.boardCollapsed] }), 300);
@@ -2596,16 +2694,22 @@
         icon(iconName),
       );
     const more = t('strip.profileMore', { name: profileName(activeProfile()) });
+    // Expandir / contraer TODA la tira: en la cabecera ya hay un botón; aquí solo se
+    // ve en el modo minimalista (ver CSS). renderStripExpandBtn() pone icono y título.
+    const expand = tool('strip-expand-all', 'expand-all', t('strip.expandAllTitle'));
+    expand.classList.add('strip-expand-tool');
     bar.replaceChildren(
       el(
         'div',
         { class: 'strip-profile-pill' },
         el('div', { class: 'strip-profile-list', role: 'group', 'aria-label': t('strip.profiles') }, ...chips),
         el('span', { class: 'strip-profile-sep', 'aria-hidden': 'true' }),
+        expand,
         tool('profile-add', 'plus', t('strip.profileAddTitle')),
         tool('profile-more', 'more', more),
       ),
     );
+    renderStripExpandBtn(kind);
     const input = bar.querySelector('.strip-profile-input');
     if (input) {
       input.focus();
@@ -4389,6 +4493,8 @@
     stripeWidth: (v) => STRIPE_WIDTHS.includes(v),
     boardColumns: (v) => BOARD_COLUMNS.includes(v),
     contentWidth: (v) => CONTENT_WIDTHS.includes(v),
+    tabTitle: (v) => typeof v === 'string' && v.length <= TAB_TITLE_MAX * 4,
+    tabTitleFolder: (v) => typeof v === 'boolean',
     view: (v) => VIEW_MODES.includes(v),
     sort: (v) => SORTS.includes(v),
     openInNewTab: (v) => typeof v === 'boolean',
@@ -4666,6 +4772,7 @@
     applyMinimal();
     applyStripe();
     applyBoardColumns();
+    applyTabTitle();
     applyGroupsPanel();
     syncControls();
     scheduleRender();
@@ -5593,6 +5700,17 @@
         case 'profile-add':
           addStripProfile();
           break;
+        case 'strip-expand-all':
+          toggleStripExpandAll();
+          $('#strip-profiles .strip-expand-tool')?.focus({ preventScroll: true }); // la barra se rehace
+          break;
+        case 'strip-card-expand': {
+          const id = actionEl.dataset.target;
+          toggleStripCardExpand(id);
+          // La tira se repinta: el foco vuelve al botón de esa columna.
+          $(`.strip-card-expand[data-target="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
+          break;
+        }
         case 'profile-more':
           openMenu(profileMenu(state.stripProfile), actionEl);
           break;
@@ -5751,10 +5869,24 @@
         setPref('boardColumns', input.value === 'auto' ? 'auto' : Number(input.value));
       else if (input.id === 'opt-newtab') setPref('openInNewTab', input.checked);
       else if (input.id === 'opt-subfolders') setPref('includeSubfolders', input.checked);
-      else if (input.id === 'opt-favicons') {
+      else if (input.id === 'opt-tab-folder') setPref('tabTitleFolder', input.checked);
+      else if (input.id === 'opt-tab-title') {
+        setPref('tabTitle', cleanTabTitle(input.value));
+        input.value = state.prefs.tabTitle; // muestra el nombre ya limpio
+      } else if (input.id === 'opt-favicons') {
         state.failedIcons.clear();
         setPref('showFavicons', input.checked);
       }
+    });
+    // Nombre de la pestaña: se ve en vivo mientras se escribe; Intro lo confirma
+    // sin cerrar el diálogo (el formulario es method="dialog").
+    const tabTitleInput = $('#opt-tab-title');
+    const saveTabTitle = debounce(() => setPref('tabTitle', cleanTabTitle(tabTitleInput.value)), 300);
+    tabTitleInput.addEventListener('input', saveTabTitle);
+    tabTitleInput.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      tabTitleInput.blur(); // dispara «change», que guarda
     });
     $('#resync-btn').addEventListener('click', () => resync({ notify: true }));
 
@@ -5889,9 +6021,15 @@
 
   async function init() {
     state.prefs.lang = lang; // copia rápida de localStorage hasta leer las preferencias
+    try {
+      state.prefs.tabTitle = cleanTabTitle(localStorage.getItem(TAB_TITLE_KEY));
+    } catch {
+      /* sin localStorage: el nombre llega con las preferencias */
+    }
     document.documentElement.lang = lang;
     translateStatic();
     applyTheme();
+    document.title = docTitle(null);
     if (!api?.bookmarks || !api?.storage) {
       bindUI();
       showFatal(t('fatal.noApi.title'), t('fatal.noApi.text'), null, null);
@@ -5908,6 +6046,7 @@
     applyMinimal();
     applyStripe();
     applyBoardColumns();
+    applyTabTitle();
     applyGroupsPanel();
     applyTheme();
     syncControls();
