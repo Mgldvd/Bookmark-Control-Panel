@@ -1,16 +1,16 @@
-// Color principal de la interfaz (Ajustes → Apariencia): atributo data-accent en <html>.
+// Accent color of the UI (Settings → Appearance): data-accent attribute on <html>.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { openPanel } from './helpers/panel.mjs';
 
-test('el color principal por defecto es el índigo, sin atributo en <html>', async () => {
+test('the default accent color is indigo, with no attribute on <html>', async () => {
   const env = await openPanel();
   env.panel.applyAccent();
   assert.equal(env.state.prefs.accentColor, 'indigo');
   assert.equal('accent' in env.document.documentElement.dataset, false);
 });
 
-test('cambiar el color principal lo aplica, lo guarda y entra en la copia de seguridad', async () => {
+test('changing the accent color applies it, saves it and includes it in the backup', async () => {
   const stored = {};
   const env = await openPanel({ stored });
   env.panel.setPref('accentColor', 'teal');
@@ -20,18 +20,18 @@ test('cambiar el color principal lo aplica, lo guarda y entra en la copia de seg
   assert.equal(env.panel.buildBackup().prefs.accentColor, 'teal');
 
   const second = await openPanel({ stored });
-  assert.equal(second.state.prefs.accentColor, 'teal', 'los paneles siguientes lo conservan');
+  assert.equal(second.state.prefs.accentColor, 'teal', 'later panels keep it');
 
   env.panel.setPref('accentColor', 'indigo');
-  assert.equal('accent' in env.document.documentElement.dataset, false, 'volver al índigo quita el atributo');
+  assert.equal('accent' in env.document.documentElement.dataset, false, 'going back to indigo removes the attribute');
 });
 
-test('un color principal desconocido se ignora', async () => {
+test('an unknown accent color is ignored', async () => {
   const env = await openPanel({ stored: { accentColor: 'chartreuse' } });
   assert.equal(env.state.prefs.accentColor, 'indigo');
 });
 
-test('el color de las carpetas se aplica, se guarda y vuelve al amarillo de siempre', async () => {
+test('the folder color is applied, saved and goes back to the usual yellow', async () => {
   const stored = {};
   const env = await openPanel({ stored });
   env.panel.applyAccent();

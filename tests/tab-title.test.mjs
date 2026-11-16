@@ -1,43 +1,43 @@
-// Nombre de la pestaña (Ajustes → General → Pestaña del navegador).
+// Tab name (Settings → General → Browser tab).
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { openPanel } from './helpers/panel.mjs';
 
 const folderView = { kind: 'folder', title: 'F' };
 
-test('sin nombre propio se usa el predeterminado, con la carpeta delante', async () => {
+test('without a custom name the default is used, with the folder in front', async () => {
   const { panel } = await openPanel();
   assert.equal(panel.docTitle(folderView), 'F · Bookmarks');
   assert.equal(panel.docTitle(null), 'Bookmarks');
 });
 
-test('el nombre elegido sustituye al predeterminado y se guarda limpio', async () => {
+test('the chosen name replaces the default and is stored clean', async () => {
   const stored = {};
   const { panel, state, flush } = await openPanel({ stored });
-  panel.setPref('tabTitle', 'Inicio');
+  panel.setPref('tabTitle', 'Start');
   await flush();
-  assert.equal(stored.tabTitle, 'Inicio');
-  assert.equal(panel.docTitle(folderView), 'F · Inicio');
+  assert.equal(stored.tabTitle, 'Start');
+  assert.equal(panel.docTitle(folderView), 'F · Start');
 
   state.query = 'abc';
-  assert.equal(panel.docTitle({ kind: 'search', title: '' }), '“abc” · Inicio');
+  assert.equal(panel.docTitle({ kind: 'search', title: '' }), '“abc” · Start');
 
-  // Una pestaña nueva lo lee de las preferencias, sin espacios sobrantes y con tope.
-  const long = `  Mi   panel ${'x'.repeat(100)} `;
+  // A new tab reads it from the preferences, without extra spaces and capped.
+  const long = `  My   panel ${'x'.repeat(100)} `;
   const next = await openPanel({ stored: { tabTitle: long } });
-  assert.equal(next.state.prefs.tabTitle.startsWith('Mi panel x'), true);
+  assert.equal(next.state.prefs.tabTitle.startsWith('My panel x'), true);
   assert.equal(next.state.prefs.tabTitle.length, 60);
 });
 
-test('sin la carpeta, la pestaña muestra solo el nombre', async () => {
-  const { panel } = await openPanel({ stored: { tabTitle: 'Inicio', tabTitleFolder: false } });
-  assert.equal(panel.docTitle(folderView), 'Inicio');
-  assert.equal(panel.docTitle({ kind: 'search', title: '' }), 'Inicio');
+test('without the folder, the tab shows only the name', async () => {
+  const { panel } = await openPanel({ stored: { tabTitle: 'Start', tabTitleFolder: false } });
+  assert.equal(panel.docTitle(folderView), 'Start');
+  assert.equal(panel.docTitle({ kind: 'search', title: '' }), 'Start');
 });
 
-test('el nombre y la opción entran en la copia de seguridad', async () => {
-  const { panel } = await openPanel({ stored: { tabTitle: 'Inicio', tabTitleFolder: false } });
+test('the name and the option are included in the backup', async () => {
+  const { panel } = await openPanel({ stored: { tabTitle: 'Start', tabTitleFolder: false } });
   const backup = panel.buildBackup();
-  assert.equal(backup.prefs.tabTitle, 'Inicio');
+  assert.equal(backup.prefs.tabTitle, 'Start');
   assert.equal(backup.prefs.tabTitleFolder, false);
 });

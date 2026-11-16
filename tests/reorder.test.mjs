@@ -1,9 +1,9 @@
-// Reordenar arrastrando en la sección principal: marcadores (uno o varios) y carpetas.
+// Reordering by dragging in the main section: bookmarks (one or several) and folders.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { card, dragEvent, fakeBookmarks, fakeElement, openPanel, sampleTree } from './helpers/panel.mjs';
 
-/** Panel abierto en F, con «Orden original», arrastrando `ids`. */
+/** Panel open on F, with "Original order", dragging `ids`. */
 async function inFolderF(options = {}) {
   const env = await openPanel({ stored: { homeFolder: 'F' }, ...options });
   env.state.reorderable = true;
@@ -15,11 +15,11 @@ const drag = (env, ids) => {
   env.state.dragIds = ids;
   env.state.dragId = ids[0] ?? null;
 };
-// Tarjeta de 100×40 en la cuadrícula de una columna: mitad superior = antes, inferior = después.
+// 100×40 card in a one-column grid: top half = before, bottom half = after.
 const over = (env, id, after) => env.panel.reorderSlot(dragEvent(card(id), { y: after ? 30 : 10 }));
 
 for (const semantics of ['firefox', 'chrome']) {
-  test(`reordena un marcador arriba, abajo y al final (${semantics})`, async () => {
+  test(`reorders a bookmark up, down and to the end (${semantics})`, async () => {
     const cases = [
       ['a', 'c', true, ['b', 'c', 'a', 'd']],
       ['d', 'a', false, ['d', 'a', 'b', 'c']],
@@ -32,13 +32,13 @@ for (const semantics of ['firefox', 'chrome']) {
       const slot = over(env, target, after);
       assert.equal(slot.noop, false);
       await env.panel.dropOnSlot(slot, [id], null);
-      assert.deepEqual(env.bookmarks.childrenOf('F'), expected, `${id} ${after ? 'tras' : 'antes de'} ${target}`);
-      assert.deepEqual(env.state.nodes.get('F').children, expected, 'el modelo sigue a Firefox');
+      assert.deepEqual(env.bookmarks.childrenOf('F'), expected, `${id} ${after ? 'after' : 'before'} ${target}`);
+      assert.deepEqual(env.state.nodes.get('F').children, expected, 'the model follows Firefox');
     }
   });
 }
 
-test('soltar junto a un marcador de otra carpeta lo mueve a esa posición', async () => {
+test('dropping next to a bookmark in another folder moves it to that position', async () => {
   const env = await inFolderF();
   drag(env, ['b']);
   await env.panel.dropOnSlot(over(env, 'x', false), ['b'], null);
@@ -47,7 +47,7 @@ test('soltar junto a un marcador de otra carpeta lo mueve a esa posición', asyn
   assert.match(env.toasts.at(-1).message, /Moved to “G”/);
 });
 
-test('varios marcadores seleccionados se mueven juntos y en orden', async () => {
+test('several selected bookmarks move together and in order', async () => {
   const env = await inFolderF();
   drag(env, ['a', 'c']);
   await env.panel.dropOnSlot(over(env, 'd', true), ['a', 'c'], null);
@@ -58,30 +58,30 @@ test('varios marcadores seleccionados se mueven juntos y en orden', async () => 
   assert.deepEqual(env.bookmarks.childrenOf('F'), ['d', 'c', 'b', 'a']);
 });
 
-test('huecos sin cambio y casos en los que no se reordena', async () => {
+test('no-op slots and cases where nothing is reordered', async () => {
   const env = await inFolderF();
   drag(env, ['b']);
-  assert.equal(over(env, 'a', true).noop, true, 'tras el anterior = mismo sitio');
-  assert.equal(over(env, 'c', false).noop, true, 'antes del siguiente = mismo sitio');
-  assert.equal(over(env, 'b', false), null, 'sobre sí mismo');
+  assert.equal(over(env, 'a', true).noop, true, 'after the previous one = same place');
+  assert.equal(over(env, 'c', false).noop, true, 'before the next one = same place');
+  assert.equal(over(env, 'b', false), null, 'over itself');
 
   env.state.reorderable = false;
-  assert.equal(over(env, 'c', true), null, 'sin «Orden original»');
+  assert.equal(over(env, 'c', true), null, 'without "Original order"');
   env.state.reorderable = true;
   env.state.dragFromGroup = 'g1';
-  assert.equal(over(env, 'c', true), null, 'desde un grupo');
-  assert.equal(env.bookmarks.calls.length, 0, 'nada toca los marcadores');
+  assert.equal(over(env, 'c', true), null, 'from a group');
+  assert.equal(env.bookmarks.calls.length, 0, 'nothing touches the bookmarks');
 });
 
-test('un enlace externo se guarda en el hueco donde se suelta', async () => {
+test('an external link is saved in the slot where it is dropped', async () => {
   const env = await inFolderF();
   drag(env, []);
   const slot = env.panel.reorderSlot(dragEvent(card('c'), { y: 10, types: ['text/uri-list'] }));
-  await env.panel.dropOnSlot(slot, [], { url: 'https://nuevo.example/', title: 'Nuevo' });
+  await env.panel.dropOnSlot(slot, [], { url: 'https://new.example/', title: 'New' });
   assert.deepEqual(env.bookmarks.childrenOf('F'), ['a', 'b', 'new1', 'c', 'd']);
 });
 
-// ----- Carpetas: bloques de carpeta (cuadrícula) y tarjetas del tablero -----
+// ----- Folders: folder tiles (grid) and board cards -----
 
 const tile = (id) =>
   fakeElement({
@@ -96,7 +96,7 @@ const boardCard = (id) =>
     rect: { left: 0, top: 0, right: 300, bottom: 200, width: 300, height: 200 },
   });
 
-/** Panel en la barra de marcadores (carpetas F, G, H), arrastrando una carpeta. */
+/** Panel on the bookmarks toolbar (folders F, G, H), dragging a folder. */
 async function inToolbar(columns) {
   const env = await openPanel({ stored: { homeFolder: 'toolbar_____' }, columns });
   env.state.reorderable = true;
@@ -104,13 +104,13 @@ async function inToolbar(columns) {
   return env;
 }
 
-test('en la cuadrícula de carpetas, los bordes reordenan y el centro mete dentro', async () => {
+test('in the folder grid, the edges reorder and the center puts inside', async () => {
   const env = await inToolbar(3);
   drag(env, ['H']);
   const left = env.panel.reorderSlot(dragEvent(tile('F'), { x: 10, y: 30 }));
   assert.equal(left.after, false);
   assert.equal(left.x, true);
-  assert.equal(env.panel.reorderSlot(dragEvent(tile('F'), { x: 100, y: 30 })), null, 'centro: meter dentro');
+  assert.equal(env.panel.reorderSlot(dragEvent(tile('F'), { x: 100, y: 30 })), null, 'center: put inside');
   const right = env.panel.reorderSlot(dragEvent(tile('F'), { x: 190, y: 30 }));
   assert.equal(right.after, true);
 
@@ -119,30 +119,30 @@ test('en la cuadrícula de carpetas, los bordes reordenan y el centro mete dentr
   assert.match(env.toasts.at(-1).message, /Order changed/);
 });
 
-test('en el tablero, el borde superior o inferior de la tarjeta reordena la carpeta', async () => {
+test('on the board, the top or bottom edge of the card reorders the folder', async () => {
   const env = await inToolbar(1);
   drag(env, ['F']);
   const below = env.panel.reorderSlot(dragEvent(boardCard('H'), { y: 195 }));
   assert.equal(below.after, true);
-  assert.equal(env.panel.reorderSlot(dragEvent(boardCard('H'), { y: 100 })), null, 'centro: meter dentro');
+  assert.equal(env.panel.reorderSlot(dragEvent(boardCard('H'), { y: 100 })), null, 'center: put inside');
   await env.panel.dropOnSlot(below, ['F'], null);
   assert.deepEqual(env.bookmarks.childrenOf('toolbar_____'), ['G', 'H', 'F']);
 });
 
-test('una carpeta no se coloca dentro de sí misma, junto a la carpeta abierta ni si es del sistema', async () => {
+test('a folder is not placed inside itself, next to the open folder or if it is a system folder', async () => {
   const tree = sampleTree();
-  // F pasa a contener la subcarpeta S.
+  // F now contains the subfolder S.
   tree.children[0].children[0].children.push({ id: 'S', type: 'folder', title: 'S', children: [] });
   const env = await openPanel({ stored: { homeFolder: 'F' }, bookmarks: fakeBookmarks(tree), columns: 1 });
   env.state.reorderable = true;
   env.state.viewFolderId = 'toolbar_____';
   drag(env, ['F']);
-  assert.equal(env.panel.reorderSlot(dragEvent(boardCard('F'), { y: 2 })), null, 'junto a sí misma');
-  assert.equal(env.panel.reorderSlot(dragEvent(boardCard('S'), { y: 2 })), null, 'dentro de su subcarpeta');
+  assert.equal(env.panel.reorderSlot(dragEvent(boardCard('F'), { y: 2 })), null, 'next to itself');
+  assert.equal(env.panel.reorderSlot(dragEvent(boardCard('S'), { y: 2 })), null, 'inside its subfolder');
   env.state.viewFolderId = 'G';
-  assert.equal(env.panel.reorderSlot(dragEvent(boardCard('G'), { y: 2 })), null, 'tarjeta de la carpeta abierta');
+  assert.equal(env.panel.reorderSlot(dragEvent(boardCard('G'), { y: 2 })), null, 'card of the open folder');
   drag(env, ['toolbar_____']);
-  assert.equal(env.panel.reorderSlot(dragEvent(boardCard('F'), { y: 2 })), null, 'carpeta del sistema');
+  assert.equal(env.panel.reorderSlot(dragEvent(boardCard('F'), { y: 2 })), null, 'system folder');
   drag(env, ['G']);
-  assert.notEqual(env.panel.reorderSlot(dragEvent(boardCard('S'), { y: 2 })), null, 'G sí puede ir junto a S');
+  assert.notEqual(env.panel.reorderSlot(dragEvent(boardCard('S'), { y: 2 })), null, 'G can go next to S');
 });

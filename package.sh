@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
-# Empaqueta la extensión en dist/bookmark-control-panel-<versión>.zip,
-# listo para subir a addons.mozilla.org (firma) o instalar como .xpi firmado.
+# Packages the extension into dist/bookmark-control-panel-<version>.zip,
+# ready to upload to addons.mozilla.org (signing) or to install as a signed .xpi.
 set -eu
 
 cd "$(dirname "$0")"
@@ -20,4 +20,4 @@ zip -r -X -q "$OUT" \
   _locales \
   icons
 
-echo "Paquete creado: $OUT"
+echo "Package created: $OUT"

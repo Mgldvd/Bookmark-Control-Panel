@@ -1,4 +1,4 @@
-// Tira: carpetas elegidas, una al lado de otra (view:strip).
+// Strip: chosen folders, side by side (view:strip).
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { dragEvent, fakeElement, openPanel } from './helpers/panel.mjs';
@@ -11,7 +11,7 @@ const stripCard = (id) =>
   });
 const addTile = () => fakeElement({ classes: ['strip-add'] });
 
-/** Panel mostrando la tira, arrastrando la carpeta `id`. */
+/** Panel showing the strip, dragging folder `id`. */
 async function inStrip(stripFolders, id) {
   const env = await openPanel({ stored: { homeFolder: 'view:strip', stripFolders } });
   env.state.viewKind = 'strip';
@@ -19,13 +19,13 @@ async function inStrip(stripFolders, id) {
   return env;
 }
 
-test('añadir y quitar carpetas: se guarda, se recuerda y va en la copia de seguridad', async () => {
+test('adding and removing folders: saved, remembered and included in the backup', async () => {
   const stored = {};
   const first = await openPanel({ stored });
   first.panel.toggleStrip('G');
   first.panel.toggleStrip('F');
   await first.flush();
-  assert.deepEqual(stored.stripFolders, ['G', 'F'], 'en el orden en que se añaden');
+  assert.deepEqual(stored.stripFolders, ['G', 'F'], 'in the order they are added');
 
   const second = await openPanel({ stored });
   assert.deepEqual([...second.state.stripFolders], ['G', 'F']);
@@ -34,14 +34,14 @@ test('añadir y quitar carpetas: se guarda, se recuerda y va en la copia de segu
   second.panel.toggleStrip('G');
   await second.flush();
   assert.deepEqual(stored.stripFolders, ['F']);
-  // «Deshacer» del aviso la devuelve a su sitio.
+  // The notice's "Undo" puts it back in place.
   second.toasts.at(-1).action.run();
   await second.flush();
   assert.deepEqual(stored.stripFolders, ['G', 'F']);
 });
 
-test('la vista muestra las carpetas en su orden y omite las que ya no existen', async () => {
-  const env = await openPanel({ stored: { homeFolder: 'view:strip', stripFolders: ['G', 'borrada', 'F'] } });
+test('the view shows the folders in order and skips those that no longer exist', async () => {
+  const env = await openPanel({ stored: { homeFolder: 'view:strip', stripFolders: ['G', 'deleted', 'F'] } });
   assert.equal(env.state.selected, 'view:strip');
   const view = env.panel.computeView();
   assert.equal(view.kind, 'strip');
@@ -55,7 +55,7 @@ test('la vista muestra las carpetas en su orden y omite las que ya no existen', 
   );
 });
 
-test('arrastrar una tarjeta a la izquierda o a la derecha de otra la reordena', async () => {
+test('dragging a card to the left or right of another reorders it', async () => {
   const env = await inStrip(['F', 'G', 'H'], 'H');
   const before = env.panel.stripSlot(dragEvent(stripCard('F'), { x: 40 }));
   assert.equal(before.noop, false);
@@ -66,11 +66,11 @@ test('arrastrar una tarjeta a la izquierda o a la derecha de otra la reordena', 
   env.panel.placeInStrip(after.folderId, after.index);
   assert.deepEqual([...env.state.stripFolders], ['F', 'G', 'H']);
 
-  assert.equal(env.panel.stripSlot(dragEvent(stripCard('H'), { x: 40 })).noop, true, 'sobre sí misma');
-  assert.equal(env.panel.stripSlot(dragEvent(stripCard('G'), { x: 260 })).noop, true, 'ya está ahí');
+  assert.equal(env.panel.stripSlot(dragEvent(stripCard('H'), { x: 40 })).noop, true, 'over itself');
+  assert.equal(env.panel.stripSlot(dragEvent(stripCard('G'), { x: 260 })).noop, true, 'already there');
 });
 
-test('una carpeta arrastrada desde el árbol se añade a la tira donde se suelta', async () => {
+test('a folder dragged from the tree is added to the strip where it is dropped', async () => {
   const env = await inStrip(['F'], 'G');
   const slot = env.panel.stripSlot(dragEvent(addTile()));
   assert.equal(slot.noop, false);
@@ -81,10 +81,10 @@ test('una carpeta arrastrada desde el árbol se añade a la tira donde se suelta
   const first = env.panel.stripSlot(dragEvent(stripCard('F'), { x: 40 }));
   env.panel.placeInStrip(first.folderId, first.index);
   assert.deepEqual([...env.state.stripFolders], ['H', 'F', 'G']);
-  assert.deepEqual(env.bookmarks.childrenOf('toolbar_____'), ['F', 'G', 'H'], 'Firefox no cambia');
+  assert.deepEqual(env.bookmarks.childrenOf('toolbar_____'), ['F', 'G', 'H'], 'Firefox does not change');
 });
 
-test('fuera de la tira, o arrastrando marcadores, no hay hueco de tira', async () => {
+test('outside the strip, or when dragging bookmarks, there is no strip slot', async () => {
   const env = await inStrip(['F', 'G'], 'a');
   assert.equal(env.panel.stripSlot(dragEvent(stripCard('F'))), null);
   env.state.dragIds = ['G'];
@@ -92,7 +92,7 @@ test('fuera de la tira, o arrastrando marcadores, no hay hueco de tira', async (
   assert.equal(env.panel.stripSlot(dragEvent(stripCard('F'))), null);
 });
 
-test('deshacer el borrado de una carpeta la devuelve a la tira', async () => {
+test('undoing a folder deletion puts it back in the strip', async () => {
   const env = await openPanel({ stored: { stripFolders: ['F', 'G'] } });
   await env.panel.deleteNodes([env.panel.get('F')], 'Folder deleted');
   await env.panel.runUndo();
@@ -101,7 +101,7 @@ test('deshacer el borrado de una carpeta la devuelve a la tira', async () => {
   assert.deepEqual([...env.state.stripFolders], [restored, 'G']);
 });
 
-test('la casa de la cabecera deja la tira como página de inicio', async () => {
+test('the header house sets the strip as the home page', async () => {
   const stored = { homeFolder: 'F', stripFolders: ['G'] };
   const first = await openPanel({ stored });
   first.panel.selectView('view:strip');
@@ -110,16 +110,16 @@ test('la casa de la cabecera deja la tira como página de inicio', async () => {
   assert.equal(stored.homeFolder, 'view:strip');
   assert.match(first.toasts.at(-1).message, /Strip/);
 
-  // Pulsarla otra vez solo avisa de que ya lo es.
+  // Pressing it again only says that it already is.
   first.panel.setHomeHere();
   assert.match(first.toasts.at(-1).message, /is your home page/);
 
-  assert.equal((await openPanel({ stored })).state.selected, 'view:strip', 'un panel nuevo abre la tira');
+  assert.equal((await openPanel({ stored })).state.selected, 'view:strip', 'a new panel opens the strip');
   const minimal = await openPanel({ stored: { ...stored, minimal: true } });
-  assert.equal(minimal.panel.minimalSelection(), 'view:strip', 'también en el modo minimalista');
+  assert.equal(minimal.panel.minimalSelection(), 'view:strip', 'in minimal mode too');
 });
 
-test('con la tira abierta, el árbol marca y desmarca carpetas sin navegar', async () => {
+test('with the strip open, the tree checks and unchecks folders without navigating', async () => {
   const stored = { homeFolder: 'view:strip', stripFolders: ['F'] };
   const env = await openPanel({ stored });
   assert.equal(env.panel.pickingCollection(), 'strip');
@@ -127,20 +127,20 @@ test('con la tira abierta, el árbol marca y desmarca carpetas sin navegar', asy
   env.panel.toggleStripPick('H');
   env.panel.toggleStripPick('toolbar_____');
   await env.flush();
-  assert.deepEqual(stored.stripFolders, ['F', 'H', 'toolbar_____'], 'se añaden al final, también las raíz');
+  assert.deepEqual(stored.stripFolders, ['F', 'H', 'toolbar_____'], 'they are added at the end, root folders too');
   env.panel.toggleStripPick('F');
   await env.flush();
   assert.deepEqual(stored.stripFolders, ['H', 'toolbar_____']);
-  assert.equal(env.state.selected, 'view:strip', 'sigue en la tira');
-  assert.equal(env.toasts.length, 0, 'sin avisos por cada casilla');
+  assert.equal(env.state.selected, 'view:strip', 'still on the strip');
+  assert.equal(env.toasts.length, 0, 'no notice for each checkbox');
 
   env.panel.selectView('F');
-  assert.equal(env.panel.pickingCollection(), null, 'fuera de la tira el árbol vuelve a navegar');
+  assert.equal(env.panel.pickingCollection(), null, 'outside the strip the tree navigates again');
   const minimal = await openPanel({ stored: { ...stored, minimal: true } });
-  assert.equal(minimal.panel.pickingCollection(), null, 'el modo minimalista no tiene árbol');
+  assert.equal(minimal.panel.pickingCollection(), null, 'minimal mode has no tree');
 });
 
-test('las subcarpetas desplegadas en la tira se recuerdan y van en la copia de seguridad', async () => {
+test('subfolders expanded in the strip are remembered and included in the backup', async () => {
   const stored = {};
   const first = await openPanel({ stored });
   first.panel.toggleStripSub('G');
@@ -153,10 +153,10 @@ test('las subcarpetas desplegadas en la tira se recuerdan y van en la copia de s
   assert.deepEqual([...second.panel.buildBackup().stripOpen], ['G', 'H']);
   second.panel.toggleStripSub('G');
   await second.flush();
-  assert.deepEqual(stored.stripOpen, ['H'], 'plegar también se recuerda');
+  assert.deepEqual(stored.stripOpen, ['H'], 'collapsing is remembered too');
 });
 
-test('«Expandir todo» abre las tarjetas y despliega todas las subcarpetas; «Contraer todo» las pliega', async () => {
+test('"Expand all" opens the cards and expands every subfolder; "Collapse all" folds them', async () => {
   const stored = {
     homeFolder: 'view:strip',
     stripFolders: ['toolbar_____'],
@@ -170,16 +170,16 @@ test('«Expandir todo» abre las tarjetas y despliega todas las subcarpetas; «C
   await env.flush();
   assert.equal(env.panel.stripAllExpanded(), true);
   assert.deepEqual(Array.from(stored.stripOpen).toSorted(), ['F', 'G', 'H']);
-  assert.deepEqual(Array.from(stored.boardCollapsed), [], 'la tarjeta plegada se abre');
+  assert.deepEqual(Array.from(stored.boardCollapsed), [], 'the collapsed card opens');
 
   env.panel.toggleStripExpandAll();
   await env.flush();
   assert.equal(env.panel.stripAllExpanded(), false);
   assert.deepEqual(Array.from(stored.stripOpen), []);
-  assert.deepEqual(Array.from(stored.boardCollapsed), [], 'contraer no pliega las tarjetas');
+  assert.deepEqual(Array.from(stored.boardCollapsed), [], 'collapsing does not fold the cards');
 });
 
-test('«Expandir todo» de una columna solo despliega las subcarpetas de esa columna', async () => {
+test('a column\'s "Expand all" only expands that column\'s subfolders', async () => {
   const stored = {
     homeFolder: 'view:strip',
     stripFolders: ['toolbar_____', 'unfiled_____'],
@@ -194,31 +194,31 @@ test('«Expandir todo» de una columna solo despliega las subcarpetas de esa col
   await env.flush();
   assert.equal(env.panel.stripCardExpanded('toolbar_____'), true);
   assert.deepEqual(Array.from(stored.stripOpen).toSorted(), ['F', 'G', 'H']);
-  assert.deepEqual(Array.from(stored.boardCollapsed), ['unfiled_____'], 'solo se abre esa tarjeta');
-  assert.equal(env.panel.stripCardExpanded('unfiled_____'), false, 'la otra columna no cambia');
+  assert.deepEqual(Array.from(stored.boardCollapsed), ['unfiled_____'], 'only that card opens');
+  assert.equal(env.panel.stripCardExpanded('unfiled_____'), false, 'the other column does not change');
   assert.equal(env.state.stripOpen.has(subA.id), false);
 
   env.panel.toggleStripCardExpand('toolbar_____');
   await env.flush();
   assert.equal(env.panel.stripCardExpanded('toolbar_____'), false);
   assert.deepEqual(Array.from(stored.stripOpen), []);
-  assert.deepEqual(Array.from(stored.boardCollapsed), ['unfiled_____'], 'contraer no pliega la tarjeta');
+  assert.deepEqual(Array.from(stored.boardCollapsed), ['unfiled_____'], 'collapsing does not fold the card');
 });
 
-// ----- Perfiles: distintas selecciones de carpetas para la tira -----
+// ----- Profiles: different folder selections for the strip -----
 
-test('perfiles: la tira de antes pasa a ser el primero; cada uno guarda su selección', async () => {
+test('profiles: the previous strip becomes the first one; each keeps its selection', async () => {
   const stored = { stripFolders: ['F'] };
   const env = await openPanel({ stored });
   const { state, panel } = env;
-  assert.equal(state.stripProfiles.length, 1, 'sin perfiles guardados, se crea uno con la tira de siempre');
+  assert.equal(state.stripProfiles.length, 1, 'without saved profiles, one is created with the usual strip');
   const main = state.stripProfile;
   assert.deepEqual([...state.stripFolders], ['F']);
 
   const work = panel.addStripProfile();
-  assert.equal(state.stripProfile, work, 'el nuevo queda activo');
-  assert.deepEqual([...state.stripFolders], [], 'y empieza vacío');
-  assert.equal(state.profileRenaming, work, 'con su nombre listo para escribir');
+  assert.equal(state.stripProfile, work, 'the new one becomes active');
+  assert.deepEqual([...state.stripFolders], [], 'and starts empty');
+  assert.equal(state.profileRenaming, work, 'with its name ready to type');
   panel.toggleStrip('G');
   panel.toggleStrip('H');
   await env.flush();
@@ -227,35 +227,35 @@ test('perfiles: la tira de antes pasa a ser el primero; cada uno guarda su selec
 
   panel.switchStripProfile(main);
   await env.flush();
-  assert.deepEqual([...state.stripFolders], ['F'], 'al volver, la selección del primero');
+  assert.deepEqual([...state.stripFolders], ['F'], "going back, the first one's selection");
   assert.deepEqual(
     stored.stripProfiles.map((pr) => pr.folders),
     [['F'], ['G', 'H']],
   );
 
-  // Otra pestaña (o una recarga) abre el perfil guardado.
+  // Another tab (or a reload) opens the saved profile.
   const again = await openPanel({ stored });
   assert.equal(again.state.stripProfile, main);
   again.panel.switchStripProfile(work);
   assert.deepEqual([...again.state.stripFolders], ['G', 'H']);
 });
 
-test('perfiles: renombrar, duplicar, reordenar y eliminar (con «Deshacer»)', async () => {
+test('profiles: rename, duplicate, reorder and delete (with "Undo")', async () => {
   const stored = { stripFolders: ['F'] };
   const env = await openPanel({ stored });
   const { state, panel } = env;
   const main = state.stripProfile;
 
-  panel.renameStripProfile(main, '  Trabajo  ');
+  panel.renameStripProfile(main, '  Work  ');
   panel.renameStripProfile(main, '   ');
-  assert.equal(state.stripProfiles[0].name, 'Trabajo', 'sin espacios; vacío no cambia el nombre');
+  assert.equal(state.stripProfiles[0].name, 'Work', 'trimmed; empty does not change the name');
 
   const copy = panel.addStripProfile(main);
-  assert.equal(state.stripProfiles[1].id, copy, 'la copia va justo detrás');
-  assert.deepEqual([...state.stripFolders], ['F'], 'con las mismas carpetas');
-  assert.match(state.stripProfiles[1].name, /Trabajo/);
+  assert.equal(state.stripProfiles[1].id, copy, 'the copy goes right after');
+  assert.deepEqual([...state.stripFolders], ['F'], 'with the same folders');
+  assert.match(state.stripProfiles[1].name, /Work/);
   panel.toggleStrip('G');
-  assert.deepEqual([...state.stripProfiles[0].folders], ['F'], 'cambiar la copia no toca el original');
+  assert.deepEqual([...state.stripProfiles[0].folders], ['F'], 'changing the copy does not touch the original');
 
   panel.moveStripProfile(copy, -1);
   assert.deepEqual(
@@ -266,12 +266,12 @@ test('perfiles: renombrar, duplicar, reordenar y eliminar (con «Deshacer»)', a
   panel.deleteStripProfile(copy);
   await env.flush();
   assert.equal(state.stripProfiles.length, 1);
-  assert.equal(state.stripProfile, main, 'se pasa al perfil que queda');
+  assert.equal(state.stripProfile, main, 'it switches to the remaining profile');
   assert.deepEqual([...state.stripFolders], ['F']);
   assert.equal(
     panel.profileMenu(main).some((item) => item && item.danger),
     false,
-    'el último perfil no se puede eliminar',
+    'the last profile cannot be deleted',
   );
   panel.deleteStripProfile(main);
   assert.equal(state.stripProfiles.length, 1);
@@ -281,18 +281,18 @@ test('perfiles: renombrar, duplicar, reordenar y eliminar (con «Deshacer»)', a
   assert.deepEqual(
     Array.from(state.stripProfiles, (pr) => pr.id),
     [copy, main],
-    '«Deshacer» lo devuelve a su sitio',
+    '"Undo" puts it back in place',
   );
-  assert.equal(state.stripProfile, copy, 'y vuelve a estar activo');
+  assert.equal(state.stripProfile, copy, 'and it is active again');
   assert.deepEqual([...state.stripFolders], ['F', 'G']);
   assert.deepEqual(stored.stripFolders, ['F', 'G']);
 });
 
-test('perfiles: van en la copia de seguridad y una copia antigua llena el perfil activo', async () => {
+test('profiles: included in the backup, and an old backup fills the active profile', async () => {
   const env = await openPanel({ stored: { stripFolders: ['F'] } });
   const work = env.panel.addStripProfile();
   env.panel.toggleStrip('G');
-  // Color desde su menú (fila de muestras); la copia lo hereda.
+  // Color from its menu (swatch row); the copy inherits it.
   env.panel
     .profileMenu(work)
     .find((item) => item && item.colors)
@@ -309,7 +309,7 @@ test('perfiles: van en la copia de seguridad y una copia antigua llena el perfil
     Array.from(backup.stripProfiles, (pr) => pr.color),
     ['', 'teal'],
   );
-  assert.ok(backup.refs.folders.F && backup.refs.folders.G, 'las carpetas de todos los perfiles, con su ruta');
+  assert.ok(backup.refs.folders.F && backup.refs.folders.G, 'the folders of every profile, with their path');
 
   const plan = env.panel.planImport(backup);
   assert.deepEqual(JSON.parse(JSON.stringify(plan.values.stripProfiles.map((pr) => pr.folders))), [['F'], ['G']]);
@@ -318,22 +318,22 @@ test('perfiles: van en la copia de seguridad y una copia antigua llena el perfil
     ...backup,
     stripProfiles: [{ id: 'z', name: 'Z', color: 'neon', folders: ['F'] }],
   });
-  assert.equal(odd.values.stripProfiles[0].color, '', 'un color desconocido se descarta');
+  assert.equal(odd.values.stripProfiles[0].color, '', 'an unknown color is dropped');
 
   const { stripProfiles: _p, stripProfile: _a, ...old } = backup;
   const oldPlan = env.panel.planImport({ ...old, stripFolders: ['H'] });
-  assert.equal('stripProfiles' in oldPlan.values, false, 'sin perfiles en la copia, no se tocan');
+  assert.equal('stripProfiles' in oldPlan.values, false, 'without profiles in the backup, they are not touched');
   assert.deepEqual([...oldPlan.values.stripFolders], ['H']);
 });
 
-// ----- Rueda en la tira: las tarjetas con scroll propio no se lo roban al gesto horizontal -----
+// ----- Wheel in the strip: cards with their own scroll do not steal the horizontal gesture -----
 
-test('rueda: una tarjeta solo se desplaza en vertical si el puntero se ha posado y no hay un gesto de lado', async () => {
+test('wheel: a card only scrolls vertically if the pointer has rested on it and there is no sideways gesture', async () => {
   const env = await openPanel({ stored: { homeFolder: 'view:strip', stripFolders: ['F', 'G'] } });
   const cards = env.document.getElementById('cards');
   cards.classList.add('is-strip');
   Object.assign(cards, { scrollWidth: 2000, clientWidth: 1000, scrollLeft: 0 });
-  // Dos tarjetas con más contenido del que cabe (scroll vertical propio).
+  // Two cards with more content than fits (their own vertical scroll).
   const innerA = fakeElement({ classes: ['board-inner'] });
   const innerB = fakeElement({ classes: ['board-inner'] });
   for (const inner of [innerA, innerB]) Object.assign(inner, { scrollHeight: 800, clientHeight: 300 });
@@ -350,47 +350,47 @@ test('rueda: una tarjeta solo se desplaza en vertical si el puntero se ha posado
       },
     };
     env.panel.stripWheel(event);
-    return event.prevented; // true: la tira se mueve de lado; false: la tarjeta en vertical
+    return event.prevented; // true: the strip moves sideways; false: the card vertically
   };
   const at = (ms) => {
     env.clock.now = ms;
   };
 
-  // El puntero se posa en A y se queda: la rueda desplaza la tarjeta.
+  // The pointer rests on A and stays: the wheel scrolls the card.
   at(1000);
   env.panel.trackStripHover({ target: over(innerA) });
   at(1200);
-  assert.equal(wheel(innerA), false, 'posado sobre la tarjeta: scroll vertical');
+  assert.equal(wheel(innerA), false, 'resting on the card: vertical scroll');
 
-  // Cruzando hacia otra columna (acaba de llegar a B): la tira se mueve de lado.
+  // Crossing to another column (it just reached B): the strip moves sideways.
   at(2000);
   env.panel.trackStripHover({ target: over(innerB) });
   at(2050);
-  assert.equal(wheel(innerB), true, 'recién llegado a la tarjeta: la tira sigue de lado');
+  assert.equal(wheel(innerB), true, 'just reached the card: the strip keeps moving sideways');
 
-  // Mientras dura el gesto, sigue de lado aunque el puntero se pose en la tarjeta.
+  // While the gesture lasts, it keeps moving sideways even if the pointer rests on the card.
   at(2250);
   assert.equal(wheel(innerB), true);
   at(2500);
-  assert.equal(wheel(innerB), true, 'gesto horizontal en curso: no se lo roba la tarjeta');
+  assert.equal(wheel(innerB), true, 'horizontal gesture in progress: the card does not steal it');
 
-  // Tras una pausa, el siguiente golpe ya es de la tarjeta (el puntero lleva rato en ella).
+  // After a pause, the next tick belongs to the card (the pointer has been on it for a while).
   at(3000);
-  assert.equal(wheel(innerB), false, 'después de una pausa: scroll vertical');
-  // Y ese gesto vertical se queda en vertical.
+  assert.equal(wheel(innerB), false, 'after a pause: vertical scroll');
+  // And that vertical gesture stays vertical.
   at(3100);
   assert.equal(wheel(innerB), false);
 
-  // Al final de la tira, un gesto que iba de lado no pasa a desplazar la tarjeta de debajo.
+  // At the end of the strip, a gesture that was going sideways does not start scrolling the card underneath.
   at(5000);
   cards.scrollLeft = 1000;
   env.panel.trackStripHover({ target: over(innerA) });
   at(5010);
-  assert.equal(wheel(innerA, -100), true, 'de lado (hacia la izquierda)');
+  assert.equal(wheel(innerA, -100), true, 'sideways (to the left)');
   cards.scrollLeft = 1000;
   at(5100);
-  assert.equal(wheel(innerA, 100), true, 'en el extremo, el gesto lateral se queda quieto');
-  // Tras una pausa, en el extremo la rueda vuelve a ser de la tarjeta.
+  assert.equal(wheel(innerA, 100), true, 'at the end, the sideways gesture stays still');
+  // After a pause, at the end the wheel belongs to the card again.
   at(6000);
   assert.equal(wheel(innerA, 100), false);
 });

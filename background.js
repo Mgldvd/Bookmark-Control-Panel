@@ -1,9 +1,9 @@
 'use strict';
 
-// Botón de la barra de herramientas (y atajo Alt+Shift+B): abre el panel
-// en una pestaña nueva. tabs.create no requiere el permiso "tabs".
+// Toolbar button (and the Alt+Shift+B shortcut): opens the panel
+// in a new tab. tabs.create does not require the "tabs" permission.
 browser.action.onClicked.addListener(() => {
   browser.tabs
     .create({ url: browser.runtime.getURL('dashboard.html') })
-    .catch((error) => console.error('[Bookmark Control Panel] No se pudo abrir el panel:', error));
+    .catch((error) => console.error('[Bookmark Control Panel] Could not open the panel:', error));
 });

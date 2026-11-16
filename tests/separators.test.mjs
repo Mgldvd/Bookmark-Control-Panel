@@ -1,9 +1,9 @@
-// Separadores: color propio (clic derecho → «Color del separador…»).
+// Separators: own color (right-click → "Separator color…").
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { fakeBookmarks, openPanel } from './helpers/panel.mjs';
 
-/** Barra con la carpeta F: a, separador, b, separador, c. `prefix` cambia los ids (otro perfil). */
+/** Toolbar with folder F: a, separator, b, separator, c. `prefix` changes the ids (another profile). */
 function treeWithSeparators(prefix = '') {
   const bm = (id) => ({ id: prefix + id, type: 'bookmark', title: id, url: `https://${id}.example/` });
   const sep = (id) => ({ id: prefix + id, type: 'separator' });
@@ -29,7 +29,7 @@ function treeWithSeparators(prefix = '') {
   };
 }
 
-test('el color de un separador se guarda, se quita y va en la copia de seguridad', async () => {
+test('a separator color is saved, removed and included in the backup', async () => {
   const stored = {};
   const env = await openPanel({ stored, bookmarks: fakeBookmarks(treeWithSeparators()) });
   env.panel.setSeparatorColor('s2', 'red');
@@ -38,14 +38,14 @@ test('el color de un separador se guarda, se quita y va en la copia de seguridad
 
   const backup = env.panel.buildBackup();
   assert.deepEqual({ ...backup.separatorColors }, { s2: 'red' });
-  assert.equal(backup.refs.separators.s2.nth, 1, 'segundo separador de su carpeta');
+  assert.equal(backup.refs.separators.s2.nth, 1, 'second separator of its folder');
 
-  env.panel.setSeparatorColor('s2', 'no-es-un-color');
+  env.panel.setSeparatorColor('s2', 'not-a-color');
   await env.flush();
   assert.deepEqual({ ...stored.separatorColors }, {});
 });
 
-test('al importar en otro perfil, el color va al separador de la misma carpeta y posición', async () => {
+test('when importing on another profile, the color goes to the separator in the same folder and position', async () => {
   const source = await openPanel({ stored: {}, bookmarks: fakeBookmarks(treeWithSeparators()) });
   source.panel.setSeparatorColor('s2', 'teal');
   const backup = JSON.parse(JSON.stringify(source.panel.buildBackup()));
@@ -55,14 +55,14 @@ test('al importar en otro perfil, el color va al separador de la misma carpeta y
   assert.deepEqual({ ...values.separatorColors }, { 'x-s2': 'teal' });
 });
 
-test('el menú de un separador muestra los colores en fila y elegir uno lo aplica', async () => {
+test('a separator menu shows the colors in a row and picking one applies it', async () => {
   const stored = {};
   const env = await openPanel({ stored, bookmarks: fakeBookmarks(treeWithSeparators()) });
   env.panel.setSeparatorColor('s1', 'blue');
   const items = Array.from(env.panel.separatorMenu(env.panel.get('s1'))).filter((i) => i && i !== '-');
   const row = items[0];
-  assert.equal(row.colors, true, 'la primera opción es la fila de colores');
-  assert.equal(row.current, 'blue', 'marca el color actual');
+  assert.equal(row.colors, true, 'the first option is the color row');
+  assert.equal(row.current, 'blue', 'it marks the current color');
   assert.equal(items.at(-1).icon, 'trash');
 
   row.set('green');
@@ -70,10 +70,10 @@ test('el menú de un separador muestra los colores en fila y elegir uno lo aplic
   assert.deepEqual({ ...stored.separatorColors }, { s1: 'green' });
   row.set(null);
   await env.flush();
-  assert.deepEqual({ ...stored.separatorColors }, {}, 'el último punto quita el color');
+  assert.deepEqual({ ...stored.separatorColors }, {}, 'the last dot removes the color');
 });
 
-test('en la tira, las subcarpetas desplegadas muestran los separadores que hay entre ellas', async () => {
+test('in the strip, expanded subfolders show the separators between them', async () => {
   const sep = (id) => ({ id, type: 'separator' });
   const sub = (id) => ({ id, type: 'folder', title: id, children: [] });
   const tree = {
@@ -98,8 +98,8 @@ test('en la tira, las subcarpetas desplegadas muestran los separadores que hay e
   };
   const env = await openPanel({ stored: {}, bookmarks: fakeBookmarks(tree) });
   const ids = () => Array.from(env.panel.stripSubsOf(env.panel.get('F')), (n) => n.id);
-  assert.deepEqual(ids(), ['B', 's1', 'A'], 'orden de Firefox, sin separadores sueltos ni seguidos');
+  assert.deepEqual(ids(), ['B', 's1', 'A'], 'Firefox order, without loose or consecutive separators');
 
   env.state.prefs.sort = 'name-asc';
-  assert.deepEqual(ids(), ['A', 'B'], 'ordenadas por nombre: sin separadores');
+  assert.deepEqual(ids(), ['A', 'B'], 'sorted by name: no separators');
 });

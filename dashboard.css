@@ -1,6 +1,6 @@
 /* ==========================================================================
-   Bookmark Control Panel — estilos
-   Tokens con light-dark(): el tema se controla con color-scheme en :root.
+   Bookmark Control Panel — styles
+   Tokens with light-dark(): the theme is controlled with color-scheme on :root.
    ========================================================================== */
 
 :root {
@@ -43,7 +43,7 @@
   --shadow-md: 0 6px 18px -4px var(--shadow-color), 0 1px 3px var(--shadow-color);
   --shadow-lg: 0 20px 50px -12px light-dark(rgb(20 20 40 / 0.28), rgb(0 0 0 / 0.7)), 0 2px 6px var(--shadow-color);
 
-  /* Estilo de esquinas (Ajustes → Bordes): --rf escala todos los radios. */
+  /* Corner style (Settings → Corners): --rf scales every radius. */
   --rf: 1;
   --pill: 999px;
   --radius-sm: calc(6px * var(--rf));
@@ -64,9 +64,9 @@
   --pill: 0px;
 }
 
-/* Color principal (Ajustes → Apariencia): sin data-accent se usa el índigo de :root.
-   En claro son tonos con contraste suficiente bajo texto blanco; el resto de
-   variantes (hover, suave, texto encima) se derivan del color elegido. */
+/* Accent color (Settings → Appearance): without data-accent, the indigo from :root is used.
+   In light mode they are shades with enough contrast under white text; the other
+   variants (hover, soft, text on top) are derived from the chosen color. */
 :root[data-accent='blue'] {
   --accent: light-dark(#2563eb, #60a5fa);
 }
@@ -106,9 +106,9 @@
   );
 }
 
-/* Color general de las carpetas (Ajustes → Apariencia → Colores): sin
-   data-folder-color se usa el amarillo de :root. Las carpetas y grupos con
-   color propio, y el color de las columnas, lo sustituyen localmente. */
+/* General folder color (Settings → Appearance → Colors): without
+   data-folder-color, the yellow from :root is used. Folders and groups with
+   their own color, and the column color, override it locally. */
 :root[data-folder-color] {
   --folder-bg: color-mix(in srgb, var(--folder-fg) 15%, var(--surface));
 }
@@ -150,7 +150,7 @@
   color-scheme: dark;
 }
 
-/* Transición suave solo durante el cambio de tema */
+/* Smooth transition only while the theme changes */
 .theme-transition,
 .theme-transition *,
 .theme-transition *::before {
@@ -255,7 +255,7 @@ code {
   font-size: 0.92em;
 }
 
-/* ---------- Botones ---------- */
+/* ---------- Buttons ---------- */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -277,7 +277,7 @@ code {
 .btn:hover {
   background: var(--surface-2);
 }
-/* Casa de la cabecera: marcada cuando lo que se ve es la página de inicio. */
+/* Header house: highlighted when what is shown is the home page. */
 .home-set-btn {
   width: 34px;
   padding: 0;
@@ -352,7 +352,7 @@ code {
 }
 
 /* ---------- Layout ---------- */
-/* Cada panel lateral controla su columna: --sb-col (carpetas) y --gp-col (grupos). */
+/* Each side panel controls its column: --sb-col (folders) and --gp-col (groups). */
 .app {
   --sb-col: var(--sidebar-w);
   --gp-col: var(--groups-w);
@@ -485,7 +485,7 @@ code {
   color: var(--text-3);
 }
 
-/* Árbol de carpetas */
+/* Folder tree */
 .tree-row {
   position: relative;
   display: flex;
@@ -589,7 +589,7 @@ code {
   opacity: 0.45;
 }
 
-/* Hueco de reordenación: una línea antes o después del marcador bajo el puntero. */
+/* Reorder slot: a line before or after the bookmark under the pointer. */
 .board-row,
 .card-sep,
 .board-sep {
@@ -634,7 +634,7 @@ code {
 .folder-tile.is-drop-x.is-drop-after::after {
   right: -7px;
 }
-/* La tarjeta del tablero recorta su contenido: la línea va como sombra exterior. */
+/* The board card clips its content: the line is drawn as an outer shadow. */
 .board-card.is-drop-before::after,
 .board-card.is-drop-after::after {
   display: none;
@@ -646,7 +646,7 @@ code {
   box-shadow: 0 5px 0 -2px var(--accent) !important;
 }
 
-/* En la tira la línea va a la izquierda o a la derecha de la tarjeta. */
+/* In the strip the line goes to the left or right of the card. */
 .cards.is-strip > .board-card.is-drop-before {
   box-shadow: -6px 0 0 -2px var(--accent) !important;
 }
@@ -660,7 +660,7 @@ code {
   color: var(--accent);
 }
 
-/* Etiqueta «N marcadores» al arrastrar varios (imagen de arrastre). */
+/* "N bookmarks" label when dragging several (drag image). */
 .drag-count {
   position: fixed;
   top: -200px;
@@ -674,7 +674,7 @@ code {
   white-space: nowrap;
 }
 
-/* ---------- Selección múltiple ---------- */
+/* ---------- Multiple selection ---------- */
 .select-btn {
   position: absolute;
   z-index: 2;
@@ -720,7 +720,7 @@ code {
   left: 10px;
   translate: 0 -50%;
 }
-/* En el tablero la casilla sustituye al favicon solo mientras hay selección. */
+/* On the board the checkbox replaces the favicon only while there is a selection. */
 .board-row .select-btn {
   position: static;
   display: none;
@@ -935,7 +935,7 @@ code {
   padding: 28px 32px 72px;
 }
 
-/* Cabecera de la vista */
+/* View header */
 .breadcrumb {
   display: flex;
   flex-wrap: wrap;
@@ -1110,7 +1110,7 @@ h1 {
   background: var(--accent-soft);
 }
 
-/* Secciones */
+/* Sections */
 .section {
   margin-top: 30px;
 }
@@ -1134,7 +1134,7 @@ h1 {
   font-variant-numeric: tabular-nums;
 }
 
-/* ---------- Carpetas (tiles) ---------- */
+/* ---------- Folders (tiles) ---------- */
 .folder-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -1233,7 +1233,7 @@ h1 {
   opacity: 1;
 }
 
-/* ---------- Tarjetas de marcadores ---------- */
+/* ---------- Bookmark cards ---------- */
 .cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
@@ -1428,7 +1428,7 @@ h1 {
   transform: scale(0.85);
 }
 
-/* Vista de lista */
+/* List view */
 .cards.is-list {
   display: flex;
   flex-direction: column;
@@ -1504,7 +1504,7 @@ h1 {
   align-items: center;
 }
 
-/* Separadores de Firefox (solo vista de lista, orden original) */
+/* Firefox separators (list view only, original order) */
 .card-sep {
   display: none;
 }
@@ -1533,7 +1533,7 @@ h1 {
   margin: 22px auto 0;
 }
 
-/* Animaciones de entrada (discretas) */
+/* Entry animations (subtle) */
 @keyframes card-in {
   from {
     opacity: 0;
@@ -1569,7 +1569,7 @@ h1 {
     card-flash 1.6s ease;
 }
 
-/* ---------- Estados vacíos / error / carga ---------- */
+/* ---------- Empty / error / loading states ---------- */
 .empty {
   display: flex;
   flex-direction: column;
@@ -1632,7 +1632,7 @@ h1 {
   }
 }
 
-/* ---------- Menú contextual ---------- */
+/* ---------- Context menu ---------- */
 .menu {
   position: fixed;
   z-index: 50;
@@ -1714,7 +1714,7 @@ h1 {
   overflow-y: auto;
 }
 
-/* ---------- Diálogos ---------- */
+/* ---------- Dialogs ---------- */
 .dialog {
   width: min(480px, calc(100vw - 32px));
   max-height: calc(100dvh - 32px);
@@ -1841,7 +1841,7 @@ h1 {
   overflow-wrap: anywhere;
 }
 
-/* ---------- Ajustes: pestañas a la izquierda, filas agrupadas a la derecha ---------- */
+/* ---------- Settings: tabs on the left, grouped rows on the right ---------- */
 .settings-dialog {
   width: min(840px, calc(100vw - 32px));
   height: min(640px, calc(100dvh - 32px));
@@ -1849,7 +1849,7 @@ h1 {
 }
 .settings-form {
   display: grid;
-  position: relative; /* contiene el botón de cerrar, fuera del área con scroll */
+  position: relative; /* holds the close button, outside the scrolling area */
   grid-template-columns: 216px minmax(0, 1fr);
   height: 100%;
 }
@@ -1940,7 +1940,7 @@ h1 {
   color: var(--text-3);
 }
 
-/* Grupo: caja con filas separadas por una línea fina */
+/* Group: box with rows separated by a thin line */
 .set-group {
   margin: 0;
   border: 1px solid var(--border);
@@ -1983,7 +1983,7 @@ label.set-row {
   color: var(--text-3);
 }
 
-/* Selector segmentado (tema, bordes, idioma, grosor) */
+/* Segmented control (theme, corners, language, thickness) */
 .choice-group {
   flex: none;
   max-width: 100%;
@@ -2056,7 +2056,7 @@ label.set-row {
 .choice:has(input:checked) .w-bar {
   background: var(--accent);
 }
-/* «Ninguno»: silueta discontinua en lugar de barra */
+/* "None": dashed outline instead of a bar */
 .w-bar[data-w='0'] {
   --bw: 6px;
   border: 1px dashed currentColor;
@@ -2066,7 +2066,7 @@ label.set-row {
   border-color: var(--accent);
   background: transparent;
 }
-/* Icono de ancho: un marco con un bloque más o menos ancho dentro */
+/* Width icon: a frame with a wider or narrower block inside */
 .width-icon {
   display: inline-flex;
   justify-content: center;
@@ -2122,15 +2122,15 @@ label.set-row {
   --g: var(--folder-fg);
 }
 .swatch[data-color='default'] {
-  --g: light-dark(#c4870b, #f0c05a); /* el amarillo de siempre (--folder-fg de :root) */
+  --g: light-dark(#c4870b, #f0c05a); /* the usual yellow (--folder-fg from :root) */
 }
 .swatch[data-color='auto'] .swatch-dot {
-  /* Sigue al color de las carpetas: punto de ese color con un aro discontinuo. */
+  /* Follows the folder color: a dot of that color with a dashed ring. */
   outline: 1.5px dashed var(--g);
   outline-offset: 2px;
 }
 
-/* Vista previa de la franja con dos tarjetas de ejemplo */
+/* Stripe preview with two sample cards */
 .stripe-preview {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2322,7 +2322,7 @@ label.set-row {
   }
 }
 
-/* ---------- Copia de seguridad (Ajustes) ---------- */
+/* ---------- Backup (Settings) ---------- */
 .settings-note {
   margin: 0 0 12px;
   color: var(--text-3);
@@ -2335,9 +2335,9 @@ label.set-row {
   gap: 8px;
 }
 
-/* ---------- Color propio de cada carpeta ----------
-   [data-color] define --g; aquí se redefinen los colores de carpeta en ese
-   elemento, así icono, franja, cabecera y contador usan el color elegido. */
+/* ---------- Own color per folder ----------
+   [data-color] defines --g; folder colors are redefined here on that
+   element, so icon, stripe, header and counter use the chosen color. */
 .has-color {
   --folder-fg: var(--g);
   --folder-bg: color-mix(in srgb, var(--g) 15%, var(--surface));
@@ -2350,7 +2350,7 @@ label.set-row {
 .menu-dot[data-color='default'] {
   background: var(--folder-fg);
 }
-/* Fila de colores dentro del menú contextual: se elige con un clic. */
+/* Color row inside the context menu: picked with a click. */
 .menu-colors {
   padding: 4px 8px 6px;
 }
@@ -2397,7 +2397,7 @@ label.set-row {
     0 0 0 2px var(--surface),
     0 0 0 3.5px var(--text-2);
 }
-/* «Predeterminado»: un aro vacío tachado. */
+/* "Default": an empty crossed-out ring. */
 .menu-swatch.is-default .menu-swatch-dot {
   border: 1.5px solid var(--text-3);
   background: linear-gradient(
@@ -2409,7 +2409,7 @@ label.set-row {
   );
 }
 
-/* ---------- Vista de tablero (carpetas como tarjetas con sus enlaces) ---------- */
+/* ---------- Board view (folders as cards with their links) ---------- */
 .is-board-section .section-title {
   display: none;
 }
@@ -2418,12 +2418,12 @@ label.set-row {
   columns: 290px auto;
   column-gap: 14px;
 }
-/* Columnas elegidas en Ajustes: es un máximo; cada columna mide al menos 160px,
-   así en ventanas estrechas se usan menos. */
+/* Columns chosen in Settings: it is a maximum; each column is at least 160px,
+   so narrow windows use fewer. */
 :root[data-board-cols] .cards.is-board {
   columns: 160px var(--board-cols);
 }
-/* Ancho del contenido (Ajustes → Apariencia → Diseño): normal 1440px, ancho 1920px o completo. */
+/* Content width (Settings → Appearance → Layout): normal 1440px, wide 1920px or full. */
 :root[data-content-width='wide'] {
   --content-max: 1920px;
 }
@@ -2435,7 +2435,7 @@ label.set-row {
   margin-bottom: 14px;
 }
 
-/* ---------- Tira: las carpetas elegidas, una al lado de otra ---------- */
+/* ---------- Strip: the chosen folders, side by side ---------- */
 .content.is-strip-view .content-inner {
   max-width: none;
 }
@@ -2449,9 +2449,9 @@ label.set-row {
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scroll-padding-inline: 32px;
-  /* Sin barra: se mueve con la rueda, agarrando el fondo o arrastrando a un borde. */
+  /* No scrollbar: it moves with the wheel, by grabbing the background or dragging to an edge. */
   scrollbar-width: none;
-  /* Degradado en el lado (o lados) donde queda contenido oculto. */
+  /* Gradient on the side (or sides) where content is hidden. */
   --fade-l: 0px;
   --fade-r: 0px;
   mask-image: linear-gradient(to right, transparent, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent);
@@ -2465,14 +2465,14 @@ label.set-row {
 .cards.is-strip.has-more-right {
   --fade-r: 48px;
 }
-/* Mano de «agarrar» en el fondo, solo si hay algo que desplazar. */
+/* "Grab" hand on the background, only if there is something to scroll. */
 .content.can-pan {
   cursor: grab;
 }
 .content.can-pan :is(#view-head, #home-bar, #strip-profiles, .board-card) {
   cursor: default;
 }
-/* Mientras se agarra la tira: sin selección de texto ni snap (que no tire de ella). */
+/* While grabbing the strip: no text selection or snap (so it does not pull on it). */
 .is-panning,
 .is-panning * {
   cursor: grabbing !important;
@@ -2483,7 +2483,7 @@ label.set-row {
   flex: 0 0 var(--strip-card-w);
   scroll-snap-align: start;
 }
-/* Cada tarjeta cabe en la pantalla y se desplaza por dentro. */
+/* Each card fits on the screen and scrolls on its own. */
 .content.is-strip-view .content-inner {
   padding-bottom: 16px;
 }
@@ -2505,9 +2505,9 @@ label.set-row {
   scrollbar-width: thin;
 }
 
-/* ---------- Mosaico: las carpetas elegidas en columnas (masonry) ----------
-   dashboard.js reparte las tarjetas en .masonry-col (cada una entra en la columna
-   más corta), así el orden se lee de izquierda a derecha y no de arriba abajo. */
+/* ---------- Masonry: the chosen folders in columns ----------
+   dashboard.js spreads the cards over .masonry-col (each one goes into the shortest
+   column), so the order reads left to right and not top to bottom. */
 .cards.is-masonry {
   display: flex;
   align-items: flex-start;
@@ -2524,7 +2524,7 @@ label.set-row {
   min-height: 96px;
 }
 
-/* Subcarpetas de la tira (y del mosaico): árbol desplegable con sus enlaces */
+/* Strip (and masonry) subfolders: expandable tree with their links */
 .strip-subs {
   list-style: none;
   margin: 4px 0 0;
@@ -2599,7 +2599,7 @@ label.set-row {
 .strip-sub-head:focus-within > .icon-btn {
   opacity: 1;
 }
-/* Contenido de una subcarpeta abierta: sangrado, con una guía vertical. */
+/* Content of an open subfolder: indented, with a vertical guide. */
 .strip-sub-body {
   position: relative;
   padding: 1px 0 4px 14px;
@@ -2620,7 +2620,7 @@ label.set-row {
   color: var(--text-3);
   font-size: 12.5px;
 }
-/* El snap solo con el dedo: con la rueda o al agarrar con el ratón tiraría de la tira. */
+/* Snap only with a finger: with the wheel or when grabbing with the mouse it would pull the strip. */
 @media (pointer: coarse) {
   .cards.is-strip {
     scroll-snap-type: x proximity;
@@ -2648,13 +2648,13 @@ label.set-row {
   border-color: var(--accent);
   color: var(--accent);
 }
-/* El modo minimalista no tiene árbol donde elegir: sin hueco de «Añadir». */
+/* Minimal mode has no tree to choose from: no "Add" slot. */
 .minimal .strip-add {
   display: none;
 }
 
-/* Perfiles de la tira: una cápsula centrada sobre las tarjetas, con una pestaña
-   por selección de carpetas (cada una puede llevar su color, en --g). */
+/* Strip profiles: a capsule centered above the cards, with one tab
+   per folder selection (each one can have its color, in --g). */
 .strip-profiles {
   display: flex;
   justify-content: center;
@@ -2664,7 +2664,7 @@ label.set-row {
 .strip-profiles[hidden] {
   display: none;
 }
-/* Justo debajo, la tira: sin el margen de sección (no lleva título). */
+/* Right below, the strip: without the section margin (it has no title). */
 .strip-profiles:not([hidden]) ~ #bookmarks-section {
   margin-top: 0;
 }
@@ -2721,7 +2721,7 @@ label.set-row {
   color: var(--text);
   box-shadow: var(--shadow-sm);
 }
-/* Con color: un punto delante y, si está activo, la pestaña teñida. */
+/* With a color: a dot in front and, if active, the tab tinted. */
 .strip-profile-dot {
   flex: none;
   width: 8px;
@@ -2781,8 +2781,8 @@ label.set-row {
   background: var(--surface);
   color: var(--accent);
 }
-/* «Expandir / Contraer todo» (toda la tira) en la barra de perfiles: solo en el modo
-   minimalista, donde no está la cabecera con su botón. Pulsado (todo a la vista), en color. */
+/* "Expand / Collapse all" (the whole strip) in the profiles bar: only in minimal
+   mode, where the header with its button is missing. Pressed (everything visible), colored. */
 .strip-expand-tool,
 .strip-expand-tool[hidden] {
   display: none;
@@ -2837,7 +2837,7 @@ label.set-row {
   }
 }
 
-/* Casillas del árbol en el modo selección de la tira */
+/* Tree checkboxes in the strip's selection mode */
 .tree-check {
   flex: none;
   display: grid;
@@ -2996,8 +2996,8 @@ label.set-row {
 .board-head:focus-within > .icon-btn {
   opacity: 1;
 }
-/* «Expandir / Contraer todo» de cada columna de la tira: siempre a la vista (también
-   en el modo minimalista, que no tiene el botón general); en color si todo está abierto. */
+/* "Expand / Collapse all" for each strip column: always visible (also
+   in minimal mode, which has no general button); colored if everything is open. */
 .board-head > .strip-card-expand {
   opacity: 1;
   color: var(--text-3);
@@ -3090,8 +3090,8 @@ label.set-row {
     card-in 0.4s var(--ease) backwards,
     card-flash 1.6s ease;
 }
-/* Separador: una línea bien visible (con el color elegido, si lo tiene). La fila
-   es más alta que la línea para que sea fácil hacer clic derecho sobre ella. */
+/* Separator: a clearly visible line (with the chosen color, if any). The row
+   is taller than the line so it is easy to right-click on it. */
 .board-sep {
   --sep: var(--text-3);
   display: flex;
@@ -3180,7 +3180,7 @@ label.set-row {
   text-align: center;
 }
 
-/* ---------- Grupos (panel derecho) ---------- */
+/* ---------- Groups (right panel) ---------- */
 :root {
   --c-indigo: light-dark(#5046e5, #938cff);
   --c-blue: light-dark(#2563eb, #60a5fa);
@@ -3224,9 +3224,9 @@ label.set-row {
   --g: var(--c-slate);
 }
 
-/* Franja de color a la izquierda de las tarjetas (Ajustes → Apariencia → Borde):
-   se oculta con data-stripe="off", el grosor es --stripe-w y data-stripe-color
-   cambia el color de las tarjetas de carpeta sin color propio. */
+/* Color stripe on the left of the cards (Settings → Appearance → Border):
+   hidden with data-stripe="off", the thickness is --stripe-w and data-stripe-color
+   changes the color of folder cards without their own color. */
 :root {
   --stripe-w: 3px;
 }
@@ -3556,7 +3556,7 @@ label.set-row {
   margin: 0 0 6px;
 }
 
-/* Arrastrando: los grupos se marcan como destino */
+/* While dragging: groups are highlighted as targets */
 .is-dragging .group {
   border-style: dashed;
   border-color: color-mix(in srgb, var(--g) 55%, var(--border));
@@ -3572,7 +3572,7 @@ label.set-row {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--g) 25%, transparent) !important;
 }
 
-/* Puntos de grupo en las tarjetas */
+/* Group dots on the cards */
 .card-groups {
   display: inline-flex;
   align-items: center;
@@ -3584,7 +3584,7 @@ label.set-row {
   box-shadow: none;
 }
 
-/* Selector de color */
+/* Color picker */
 .color-field {
   margin: 0;
   padding: 0;
@@ -3664,7 +3664,7 @@ label.set-row {
   .app {
     --gp-col: 0px;
   }
-  /* Panel flotante sin velo: se puede seguir arrastrando desde el contenido. */
+  /* Floating panel without a backdrop: you can keep dragging from the content. */
   .groups {
     position: fixed;
     inset: 0 0 0 auto;
@@ -3683,10 +3683,10 @@ label.set-row {
   }
 }
 
-/* ---------- Modo minimalista (página de inicio) ----------
-   Solo queda el tablero de la carpeta de inicio; html.minimal lo pone
-   theme-init.js antes del primer pintado para que no se vea el resto.
-   El único control visible es el botón de salida, fijo arriba a la derecha. */
+/* ---------- Minimal mode (home page) ----------
+   Only the home folder's board remains; html.minimal is set by
+   theme-init.js before the first paint so the rest is never seen.
+   The only visible control is the exit button, fixed at the top right. */
 .minimal .app {
   --sb-col: 0px;
   --gp-col: 0px;
@@ -3702,8 +3702,8 @@ label.set-row {
 .minimal .content-inner {
   padding-top: 64px;
 }
-/* La tira en el modo minimalista: la barra de perfiles sube a la altura del botón
-   de salida (centrada, no lo tapa) y las tarjetas empiezan justo debajo. */
+/* The strip in minimal mode: the profiles bar moves up to the height of the exit
+   button (centered, without covering it) and the cards start right below. */
 .minimal .content.is-strip-view .content-inner,
 .minimal .content.is-masonry-view .content-inner {
   padding-top: 12px;
@@ -3786,10 +3786,10 @@ label.set-row {
   box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
-/* ---------- Transición animada al modo minimalista (View Transitions) ----------
-   dashboard.js añade .vt-minimal mientras dura la transición y nombra cada
-   tarjeta visible (bd-c-…); aquí se nombran los paneles y se definen los
-   movimientos. Fuera de la transición nada de esto se aplica. */
+/* ---------- Animated transition to minimal mode (View Transitions) ----------
+   dashboard.js adds .vt-minimal while the transition runs and names each
+   visible card (bd-c-…); here the panels are named and the movements are
+   defined. Outside the transition none of this applies. */
 :root {
   --vt-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --vt-time: 0.56s;
@@ -3813,7 +3813,7 @@ label.set-row {
   view-transition-name: bd-exit;
 }
 
-/* Las tarjetas que siguen en pantalla se deslizan y cambian de tamaño hasta su sitio. */
+/* Cards that stay on screen slide and resize into place. */
 ::view-transition-group(*) {
   animation-duration: var(--vt-time);
   animation-timing-function: var(--vt-ease);
@@ -3823,7 +3823,7 @@ label.set-row {
   animation-duration: 0.32s;
 }
 
-/* Paneles: cada uno sale (o entra) por su borde */
+/* Panels: each one leaves (or enters) through its edge */
 ::view-transition-old(bd-sidebar) {
   animation: bd-vt-out-left 0.42s var(--vt-ease) both;
 }
@@ -3842,7 +3842,7 @@ label.set-row {
 ::view-transition-new(bd-topbar) {
   animation: bd-vt-in-up var(--vt-time) var(--vt-ease) both;
 }
-/* Cabecera de la vista y barra «Volver a»: se desvanecen con desenfoque */
+/* View header and "Back to" bar: they fade out with a blur */
 ::view-transition-old(bd-head),
 ::view-transition-old(bd-homebar) {
   animation: bd-vt-fade-out 0.3s ease both;
@@ -3851,7 +3851,7 @@ label.set-row {
 ::view-transition-new(bd-homebar) {
   animation: bd-vt-fade-in 0.45s var(--vt-ease) 0.12s both;
 }
-/* Botón de salida: entra girando */
+/* Exit button: spins in */
 ::view-transition-new(bd-exit) {
   animation: bd-vt-pop-in 0.6s var(--vt-ease) 0.18s both;
 }
@@ -3921,7 +3921,7 @@ label.set-row {
     transform: scale(0.3) rotate(90deg);
   }
 }
-/* Tarjetas que aparecen o desaparecen (reglas por tarjeta en #vt-style) */
+/* Cards that appear or disappear (per-card rules in #vt-style) */
 @keyframes bd-vt-card-in {
   from {
     opacity: 0;

@@ -1,4 +1,4 @@
-# Commits de solo formato: git blame los salta con
+# Formatting-only commits: git blame skips them with
 #   git config blame.ignoreRevsFile .git-blame-ignore-revs
-# style: formateo con Oxfmt (vp fmt)
-23750d2bfb1065e9728eaaa32d8d815bcc51b897
+# style: format with Oxfmt (vp fmt)
+b55929e86fe286b42dd87673b395f27b952a78b4

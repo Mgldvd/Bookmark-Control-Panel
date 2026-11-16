@@ -1,9 +1,9 @@
-// «Mostrar N más» en las tarjetas del tablero: se recuerda entre pestañas y sesiones.
+// "Show N more" on board cards: remembered across tabs and sessions.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { openPanel } from './helpers/panel.mjs';
 
-test('el despliegue se guarda, se recuerda al plegar y va en la copia de seguridad', async () => {
+test('expanding is saved, remembered when collapsing and included in the backup', async () => {
   const stored = {};
   const first = await openPanel({ stored });
   assert.equal(first.state.boardShowAll.has('F'), false);
@@ -14,11 +14,11 @@ test('el despliegue se guarda, se recuerda al plegar y va en la copia de segurid
   assert.deepEqual(stored.boardShowAll, ['F']);
 
   const second = await openPanel({ stored });
-  assert.equal(second.state.boardShowAll.has('F'), true, 'una pestaña nueva lo recuerda');
+  assert.equal(second.state.boardShowAll.has('F'), true, 'a new tab remembers it');
   assert.deepEqual([...second.panel.buildBackup().boardShowAll], ['F']);
 
   second.state.boardShowAll.delete('F');
   second.panel.saveBoardShowAll();
   await second.flush();
-  assert.equal((await openPanel({ stored })).state.boardShowAll.has('F'), false, 'también recuerda al plegar');
+  assert.equal((await openPanel({ stored })).state.boardShowAll.has('F'), false, 'collapsing is remembered too');
 });

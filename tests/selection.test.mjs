@@ -1,9 +1,9 @@
-// Selección múltiple: Ctrl/Mayús+clic, casilla, «Seleccionar todo» y acciones en bloque.
+// Multiple selection: Ctrl/Shift+click, checkbox, "Select all" and bulk actions.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { card, clickEvent, fakeElement, openPanel } from './helpers/panel.mjs';
 
-/** Panel en F con sus cuatro marcadores a la vista, en orden. */
+/** Panel on F with its four bookmarks in view, in order. */
 async function withCards() {
   const cards = ['a', 'b', 'c', 'd'].map((id) => card(id));
   const env = await openPanel({ stored: { homeFolder: 'F' }, selectable: cards });
@@ -15,11 +15,11 @@ async function withCards() {
 const link = () => fakeElement({ classes: ['card-link'] });
 const button = (action) => fakeElement({ classes: ['icon-btn'], dataset: { action } });
 
-test('un clic normal abre el enlace; Ctrl+clic y la casilla seleccionan', async () => {
+test('a plain click opens the link; Ctrl+click and the checkbox select', async () => {
   const env = await withCards();
   const plain = clickEvent([link(), env.at('a')]);
   env.panel.handleSelectClick(plain);
-  assert.equal(plain.prevented, false, 'sin selección, el clic abre el enlace');
+  assert.equal(plain.prevented, false, 'without a selection, the click opens the link');
 
   const ctrl = clickEvent([link(), env.at('a')], { ctrl: true });
   env.panel.handleSelectClick(ctrl);
@@ -32,7 +32,7 @@ test('un clic normal abre el enlace; Ctrl+clic y la casilla seleccionan', async 
   assert.equal(env.document.getElementById('selection-count').textContent, '2 selected');
 });
 
-test('con selección activa, un clic normal alterna y los botones siguen funcionando', async () => {
+test('with an active selection, a plain click toggles and the buttons still work', async () => {
   const env = await withCards();
   env.panel.toggleSelected('a');
   const toggle = clickEvent([link(), env.at('b')]);
@@ -42,12 +42,12 @@ test('con selección activa, un clic normal alterna y los botones siguen funcion
 
   const star = clickEvent([button('favorite'), env.at('c')]);
   env.panel.handleSelectClick(star);
-  assert.equal(star.prevented, false, 'destacar no selecciona');
+  assert.equal(star.prevented, false, 'starring does not select');
   env.panel.handleSelectClick(clickEvent([link(), env.at('a')]));
-  assert.deepEqual([...env.panel.selectedIds()], ['b'], 'un segundo clic quita de la selección');
+  assert.deepEqual([...env.panel.selectedIds()], ['b'], 'a second click removes it from the selection');
 });
 
-test('Mayús+clic selecciona el rango y «Seleccionar todo» incluye lo no cargado', async () => {
+test('Shift+click selects the range and "Select all" includes what is not loaded', async () => {
   const env = await withCards();
   env.panel.handleSelectClick(clickEvent([link(), env.at('b')], { ctrl: true }));
   env.panel.handleSelectClick(clickEvent([link(), env.at('d')], { shift: true }));
@@ -59,7 +59,7 @@ test('Mayús+clic selecciona el rango y «Seleccionar todo» incluye lo no carga
   assert.deepEqual([...env.panel.selectedIds()], ['a', 'b', 'c', 'd', 'x']);
 });
 
-test('cambiar de carpeta o borrar un marcador lo quita de la selección', async () => {
+test('changing folder or deleting a bookmark removes it from the selection', async () => {
   const env = await withCards();
   env.panel.selectAll();
   await env.bookmarks.remove('b');
@@ -70,7 +70,7 @@ test('cambiar de carpeta o borrar un marcador lo quita de la selección', async 
   assert.equal(env.document.getElementById('selection-bar').hidden, true);
 });
 
-test('añadir la selección a un grupo sin duplicar', async () => {
+test('adding the selection to a group without duplicates', async () => {
   const stored = { groups: [{ id: 'g1', name: 'Uno', color: 'blue', items: ['a'] }] };
   const env = await openPanel({ stored });
   env.panel.addManyToGroup('g1', ['a', 'b', 'c']);
@@ -79,14 +79,14 @@ test('añadir la selección a un grupo sin duplicar', async () => {
   assert.match(env.toasts.at(-1).message, /Added 2 bookmarks to “Uno”/);
 });
 
-test('eliminar la selección pide confirmación y se puede deshacer', async () => {
+test('deleting the selection asks for confirmation and can be undone', async () => {
   const env = await withCards();
   env.panel.toggleSelected('a');
   env.panel.toggleSelected('d');
 
   env.setConfirm(false);
   await env.panel.confirmDeleteMany(env.panel.selectedIds());
-  assert.deepEqual(env.bookmarks.childrenOf('F'), ['a', 'b', 'c', 'd'], 'cancelar no borra nada');
+  assert.deepEqual(env.bookmarks.childrenOf('F'), ['a', 'b', 'c', 'd'], 'cancelling deletes nothing');
 
   env.setConfirm(true);
   await env.panel.confirmDeleteMany(env.panel.selectedIds());
@@ -98,11 +98,11 @@ test('eliminar la selección pide confirmación y se puede deshacer', async () =
   assert.deepEqual(titles, ['a', 'b', 'c', 'd']);
 });
 
-test('mover a una carpeta solo acepta destinos válidos', async () => {
+test('moving to a folder only accepts valid targets', async () => {
   const env = await openPanel();
   assert.equal(env.panel.canMoveInto(['a', 'b'], 'G'), true);
-  assert.equal(env.panel.canMoveInto(['a', 'b'], 'F'), false, 'ya están ahí');
-  assert.equal(env.panel.canMoveInto(['a', 'x'], 'F'), true, 'al menos uno cambia');
-  assert.equal(env.panel.canMoveInto(['F'], 'F'), false, 'una carpeta no entra en sí misma');
-  assert.equal(env.panel.canMoveInto(['a'], 'root________'), false, 'la raíz no admite marcadores');
+  assert.equal(env.panel.canMoveInto(['a', 'b'], 'F'), false, 'already there');
+  assert.equal(env.panel.canMoveInto(['a', 'x'], 'F'), true, 'at least one changes');
+  assert.equal(env.panel.canMoveInto(['F'], 'F'), false, 'a folder does not go into itself');
+  assert.equal(env.panel.canMoveInto(['a'], 'root________'), false, 'the root does not accept bookmarks');
 });

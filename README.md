@@ -1,462 +1,448 @@
 # Bookmark Control Panel
 
-Panel de control visual de tus marcadores **reales** de Firefox, construido como WebExtension.
-Lee el árbol de marcadores directamente con `browser.bookmarks`, se **actualiza en tiempo real**
-cuando agregas, renombras, mueves o eliminas marcadores (desde cualquier ventana, la Biblioteca o Sync)
-y funciona **100 % en local**: sin servidor, sin dependencias, sin frameworks y sin enviar datos a terceros.
+A visual control panel for your **real** Firefox bookmarks, built as a WebExtension.
+It reads the bookmark tree directly with `browser.bookmarks`, **updates in real time**
+when you add, rename, move or delete bookmarks (from any window, the Library or Sync)
+and runs **100 % locally**: no server, no dependencies, no frameworks and no data sent to third parties.
 
-> Antes se llamaba **Bookmark Dashboard**. Desde la versión 1.6.1 se llama **Bookmark Control Panel**,
-> pero conserva el id interno (`bookmark-dashboard@local-extension`): se actualiza encima de la versión
-> anterior sin perder grupos, colores ni ajustes, y las copias de seguridad antiguas se siguen importando.
-> (Mozilla no permite la palabra «Firefox» en el nombre de complementos que se envían a firmar.)
+> It used to be called **Bookmark Dashboard**. Since version 1.6.1 it is called **Bookmark Control Panel**,
+> but it keeps the internal id (`bookmark-dashboard@local-extension`): it updates over the previous
+> version without losing groups, colors or settings, and old backups can still be imported.
+> (Mozilla does not allow the word "Firefox" in the name of add-ons submitted for signing.)
 
 ---
 
-## 1. Arquitectura
+## 1. Architecture
 
 ```
 ┌────────────────────────── Firefox ──────────────────────────┐
 │                                                              │
-│  Places (marcadores) ──getTree()──►  dashboard.js            │
+│  Places (bookmarks) ──getTree()──►  dashboard.js             │
 │        │                              ┌──────────────────┐   │
-│        └─ onCreated / onRemoved ────► │ Modelo en memoria│   │
-│           onChanged / onMoved         │  Map<id, nodo>   │   │
+│        └─ onCreated / onRemoved ────► │ In-memory model  │   │
+│           onChanged / onMoved         │  Map<id, node>   │   │
 │                                       └────────┬─────────┘   │
-│  storage.local ◄── preferencias ──────┐        │ rAF         │
-│  (tema, vista, orden, última carpeta, │        ▼             │
-│   carpetas expandidas, destacados)    │   Render (DOM)       │
-│                                       │   · sidebar (árbol)  │
-│  background.js ── botón de barra ──►  │   · tarjetas por id  │
-│                   abre dashboard.html └── · diálogos/menús   │
-│  chrome_url_overrides ── nueva pestaña ─► dashboard.html     │
+│  storage.local ◄── preferences ───────┐        │ rAF         │
+│  (theme, view, sort, last folder,     │        ▼             │
+│   expanded folders, starred)          │   Render (DOM)       │
+│                                       │   · sidebar (tree)   │
+│  background.js ── toolbar button ──►  │   · cards by id      │
+│                   opens dashboard.html└── · dialogs/menus    │
+│  chrome_url_overrides ── new tab ──────► dashboard.html      │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-- **Lectura**: al arrancar se llama una vez a `browser.bookmarks.getTree()` y se construye un
-  modelo en memoria (`Map id → nodo`) que conserva la jerarquía y el orden originales.
-  La inicialización **solo lee**: nunca crea, edita ni borra nada.
-- **Sincronización**: los listeners `onCreated`, `onRemoved`, `onChanged` y `onMoved` aplican
-  cambios _incrementales_ al modelo (insertar, eliminar subárbol, renombrar, mover entre padres
-  con su índice). La interfaz se repinta en el siguiente `requestAnimationFrame`, lo que agrupa
-  ráfagas de eventos (por ejemplo, cuando Sync descarga cientos de marcadores).
-- **Render eficiente**: las tarjetas se reconcilian **por id**: una tarjeta existente reutiliza su
-  nodo DOM y solo se reconstruye su contenido si cambió su título, URL o carpeta. Así, actualizar
-  un marcador no recarga la página ni los favicons. Las listas grandes se pintan en lotes de 200
-  conforme haces scroll (`IntersectionObserver`).
-- **Red de seguridad**: si un evento hace referencia a un nodo desconocido, o si la pestaña estuvo
-  oculta más de 15 s (restaurar una copia de seguridad puede hacer cambios masivos sin eventos
-  individuales), se relee el árbol en silencio. También hay un botón «Releer marcadores» en Ajustes.
-- **Seguridad**: todos los títulos y URLs se insertan en el DOM con `textContent` / nodos de texto;
-  no se usa `innerHTML` en ningún punto. Solo se abren URLs `http(s)`; las `place:`, `javascript:`,
-  `about:` o `file:` se muestran, pero al pulsarlas se copia la URL (Firefox no permite abrirlas desde
-  una extensión).
-- **Destacados locales**: la marca de «destacado» se guarda en `browser.storage.local` por id de
-  marcador (los GUID de Firefox son estables). No altera la estructura ni los marcadores.
-- **Varias pestañas**: `storage.onChanged` mantiene coherentes varios paneles abiertos
-  (tema, destacados, vista…).
+- **Reading**: on startup `browser.bookmarks.getTree()` is called once and an in-memory model
+  (`Map id → node`) is built that keeps the original hierarchy and order.
+  Initialization **only reads**: it never creates, edits or deletes anything.
+- **Sync**: the `onCreated`, `onRemoved`, `onChanged` and `onMoved` listeners apply _incremental_
+  changes to the model (insert, remove a subtree, rename, move between parents with its index).
+  The UI is repainted on the next `requestAnimationFrame`, which batches bursts of events
+  (for example, when Sync downloads hundreds of bookmarks).
+- **Efficient rendering**: cards are reconciled **by id**: an existing card reuses its DOM node
+  and its content is only rebuilt if its title, URL or folder changed. So updating a bookmark
+  does not reload the page or the favicons. Large lists are painted in batches of 200 as you
+  scroll (`IntersectionObserver`).
+- **Safety net**: if an event refers to an unknown node, or if the tab was hidden for more than
+  15 s (restoring a backup can make bulk changes without individual events), the tree is re-read
+  silently. There is also a "Reload bookmarks" button in Settings.
+- **Security**: every title and URL is inserted into the DOM with `textContent` / text nodes;
+  `innerHTML` is never used. Only `http(s)` URLs are opened; `place:`, `javascript:`, `about:` or
+  `file:` URLs are shown, but clicking them copies the URL (Firefox does not allow opening them
+  from an extension).
+- **Local starred items**: the "starred" mark is stored in `browser.storage.local` by bookmark id
+  (Firefox GUIDs are stable). It does not alter the structure or the bookmarks.
+- **Several tabs**: `storage.onChanged` keeps several open panels consistent (theme, starred
+  items, view…).
 
-### Permisos (mínimos)
+### Permissions (minimal)
 
-| Permiso     | Para qué                                                                                        |
-| ----------- | ----------------------------------------------------------------------------------------------- |
-| `bookmarks` | Leer y modificar marcadores (las modificaciones solo ocurren por acción explícita del usuario). |
-| `storage`   | Guardar preferencias y destacados en local.                                                     |
+| Permission  | What for                                                                          |
+| ----------- | --------------------------------------------------------------------------------- |
+| `bookmarks` | Read and modify bookmarks (modifications only happen on an explicit user action). |
+| `storage`   | Store preferences and starred items locally.                                      |
 
-`tabs.create` (abrir en pestaña nueva) no requiere permiso. No se piden permisos de host y
-`data_collection_permissions` declara `none`.
+`tabs.create` (opening a new tab) needs no permission. No host permissions are requested and
+`data_collection_permissions` declares `none`.
 
-### Favicons y privacidad
+### Favicons and privacy
 
-La API de WebExtensions no da acceso a la caché de favicons de Firefox. El panel pide
-`https://<sitio>/favicon.ico` **directamente a cada sitio marcado** (con `no-referrer`), nunca a
-servicios de terceros como Google. Mientras carga o si falla, muestra una inicial con un color
-derivado del dominio. Si prefieres que el panel **no haga ninguna conexión de red**, desactiva
-«Mostrar favicons» en Ajustes.
+The WebExtensions API gives no access to Firefox's favicon cache. The panel requests
+`https://<site>/favicon.ico` **directly from each bookmarked site** (with `no-referrer`), never
+from third-party services such as Google. While loading or on failure, it shows an initial with a
+color derived from the domain. If you prefer the panel to **make no network connections at all**,
+turn off "Show favicons" in Settings.
 
 ---
 
-## 2. Árbol de archivos
+## 2. File tree
 
 ```
 bookmarks/
-├── manifest.json      # Manifiesto MV3: permisos, nueva pestaña, botón, id de gecko
-├── background.js      # Botón de la barra / Alt+Shift+B → abre el panel
-├── dashboard.html     # Estructura, sprite de iconos SVG y diálogos
-├── dashboard.css      # Diseño claro/oscuro (light-dark()), responsive, animaciones
-├── dashboard.js       # Modelo, sincronización, render, búsqueda, CRUD, arrastrar y soltar
-├── theme-init.js      # Aplica el tema antes del primer pintado (evita el destello)
-├── i18n.js            # Textos de la interfaz: inglés (por defecto) y español
-├── _locales/          # Textos del manifiesto (descripción, botón, atajo) en en / es
+├── manifest.json      # MV3 manifest: permissions, new tab, button, gecko id
+├── background.js      # Toolbar button / Alt+Shift+B → opens the panel
+├── dashboard.html     # Structure, SVG icon sprite and dialogs
+├── dashboard.css      # Light/dark design (light-dark()), responsive, animations
+├── dashboard.js       # Model, sync, render, search, CRUD, drag and drop
+├── theme-init.js      # Applies the theme before the first paint (avoids the flash)
+├── i18n.js            # UI strings: English (default) and Spanish
+├── _locales/          # Manifest strings (description, button, shortcut) in en / es
 │   ├── en/messages.json
 │   └── es/messages.json
 ├── icons/
-│   └── icon.svg       # Icono de la extensión
-├── package.sh         # Genera dist/bookmark-control-panel-<versión>.zip para firmar
-├── sign.sh            # Firma el paquete en AMO (canal privado) y deja el .xpi en dist/
+│   └── icon.svg       # Extension icon
+├── package.sh         # Builds dist/bookmark-control-panel-<version>.zip for signing
+├── sign.sh            # Signs the package on AMO (private channel) and leaves the .xpi in dist/
+├── tests/             # Tests with node:test (no browser)
 └── README.md
 ```
 
 ---
 
-## 3. Funcionalidades
+## 3. Features
 
-- Barra lateral con las carpetas reales de Firefox (Menú de marcadores, Barra de marcadores,
-  Otros marcadores, Marcadores del móvil si tiene contenido), con subcarpetas expandibles y
-  contraíbles y contador recursivo por carpeta.
-- Vistas especiales: **Todos**, **Destacados** y **Recientes** (los 60 últimos añadidos).
-- Marcadores como tarjetas (vista de cuadrícula) o filas (vista de lista), con favicon, título,
-  dominio, carpeta (clicable) y fecha de creación.
-- **Búsqueda global** instantánea por título, URL y ruta de carpeta. No distingue mayúsculas ni
-  tildes («javascrípt» encuentra «JavaScript») y resalta las coincidencias.
-- Crear marcadores y carpetas, renombrar, editar URL, mover (diálogo o **arrastrando** a cualquier
-  carpeta de la barra lateral o a un bloque de carpeta) y eliminar con confirmación (en carpetas
-  se indica cuánto contenido se borrará).
-- **Reordenar arrastrando** en la sección principal (cuadrícula, lista y tablero): suelta un
-  marcador antes o después de otro y una línea marca el hueco; el cambio se guarda en los
-  marcadores de Firefox. Soltarlo junto a un marcador de otra carpeta (otra tarjeta del tablero o
-  una subcarpeta incluida) lo mueve a esa posición de esa carpeta. Solo con «Orden original»; con
-  otro orden, soltar sobre la carpeta la sigue moviendo al final. Un enlace arrastrado desde una
-  web se guarda en la posición donde se suelta.
-- **Reordenar carpetas arrastrando**: un bloque de carpeta (o la cabecera de una tarjeta del
-  tablero) soltado en el **borde** de otro se coloca antes o después de él; en el **centro** se
-  mete dentro, como siempre. En la cuadrícula valen los bordes izquierdo y derecho; en el tablero,
-  el superior y el inferior.
-- **Deshacer**: al mover (arrastrando o con «Mover a…»), reordenar o eliminar aparece un aviso con
-  **«Deshacer»** (también `Ctrl+Z` durante un minuto). Al deshacer un borrado se recrea todo con su
-  contenido en su sitio, y sus destacados, grupos, color de carpeta, carpeta de inicio y estado
-  plegado pasan a los marcadores recreados.
-- **Selección múltiple**: `Ctrl`/`⌘`+clic sobre un marcador (o su casilla, que aparece al pasar
-  el ratón por la tarjeta) lo selecciona; `Mayús`+clic selecciona el rango. Con algo
-  seleccionado, un clic normal también alterna la selección, `Ctrl+A` selecciona toda la vista,
-  `Supr` elimina y `Esc` la quita. La barra inferior permite **abrir**, **mover a…**, **añadir a
-  grupo** y **eliminar** todo a la vez; arrastrar uno de los seleccionados arrastra todos (a una
-  carpeta, a un hueco o a un grupo). El clic central sigue abriendo el enlace en una pestaña.
-- Arrastrar un enlace desde cualquier página web o la barra de direcciones a una carpeta lo guarda
-  como marcador allí.
-- Menú contextual (clic derecho o botón `⋯`) en tarjetas y carpetas.
-- **Abrir todos en pestañas**: botón «Open all» junto al selector de orden (abre todos los
-  marcadores de la vista actual: carpeta, búsqueda, destacados…) y opción «Open all in tabs» en el
-  menú de cada carpeta (sus marcadores directos, como hace Firefox). También con **clic central**
-  sobre cualquier carpeta (barra lateral, bloque de carpeta o ruta superior). Se abren en segundo plano, en
-  orden, justo después de la pestaña del panel. Con más de 15 pide confirmación. Los enlaces
-  que Firefox no deja abrir desde extensiones (`place:`, `javascript:`…) se omiten y se avisa.
-- **Separadores** de Firefox en la **vista de lista** (con «Orden original» y sin «Incluir
-  subcarpetas», que es cuando tienen sentido). Se actualizan en vivo y se pueden eliminar con
-  clic derecho. No se muestran separadores al principio, al final ni repetidos.
-- **Vista de tablero** (tercer botón junto a cuadrícula y lista): cada carpeta es una tarjeta con
-  su nombre arriba y sus enlaces debajo, con el mismo formato que los grupos. En una carpeta se ve
-  una tarjeta para sus propios marcadores y otra por cada subcarpeta (con accesos a sus
-  sub-subcarpetas); en «Todos», «Destacados», «Recientes» y en la búsqueda, los marcadores se
-  agrupan por carpeta mostrando su ruta. Cada tarjeta enseña 10 enlaces («Mostrar más» para el
-  resto; si la dejas desplegada, se recuerda), se puede contraer (se recuerda), su cabecera abre la carpeta (clic central: todo en
-  pestañas) y acepta marcadores arrastrados (los mueve a esa carpeta en Firefox).
-- **Ocultar la barra lateral**: el botón de panel a la izquierda del buscador oculta o muestra el
-  árbol de carpetas (el de la derecha hace lo mismo con los grupos); el contenido ocupa el espacio
-  libre. Se recuerda y se aplica antes del primer pintado. En móvil la barra sigue siendo un cajón.
-- **Tira**: vista especial (barra lateral, bajo «Recientes») con las carpetas que elijas, una al
-  lado de otra como tarjetas del tablero en una sola fila. No tiene barra de desplazamiento: se
-  mueve con la **rueda del ratón** (en horizontal; al llegar al extremo la rueda vuelve a ser de la
-  página), **agarrando el fondo** y arrastrando (al soltarlo sigue con inercia y se va frenando), o acercando a un borde lo que estés arrastrando
-  (una tarjeta o un marcador). Un degradado en los bordes indica que hay más. Las carpetas se
-  eligen en el **árbol de la barra lateral**: con la Tira abierta, cada carpeta muestra una
-  casilla y un clic la añade (al final) o la quita, en vez de abrirla; «Elegir carpetas» lleva
-  ahí (en móvil abre el cajón). También vale «Añadir a la tira» en el menú de cualquier carpeta o
-  arrastrar una carpeta del árbol a la tira. Arrastrar la cabecera de una
-  tarjeta a la izquierda o derecha de otra cambia su sitio (solo en la tira; Firefox no cambia).
-  Dentro de cada tarjeta, las **subcarpetas se despliegan** como un árbol (flecha o clic en su
-  nombre) y muestran sus enlaces y sus propias subcarpetas; se recuerda cuáles están abiertas.
-  **Expandir todo** (en la cabecera) despliega de una vez todas las subcarpetas de la tira y abre
-  las tarjetas plegadas; **Contraer todo** vuelve a plegarlas. En el modo minimalista, que oculta
-  la cabecera, ese botón general aparece como icono en la barra de perfiles, junto a «+». Además,
-  cada columna con subcarpetas tiene su propio botón en su cabecera (junto al contador) que hace
-  lo mismo solo con esa columna.
-  Los **separadores** de Firefox se ven como una línea clara entre enlaces y entre subcarpetas,
-  también dentro de las carpetas desplegadas (con «Orden original», que deja las subcarpetas en el
-  orden de Firefox);
-  con clic derecho aparecen los colores como puntos y un clic se lo aplica (igual que a las
-  carpetas); se recuerda y va en la copia de seguridad.
-  Cada tarjeta cabe en la pantalla y tiene su propio scroll vertical: la rueda sobre una tarjeta
-  con más contenido la desplaza a ella; en el resto de la tira, la mueve de lado. Un gesto de rueda
-  que va moviendo la tira de lado sigue de lado aunque pase sobre tarjetas con scroll, y una tarjeta
-  solo toma la rueda si el puntero lleva un momento sobre ella (no al cruzarla hacia otra columna). Se guarda en
-  `browser.storage.local`, va en la copia de seguridad y puede ser la carpeta de inicio (también
-  en el modo minimalista).
-  **Perfiles de la tira**: una barra centrada sobre la tira (también en el modo minimalista)
-  guarda distintas selecciones de carpetas; un clic cambia de una a otra. **+** crea un perfil
-  vacío (con el nombre listo para escribir) y **⋯** o el clic derecho en una pestaña permiten
-  renombrarlo (también doble clic o F2), duplicarlo, ponerle **color** (punto delante del nombre y
-  pestaña teñida cuando está activo), moverlo o eliminarlo (con «Deshacer»; siempre queda uno).
-  La tira que había antes pasa a ser el perfil «Principal». Se sincronizan entre pestañas y van en
-  la copia de seguridad.
-- **Mosaico** (masonry): vista especial bajo «Tira» que funciona igual que ella (casillas en el
-  árbol, «Elegir carpetas», «Añadir al mosaico» en el menú de las carpetas, subcarpetas
-  desplegables, Expandir / Contraer todo, perfiles, separadores, carpeta de inicio), pero con su
-  **propia selección**: sus carpetas, perfiles y subcarpetas abiertas no son las de la tira
-  (`masonryFolders`, `masonryProfiles`, `masonryProfile`, `masonryOpen`). Las tarjetas se reparten
-  en columnas y cada una entra en la **columna más corta**, así el orden se lee de izquierda a
-  derecha (el tablero usa columnas CSS, que se leen de arriba abajo). La página se desplaza en
-  vertical y cada tarjeta muestra todo su contenido. El número de columnas depende del ancho (mín.
-  300 px) y respeta el máximo de Ajustes → Diseño; al cambiar el ancho se recolocan, pero desplegar
-  o plegar algo no mueve las tarjetas de sitio. Arrastrar la cabecera de una tarjeta encima o
-  debajo de otra cambia su orden. Va en la copia de seguridad; una copia anterior al mosaico no lo
-  vacía al importarla.
-- **Carpeta de inicio**: cada pestaña nueva del panel empieza en la carpeta o vista marcada con
-  «Usar como página de inicio», tanto en el panel normal como en el modo minimalista. Cualquier
-  vista (también la **Tira**) se marca como inicio con el botón de la casa de la cabecera (se
-  resalta cuando lo que ves ya es el inicio), con clic derecho en la vista de la barra lateral o
-  en Ajustes → Página de inicio.
-- **Modo minimalista / página de inicio**: el botón de las cuatro esquinas (barra superior) deja
-  solo el tablero de la carpeta (o vista) en la que estás, con «Volver a …» para ir a la **carpeta
-  de inicio**; al salir, el panel se queda en la carpeta que estabas viendo. Las pestañas nuevas
-  y la dirección `?home` empiezan en la carpeta de inicio. Se ocultan buscador, paneles laterales, cabecera y
-  botones. Para salir, usa el botón fijo de la esquina superior derecha.
-  La carpeta de inicio se elige en Ajustes → Página de inicio (también vale «Todos», «Destacados»
-  o «Recientes») o con clic derecho en una carpeta → «Usar como página de inicio». Dentro del modo,
-  al abrir una subcarpeta aparece «Volver a …» (o `Esc`); se conserva al recargar la pestaña, las
-  pestañas nuevas empiezan en la carpeta de inicio y no cambia la carpeta del panel normal.
-  El modo se recuerda (también en las pestañas nuevas) y se aplica antes del primer pintado.
-  Entrar y salir es una transición animada (View Transitions API): los paneles salen por su borde,
-  las tarjetas vuelan escalonadas a su nueva posición y el botón de salida entra girando. Con
-  «reducir movimiento» en el sistema, o sin soporte de la API, el cambio es instantáneo.
-  La dirección `moz-extension://…/dashboard.html?home` abre siempre el modo minimalista sin
-  cambiar el ajuste: está en Ajustes → Página de inicio, con botón «Copiar».
-- **Ajustes rediseñados**: diálogo con pestañas a la izquierda (Apariencia, General, Página de
-  inicio, Copia de seguridad, Atajos) y opciones en filas agrupadas; en móvil las pestañas pasan
-  arriba. Se navega también con el teclado (flechas, Inicio, Fin).
-- **Ancho del contenido** (Ajustes → Apariencia → Diseño): Normal (1440px, como siempre), Ancho
-  (1920px) o Completo (todo el espacio disponible). Útil en monitores grandes y en el modo minimalista.
-- **Columnas del tablero** (Ajustes → Apariencia → Diseño): Auto (según el ancho, como
-  siempre) o un máximo de 1 a 6. Cada columna mide al menos 160px, así que en ventanas estrechas se
-  usan menos; en móvil siempre una.
-- **Borde izquierdo de las tarjetas** (Ajustes → Apariencia → Borde de las tarjetas): la franja de
-  color de las tarjetas del tablero y de los grupos se puede ocultar, cambiar de grosor (ninguno,
-  fino, normal, grueso, extra; «Ninguno» equivale a apagar el interruptor); su color es el de las
-  columnas (Ajustes → Apariencia → Colores). Los grupos mantienen el suyo. Con
-  vista previa en vivo; se aplica antes del primer pintado y entra en la copia de seguridad.
-- **Color principal** (Ajustes → Apariencia): el color de los botones, la selección, el foco y demás
-  elementos destacados se elige entre diez (índigo, el de siempre, azul, turquesa, verde, ámbar,
-  naranja, rojo, rosa, violeta y gris), con variantes para tema claro y oscuro. Se aplica antes del
-  primer pintado, se sincroniza entre pestañas y entra en la copia de seguridad.
-- **Color de las carpetas y de las columnas** (Ajustes → Apariencia → Colores): el amarillo de las
-  carpetas (iconos, tarjetas de carpeta y columnas del tablero) se puede cambiar por cualquiera de
-  los diez colores, y las columnas del tablero pueden llevar otro distinto («Color de carpeta» sigue
-  al anterior). Las carpetas con color propio lo conservan. El color de las columnas ya no depende
-  de que el borde izquierdo esté visible.
-- **Estilo de bordes** (Ajustes → Bordes): esquinas redondeadas, semi o rectas en toda la
-  interfaz (tarjetas, botones, menús, diálogos, buscador…). Se aplica antes del primer pintado,
-  como el tema, y se sincroniza entre pestañas.
-- **Copia de seguridad** (Ajustes → Backup / Copia de seguridad): «Exportar…» guarda en un `.json`
-  los grupos, colores de carpeta, destacados y ajustes; «Importar…» los restaura tras confirmar
-  (sustituye los actuales). Como los ids internos de los marcadores pueden cambiar entre perfiles,
-  la copia guarda también la URL de cada marcador y la ruta de cada carpeta: al restaurar en otro
-  ordenador se reconocen por URL/ruta y se avisa de los que no existen. No incluye ni modifica los
-  marcadores de Firefox. Conviene exportar antes de reinstalar o de cambiar de versión firmada.
-- **Color por carpeta**: menú de cualquier carpeta (clic derecho o `⋯`) → «Color…» → uno de los 10
-  colores o «Predeterminado». Se aplica al icono de la barra lateral, al bloque de carpeta, a la
-  tarjeta del tablero (franja, cabecera y contador), a los accesos de subcarpeta y a la cabecera de
-  la vista. Se guarda solo en `browser.storage.local` (Firefox no admite colores en carpetas) y se
-  sincroniza entre pestañas del panel.
-- **Grupos** (columna derecha): crea grupos con nombre y un color característico (10 colores) y
-  **arrastra marcadores** sobre ellos para añadirlos. Un marcador puede estar en varios grupos y
-  sus tarjetas muestran un punto del color de cada grupo. Arrastrar un elemento de un grupo a otro
-  lo mueve; soltar sobre «New group» crea un grupo con ese marcador. También hay «Add to group…»
-  en el menú de cada marcador. Cada grupo se puede contraer, renombrar, cambiar de color,
-  reordenar, abrir entero en pestañas (menú o clic central en su cabecera) y eliminar (con
-  confirmación). Los grupos se guardan solo en `browser.storage.local`: **no crean, mueven ni
-  borran marcadores de Firefox**. Por debajo de 1200 px el panel flota sobre el contenido y se
-  abre con el botón de panel de la barra superior.
-- **Nombre de la pestaña** (Ajustes → General → Pestaña del navegador): el título de la pestaña
-  del panel se puede cambiar (vacío = «Bookmarks» / «Marcadores», según el idioma; hasta 60
-  caracteres) y se ve en vivo al escribir. «Mostrar la carpeta actual en la pestaña» antepone la
-  carpeta, vista o búsqueda («Barra de marcadores · Inicio»); apagado, la pestaña muestra solo el
-  nombre. Se aplica antes del primer pintado, se sincroniza entre pestañas y entra en la copia de
-  seguridad.
-- **Idioma**: inglés por defecto; español opcional en Ajustes → Language / Idioma. Se aplica al
-  instante, se guarda en `browser.storage.local` y se sincroniza entre pestañas del panel.
-- Tema claro / oscuro / del sistema, vista cuadrícula/lista, orden (original, nombre A→Z / Z→A,
-  más recientes / más antiguos), carpeta de inicio y carpetas expandidas, todo guardado en
-  `browser.storage.local`.
-- Responsive: por debajo de 900 px la barra lateral pasa a ser un panel deslizable.
-- Atajos: `/` o `Ctrl+K` buscar · `Intro` abre el primer resultado · `↓` pasa a los resultados ·
-  `Supr` elimina el elemento enfocado · `Esc` limpia / cierra · flechas para navegar el árbol ·
-  `Alt+Shift+B` abre el panel.
-- Estados vacíos (carpeta vacía, sin resultados, sin destacados, sin marcadores) y de error
-  (API no disponible, fallo de lectura con botón «Reintentar»).
+- Sidebar with Firefox's real folders (Bookmarks Menu, Bookmarks Toolbar, Other Bookmarks,
+  Mobile Bookmarks if it has content), with expandable and collapsible subfolders and a recursive
+  count per folder.
+- Special views: **All**, **Starred** and **Recent** (the 60 most recently added).
+- Bookmarks as cards (grid view) or rows (list view), with favicon, title, domain, folder
+  (clickable) and creation date.
+- Instant **global search** by title, URL and folder path. It ignores case and accents
+  ("javascrípt" finds "JavaScript") and highlights the matches.
+- Create bookmarks and folders, rename, edit the URL, move (dialog or **dragging** onto any folder
+  in the sidebar or onto a folder tile) and delete with confirmation (for folders it says how much
+  content will be deleted).
+- **Reorder by dragging** in the main section (grid, list and board): drop a bookmark before or
+  after another and a line marks the slot; the change is saved to the Firefox bookmarks. Dropping
+  it next to a bookmark in another folder (another board card or an included subfolder) moves it
+  to that position in that folder. Only with "Original order"; with another order, dropping on the
+  folder still moves it to the end. A link dragged from a website is saved where it is dropped.
+- **Reorder folders by dragging**: a folder tile (or a board card header) dropped on the **edge**
+  of another is placed before or after it; in the **center** it goes inside, as always. In the grid
+  the left and right edges count; on the board, the top and bottom ones.
+- **Undo**: moving (by dragging or with "Move to…"), reordering or deleting shows a notice with
+  **"Undo"** (also `Ctrl+Z` for a minute). Undoing a deletion recreates everything with its content
+  in place, and its starred items, groups, folder color, home folder and collapsed state move to the
+  recreated bookmarks.
+- **Multiple selection**: `Ctrl`/`⌘`+click on a bookmark (or its checkbox, which appears when
+  hovering the card) selects it; `Shift`+click selects the range. With something selected, a plain
+  click also toggles the selection, `Ctrl+A` selects the whole view, `Delete` deletes and `Esc`
+  clears it. The bottom bar can **open**, **move to…**, **add to group** and **delete** everything at
+  once; dragging one of the selected items drags them all (to a folder, a slot or a group). Middle
+  click still opens the link in a tab.
+- Dragging a link from any web page or the address bar onto a folder saves it there as a bookmark.
+- Context menu (right-click or the `⋯` button) on cards and folders.
+- **Open all in tabs**: the "Open all" button next to the sort selector (opens every bookmark in
+  the current view: folder, search, starred…) and the "Open all in tabs" option in each folder's menu
+  (its direct bookmarks, as Firefox does). Also with a **middle click** on any folder (sidebar,
+  folder tile or top path). They open in the background, in order, right after the panel's tab.
+  With more than 15 it asks for confirmation. Links Firefox does not allow opening from extensions
+  (`place:`, `javascript:`…) are skipped with a notice.
+- Firefox **separators** in the **list view** (with "Original order" and without "Include
+  subfolders", which is when they make sense). They update live and can be deleted with a right
+  click. No separators are shown at the start, at the end or repeated.
+- **Board view** (third button next to grid and list): each folder is a card with its name on top
+  and its links below, in the same format as the groups. In a folder there is one card for its own
+  bookmarks and another for each subfolder (with shortcuts to its sub-subfolders); in "All",
+  "Starred", "Recent" and in search, bookmarks are grouped by folder showing their path. Each card
+  shows 10 links ("Show more" for the rest; if you leave it expanded, it is remembered), can be
+  collapsed (remembered), its header opens the folder (middle click: everything in tabs) and it
+  accepts dragged bookmarks (it moves them into that folder in Firefox).
+- **Hide the sidebar**: the panel button to the left of the search box hides or shows the folder
+  tree (the one on the right does the same with the groups); the content takes the free space.
+  Remembered and applied before the first paint. On mobile the sidebar is still a drawer.
+- **Strip**: a special view (sidebar, below "Recent") with the folders you choose, side by side as
+  board cards in a single row. It has no scrollbar: it moves with the **mouse wheel** (horizontally;
+  at the end the wheel goes back to the page), by **grabbing the background** and dragging (on
+  release it keeps going with momentum and slows down), or by bringing whatever you are dragging (a
+  card or a bookmark) near an edge. A gradient on the edges shows there is more. Folders are chosen
+  in the **sidebar tree**: with the Strip open, each folder shows a checkbox and a click adds it
+  (at the end) or removes it, instead of opening it; "Choose folders" takes you there (on mobile it
+  opens the drawer). "Add to strip" in any folder's menu or dragging a folder from the tree to the
+  strip also works. Dragging a card header to the left or right of another changes its place (only
+  in the strip; Firefox does not change).
+  Inside each card, **subfolders expand** like a tree (arrow or click on their name) and show their
+  links and their own subfolders; which ones are open is remembered.
+  **Expand all** (in the header) expands every subfolder in the strip at once and opens the
+  collapsed cards; **Collapse all** folds them again. In minimal mode, which hides the header, that
+  general button appears as an icon in the profiles bar, next to "+". Besides, each column with
+  subfolders has its own button in its header (next to the counter) that does the same only for
+  that column.
+  Firefox **separators** show as a light line between links and between subfolders, also inside
+  the expanded folders (with "Original order", which keeps the subfolders in Firefox's order);
+  right-clicking shows the colors as dots and a click applies one (same as for folders); it is
+  remembered and included in the backup.
+  Each card fits on the screen and has its own vertical scroll: the wheel over a card with more
+  content scrolls it; on the rest of the strip, it moves it sideways. A wheel gesture that is moving
+  the strip sideways keeps going sideways even when it passes over scrollable cards, and a card only
+  takes the wheel if the pointer has rested on it for a moment (not when crossing it towards another
+  column). Stored in `browser.storage.local`, included in the backup and it can be the home folder
+  (also in minimal mode).
+  **Strip profiles**: a bar centered above the strip (also in minimal mode) stores different folder
+  selections; a click switches between them. **+** creates an empty profile (with the name ready to
+  type) and **⋯** or right-clicking a tab lets you rename it (also double click or F2), duplicate
+  it, give it a **color** (a dot before the name and a tinted tab when active), move it or delete it
+  (with "Undo"; one always remains). The strip as it was before becomes the "Main" profile. Synced
+  across tabs and included in the backup.
+- **Masonry**: a special view below "Strip" that works just like it (checkboxes in the tree,
+  "Choose folders", "Add to masonry" in the folder menu, expandable subfolders, Expand / Collapse
+  all, profiles, separators, home folder), but with its **own selection**: its folders, profiles and
+  open subfolders are not the strip's (`masonryFolders`, `masonryProfiles`, `masonryProfile`,
+  `masonryOpen`). Cards are spread across columns and each one goes into the **shortest column**, so
+  the order reads left to right (the board uses CSS columns, which read top to bottom). The page
+  scrolls vertically and each card shows all its content. The number of columns depends on the width
+  (min. 300 px) and respects the maximum in Settings → Layout; they are re-laid out when the width
+  changes, but expanding or collapsing something does not move the cards. Dragging a card header
+  above or below another changes its order. Included in the backup; a backup older than the masonry
+  does not empty it when imported.
+- **Home folder**: every new panel tab starts at the folder or view marked with "Use as home page",
+  both in the normal panel and in minimal mode. Any view (the **Strip** too) can be set as home with
+  the house button in the header (highlighted when what you see is already home), by right-clicking
+  the view in the sidebar or in Settings → Home page.
+- **Minimal mode / home page**: the four-corners button (top bar) leaves only the board of the
+  folder (or view) you are on, with "Back to …" to go to the **home folder**; on exit, the panel
+  stays on the folder you were viewing. New tabs and the `?home` address start at the home folder.
+  The search box, side panels, header and buttons are hidden. To exit, use the fixed button in the
+  top-right corner.
+  The home folder is chosen in Settings → Home page ("All", "Starred" or "Recent" also work) or by
+  right-clicking a folder → "Use as home page". Inside the mode, opening a subfolder shows
+  "Back to …" (or `Esc`); it is kept when reloading the tab, new tabs start at the home folder and
+  the normal panel's folder does not change.
+  The mode is remembered (also in new tabs) and applied before the first paint.
+  Entering and leaving is an animated transition (View Transitions API): panels slide out through
+  their edge, cards fly, staggered, to their new position and the exit button spins in. With
+  "reduce motion" in the system, or without API support, the change is instant.
+  The `moz-extension://…/dashboard.html?home` address always opens minimal mode without changing the
+  setting: it is in Settings → Home page, with a "Copy" button.
+- **Redesigned Settings**: a dialog with tabs on the left (Appearance, General, Home page, Backup,
+  Keyboard shortcuts) and options in grouped rows; on mobile the tabs move to the top. It can also
+  be navigated with the keyboard (arrows, Home, End).
+- **Content width** (Settings → Appearance → Layout): Normal (1440px, as always), Wide (1920px) or
+  Full (all the available space). Useful on large monitors and in minimal mode.
+- **Board columns** (Settings → Appearance → Layout): Auto (by width, as always) or a maximum of
+  1 to 6. Each column is at least 160px wide, so narrow windows use fewer; on mobile always one.
+- **Cards' left border** (Settings → Appearance → Card border): the color stripe of board cards and
+  groups can be hidden or change thickness (none, thin, normal, thick, extra; "None" is the same as
+  turning the switch off); its color is the column color (Settings → Appearance → Colors). Groups
+  keep their own. With a live preview; applied before the first paint and included in the backup.
+- **Main color** (Settings → Appearance): the color of buttons, selection, focus and other
+  highlighted elements is chosen among ten (indigo, the usual one, blue, teal, green, amber, orange,
+  red, pink, violet and slate), with variants for light and dark themes. Applied before the first
+  paint, synced across tabs and included in the backup.
+- **Folder and column color** (Settings → Appearance → Colors): the yellow of folders (icons,
+  folder cards and board columns) can be changed to any of the ten colors, and board columns can
+  have a different one ("Folder color" follows the former). Folders with their own color keep it.
+  The column color no longer depends on the left border being visible.
+- **Corner style** (Settings → Corners): rounded, semi-rounded or square corners across the whole UI
+  (cards, buttons, menus, dialogs, search box…). Applied before the first paint, like the theme,
+  and synced across tabs.
+- **Backup** (Settings → Backup): "Export…" saves groups, folder colors, starred items and settings
+  to a `.json`; "Import…" restores them after confirming (it replaces the current ones). Since
+  bookmarks' internal ids can change between profiles, the backup also stores each bookmark's URL
+  and each folder's path: when restoring on another computer they are recognized by URL/path and
+  the missing ones are reported. It does not include or modify the Firefox bookmarks. It is a good
+  idea to export before reinstalling or switching signed versions.
+- **Color per folder**: any folder's menu (right-click or `⋯`) → "Color…" → one of the 10 colors or
+  "Default". Applied to the sidebar icon, the folder tile, the board card (stripe, header and
+  counter), the subfolder shortcuts and the view header. Stored only in `browser.storage.local`
+  (Firefox does not support folder colors) and synced across panel tabs.
+- **Groups** (right column): create groups with a name and a characteristic color (10 colors) and
+  **drag bookmarks** onto them to add them. A bookmark can be in several groups and its cards show a
+  dot in each group's color. Dragging an item from one group to another moves it; dropping on
+  "New group" creates a group with that bookmark. There is also "Add to group…" in each bookmark's
+  menu. Each group can be collapsed, renamed, recolored, reordered, opened entirely in tabs (menu or
+  middle click on its header) and deleted (with confirmation). Groups are stored only in
+  `browser.storage.local`: **they do not create, move or delete Firefox bookmarks**. Below 1200 px
+  the panel floats over the content and opens with the panel button in the top bar.
+- **Tab name** (Settings → General → Browser tab): the title of the panel's tab can be changed
+  (empty = "Bookmarks" / "Marcadores", depending on the language; up to 60 characters) and is
+  previewed live while typing. "Show the current folder in the tab" prepends the folder, view or
+  search ("Bookmarks Toolbar · Start"); off, the tab shows only the name. Applied before the first
+  paint, synced across tabs and included in the backup.
+- **Language**: English by default; Spanish optional in Settings → Language / Idioma. Applied
+  instantly, stored in `browser.storage.local` and synced across panel tabs.
+- Light / dark / system theme, grid/list view, sort (original, name A→Z / Z→A, newest / oldest),
+  home folder and expanded folders, all stored in `browser.storage.local`.
+- Responsive: below 900 px the sidebar becomes a sliding panel.
+- Shortcuts: `/` or `Ctrl+K` search · `Enter` opens the first result · `↓` moves to the results ·
+  `Delete` deletes the focused item · `Esc` clears / closes · arrows to navigate the tree ·
+  `Alt+Shift+B` opens the panel.
+- Empty states (empty folder, no results, no starred items, no bookmarks) and error states (API not
+  available, read failure with a "Retry" button).
 
 ---
 
-## 4. Guardar los archivos
+## 4. Saving the files
 
-El proyecto ya está en esta carpeta. Si quieres copiarlo a otro sitio, basta con los archivos del
-árbol anterior respetando la estructura (`manifest.json` debe quedar en la raíz de la carpeta que
-cargues en Firefox, e `icon.svg` dentro de `icons/`).
-
----
-
-## 5. Instalación para pruebas (`about:debugging`)
-
-1. Abre `about:debugging#/runtime/this-firefox` en Firefox.
-2. Pulsa **«Cargar complemento temporal…»**.
-3. Selecciona el archivo `manifest.json` del proyecto.
-4. Aparecerá el icono de la extensión en la barra (si no lo ves, abre el menú de extensiones 🧩
-   y fíjalo). Púlsalo, abre una pestaña nueva o usa `Alt+Shift+B`.
-
-Notas:
-
-- Un complemento temporal **se descarga al cerrar Firefox**; hay que volver a cargarlo en la
-  siguiente sesión. Tus marcadores no se ven afectados; las preferencias locales del panel
-  (destacados, tema…) pueden perderse al desinstalarlo.
-- Tras cambiar el código, pulsa **«Recargar»** en `about:debugging`.
-- Para ver errores: botón **«Inspeccionar»** en `about:debugging` (abre la consola de la extensión).
+The project is already in this folder. If you want to copy it elsewhere, the files in the tree
+above are enough as long as the structure is kept (`manifest.json` must be at the root of the
+folder you load in Firefox, and `icon.svg` inside `icons/`).
 
 ---
 
-## 6. Usarlo como página de nueva pestaña
+## 5. Installing for testing (`about:debugging`)
 
-Ya viene activado: `manifest.json` incluye
+1. Open `about:debugging#/runtime/this-firefox` in Firefox.
+2. Click **"Load Temporary Add-on…"**.
+3. Select the project's `manifest.json` file.
+4. The extension icon appears in the toolbar (if you do not see it, open the extensions menu 🧩
+   and pin it). Click it, open a new tab or use `Alt+Shift+B`.
+
+Notes:
+
+- A temporary add-on **is unloaded when Firefox closes**; it has to be loaded again in the next
+  session. Your bookmarks are not affected; the panel's local preferences (starred items, theme…)
+  may be lost when uninstalling it.
+- After changing the code, click **"Reload"** in `about:debugging`.
+- To see errors: the **"Inspect"** button in `about:debugging` (opens the extension console).
+
+---
+
+## 6. Using it as the new tab page
+
+It comes enabled: `manifest.json` includes
 
 ```json
 "chrome_url_overrides": { "newtab": "dashboard.html" }
 ```
 
-- La primera vez que abras una pestaña nueva, Firefox mostrará un aviso _«Una extensión ha cambiado
-  la página que ves al abrir una pestaña nueva»_. Elige **«Mantener cambios»**.
-- En **Ajustes → Inicio → Nuevas pestañas** verás que Bookmark Control Panel controla esa página.
-- **Si no lo quieres como nueva pestaña**, borra el bloque `"chrome_url_overrides"` (3 líneas) de
-  `manifest.json` y recarga la extensión. El panel seguirá disponible desde el botón de la barra
-  y con `Alt+Shift+B`.
-- Para que también aparezca en **ventanas privadas**: `about:addons` → Bookmark Control Panel →
-  «Ejecutar en ventanas privadas» → Permitir.
-- Para que la **nueva pestaña** sea solo la carpeta de inicio, activa el modo minimalista
-  (botón de las cuatro esquinas o Ajustes → Página de inicio → «Modo minimalista»).
-- Opcional, como **página de inicio** de Firefox: en Ajustes del panel → Página de inicio,
-  pulsa «Copiar» (copia `moz-extension://…/dashboard.html?home`, que abre siempre el modo
-  minimalista) y pégala en Ajustes de Firefox → Inicio → «Página de inicio y nuevas ventanas» →
-  Direcciones personalizadas. El UUID es estable mientras la extensión conserve el mismo `id`.
+- The first time you open a new tab, Firefox shows a notice _"An extension has changed the page
+  you see when you open a new tab"_. Choose **"Keep Changes"**.
+- In **Settings → Home → New tabs** you will see that Bookmark Control Panel controls that page.
+- **If you do not want it as the new tab**, delete the `"chrome_url_overrides"` block (3 lines) from
+  `manifest.json` and reload the extension. The panel is still available from the toolbar button
+  and with `Alt+Shift+B`.
+- To have it in **private windows** too: `about:addons` → Bookmark Control Panel →
+  "Run in Private Windows" → Allow.
+- To make the **new tab** show only the home folder, turn on minimal mode
+  (four-corners button or Settings → Home page → "Minimal mode").
+- Optionally, as Firefox's **home page**: in the panel's Settings → Home page, click "Copy" (it
+  copies `moz-extension://…/dashboard.html?home`, which always opens minimal mode) and paste it in
+  Firefox Settings → Home → "Homepage and new windows" → Custom URLs. The UUID is stable as long as
+  the extension keeps the same `id`.
 
 ---
 
-## 7. Instalación permanente y firma
+## 7. Permanent installation and signing
 
-Firefox **Release y Beta** (como tu versión 159) solo instalan de forma permanente extensiones
-**firmadas por Mozilla**. Copiar los archivos dentro de la carpeta del perfil no sirve: Firefox
-desactivaría el complemento sin firmar. La firma es gratuita y puede ser **privada** (sin listar,
-no se publica en la tienda):
+Firefox **Release and Beta** only install extensions **signed by Mozilla** permanently. Copying the
+files into the profile folder does not work: Firefox would disable the unsigned add-on. Signing is
+free and can be **private** (unlisted, not published in the store):
 
-### Opción A: firma «sin listar» en AMO (recomendada)
+### Option A: "unlisted" signing on AMO (recommended)
 
-1. Empaqueta la extensión:
+1. Package the extension:
    ```sh
-   ./package.sh            # crea dist/bookmark-control-panel-<versión>.zip
+   ./package.sh            # creates dist/bookmark-control-panel-<version>.zip
    ```
-   (o a mano: `zip -r -X bookmark-control-panel.zip manifest.json background.js dashboard.* theme-init.js i18n.js _locales icons`).
-2. Crea una cuenta o inicia sesión en <https://addons.mozilla.org/developers/>.
-3. **«Enviar un nuevo complemento»** → elige **«Por tu cuenta»** (_On your own_, distribución propia, sin listar).
-4. Sube el `.zip`. La validación y firma automáticas suelen tardar unos minutos; no se publica ni
-   lo ve nadie.
-5. Descarga el `.xpi` firmado e instálalo desde `about:addons` → ⚙️ → **«Instalar complemento desde
-   archivo…»** (o arrastra el `.xpi` a Firefox).
-6. Para cada nueva versión, sube `"version"` en `manifest.json` y repite.
+   (or by hand: `zip -r -X bookmark-control-panel.zip manifest.json background.js dashboard.* theme-init.js i18n.js _locales icons`).
+2. Create an account or sign in at <https://addons.mozilla.org/developers/>.
+3. **"Submit a New Add-on"** → choose **"On your own"** (self-distribution, unlisted).
+4. Upload the `.zip`. Automatic validation and signing usually take a few minutes; it is not
+   published and nobody sees it.
+5. Download the signed `.xpi` and install it from `about:addons` → ⚙️ → **"Install Add-on From
+   File…"** (or drag the `.xpi` onto Firefox).
+6. For each new version, bump `"version"` in `manifest.json` and repeat.
 
-Requisitos: el `browser_specific_settings.gecko.id` (`bookmark-dashboard@local-extension`) debe
-ser único en AMO. Si lo rechaza por duplicado, cámbialo por uno propio (p. ej.
-`bookmark-dashboard@tu-dominio.example`) **antes** de la primera firma y mantenlo después
-(el almacenamiento y la URL `moz-extension://` dependen de él).
+Requirements: the `browser_specific_settings.gecko.id` (`bookmark-dashboard@local-extension`) must
+be unique on AMO. If it is rejected as a duplicate, change it to your own (e.g.
+`bookmark-dashboard@your-domain.example`) **before** the first signing and keep it afterwards
+(storage and the `moz-extension://` URL depend on it).
 
-### Opción A bis: firmar desde la terminal con `sign.sh`
+### Option A2: signing from the terminal with `sign.sh`
 
-1. En <https://addons.mozilla.org/developers/addon/api/key/> genera tus credenciales de API
-   («Emisor JWT» y «Secreto JWT»).
-2. Guárdalas una sola vez en un archivo `.env` en la raíz del proyecto (está en `.gitignore`, así
-   que nunca se sube al repositorio; usa `.env.example` como plantilla):
+1. At <https://addons.mozilla.org/developers/addon/api/key/> generate your API credentials
+   ("JWT issuer" and "JWT secret").
+2. Save them once in a `.env` file at the project root (it is in `.gitignore`, so it is never
+   pushed to the repository; use `.env.example` as a template):
    ```sh
-   cp .env.example .env && chmod 600 .env   # y edita los dos valores
-   ./sign.sh --check                        # comprueba que se cargan, sin firmar nada
-   ./sign.sh                                # empaqueta y firma
+   cp .env.example .env && chmod 600 .env   # and edit the two values
+   ./sign.sh --check                        # checks that they load, without signing anything
+   ./sign.sh                                # packages and signs
    ```
-   También puedes exportarlas en la terminal (`export WEB_EXT_API_KEY=…`); si lo haces, tienen
-   prioridad sobre `.env`.
-   El script empaqueta, firma exactamente el contenido del `.zip` por el canal _unlisted_ con la
-   herramienta oficial `web-ext` de Mozilla (vía `npx`, no forma parte de la extensión) y deja el
-   `.xpi` firmado en `dist/`.
-3. Instálalo: `about:addons` → ⚙️ → «Instalar complemento desde archivo…».
+   You can also export them in the terminal (`export WEB_EXT_API_KEY=…`); if you do, they take
+   precedence over `.env`.
+   The script packages, signs exactly the contents of the `.zip` through the _unlisted_ channel with
+   Mozilla's official `web-ext` tool (via `npx`, it is not part of the extension) and leaves the
+   signed `.xpi` in `dist/`.
+3. Install it: `about:addons` → ⚙️ → "Install Add-on From File…".
 
-**Antes de pasar de la versión temporal a la firmada**, exporta tus datos (Ajustes → Copia de
-seguridad → Exportar…) y, ya con la firmada instalada, impórtalos. Los grupos, colores y destacados
-viven en el almacenamiento de la extensión y no van incluidos en el `.xpi`.
+**Before switching from the temporary version to the signed one**, export your data (Settings →
+Backup → Export…) and, once the signed one is installed, import it. Groups, colors and starred
+items live in the extension's storage and are not included in the `.xpi`.
 
-### Opción B: sin firma (solo Developer Edition, Nightly o ESR)
+### Option B: unsigned (Developer Edition, Nightly or ESR only)
 
-En **Firefox Developer Edition, Nightly, ESR** o compilaciones sin marca puedes poner
-`xpinstall.signatures.required = false` en `about:config` e instalar el `.zip` (renombrado a `.xpi`)
-desde `about:addons`. **En Firefox normal esta preferencia se ignora.**
-
----
-
-## 8. Probar la sincronización
-
-Con el panel abierto (mejor en una ventana propia, al lado de una ventana normal):
-
-| Prueba           | Qué hacer                                                                      | Resultado esperado en el panel                                                    |
-| ---------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
-| Crear            | `Ctrl+D` en cualquier página y guardarla en la barra de marcadores             | La tarjeta aparece al instante con un breve resaltado; los contadores suben.      |
-| Renombrar        | Biblioteca (`Ctrl+Shift+O`) → editar el nombre de un marcador                  | La tarjeta cambia de título sin recargar.                                         |
-| Cambiar URL      | Cambiar la URL en la Biblioteca                                                | Se actualizan el dominio y el favicon.                                            |
-| Mover            | Arrastrar un marcador a otra carpeta en la Biblioteca o en la barra            | Desaparece de la carpeta antigua y aparece en la nueva; ambos contadores cambian. |
-| Reordenar        | Arrastrar un marcador dentro de la misma carpeta (barra)                       | Con «Orden original», cambia su posición.                                         |
-| Eliminar         | Borrar un marcador o carpeta desde la Biblioteca                               | Desaparece; si estabas dentro de la carpeta borrada, pasas a la carpeta padre.    |
-| Deshacer         | `Ctrl+Z` en la Biblioteca tras borrar                                          | El marcador vuelve a aparecer.                                                    |
-| Varios paneles   | Abrir dos pestañas del panel y destacar algo en una                            | La otra actualiza la estrella y el contador.                                      |
-| Desde el panel   | Crear / editar / mover / eliminar desde el panel                               | El cambio se ve en la barra y en la Biblioteca de Firefox.                        |
-| Arrastrar enlace | Arrastrar un enlace de una web a una carpeta de la barra lateral               | Se guarda como marcador en esa carpeta.                                           |
-| Separador        | Biblioteca → clic derecho → «Nuevo separador» (con el panel en vista de lista) | Aparece una línea divisoria en la misma posición.                                 |
-
-El punto verde de la esquina inferior izquierda pulsa cada vez que llega un evento de Firefox.
+In **Firefox Developer Edition, Nightly, ESR** or unbranded builds you can set
+`xpinstall.signatures.required = false` in `about:config` and install the `.zip` (renamed to `.xpi`)
+from `about:addons`. **In regular Firefox this preference is ignored.**
 
 ---
 
-## 9. Lint y formato (Vite+)
+## 8. Testing the sync
 
-El código se revisa y formatea con [Vite+](https://viteplus.dev) (`vp`), que integra Oxlint y
-Oxfmt. Es solo una herramienta de desarrollo: `package.sh` empaqueta únicamente los archivos de
-la extensión, así que no entra en el `.xpi` y la extensión sigue sin dependencias.
+With the panel open (ideally in its own window, next to a normal window):
 
-Requiere Node.js `^22.18.0 || ^24.11.0 || >=26.0.0`. La primera vez:
+| Test           | What to do                                                            | Expected result in the panel                                                        |
+| -------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Create         | `Ctrl+D` on any page and save it to the bookmarks toolbar             | The card appears instantly with a brief highlight; the counters go up.              |
+| Rename         | Library (`Ctrl+Shift+O`) → edit a bookmark's name                     | The card changes its title without reloading.                                       |
+| Change URL     | Change the URL in the Library                                         | The domain and the favicon update.                                                  |
+| Move           | Drag a bookmark to another folder in the Library or the toolbar       | It disappears from the old folder and appears in the new one; both counters change. |
+| Reorder        | Drag a bookmark within the same folder (toolbar)                      | With "Original order", its position changes.                                        |
+| Delete         | Delete a bookmark or folder from the Library                          | It disappears; if you were inside the deleted folder, you go to the parent.         |
+| Undo           | `Ctrl+Z` in the Library after deleting                                | The bookmark appears again.                                                         |
+| Several panels | Open two panel tabs and star something in one                         | The other updates the star and the counter.                                         |
+| From the panel | Create / edit / move / delete from the panel                          | The change shows in the toolbar and in the Firefox Library.                         |
+| Drag a link    | Drag a link from a website onto a sidebar folder                      | It is saved as a bookmark in that folder.                                           |
+| Separator      | Library → right-click → "New Separator" (with the panel in list view) | A divider line appears in the same position.                                        |
+
+The green dot in the bottom-left corner pulses every time an event arrives from Firefox.
+
+---
+
+## 9. Lint and formatting (Vite+)
+
+The code is linted and formatted with [Vite+](https://viteplus.dev) (`vp`), which bundles Oxlint
+and Oxfmt. It is only a development tool: `package.sh` packages only the extension's files, so it
+does not end up in the `.xpi` and the extension still has no dependencies.
+
+Requires Node.js `^22.18.0 || ^24.11.0 || >=26.0.0`. The first time:
 
 ```sh
 npm install
 ```
 
-| Comando             | Qué hace                                                         |
-| ------------------- | ---------------------------------------------------------------- |
-| `npm run check`     | Formato + lint + pruebas (lo recomendable antes de cada commit). |
-| `npm test`          | Solo las pruebas de `tests/`.                                    |
-| `npm run lint`      | Oxlint sobre los `.js` (entornos `browser` y `webextensions`).   |
-| `npm run lint:fix`  | Corrige lo que se pueda de forma automática.                     |
-| `npm run fmt`       | Formatea JS, CSS, HTML, JSON y Markdown (escribe los archivos).  |
-| `npm run fmt:check` | Solo comprueba el formato, sin escribir.                         |
+| Command             | What it does                                                    |
+| ------------------- | --------------------------------------------------------------- |
+| `npm run check`     | Format + lint + tests (recommended before every commit).        |
+| `npm test`          | Only the tests in `tests/`.                                     |
+| `npm run lint`      | Oxlint on the `.js` files (`browser` and `webextensions` envs). |
+| `npm run lint:fix`  | Fixes what can be fixed automatically.                          |
+| `npm run fmt`       | Formats JS, CSS, HTML, JSON and Markdown (writes the files).    |
+| `npm run fmt:check` | Only checks the formatting, without writing.                    |
 
-La configuración está en `vite.config.mjs` (bloques `lint` y `fmt`): comillas simples, punto y
-coma, comas finales y 120 columnas. Las reglas desactivadas llevan un comentario con el motivo.
+The configuration is in `vite.config.mjs` (`lint` and `fmt` blocks): single quotes, semicolons,
+trailing commas and 120 columns. Disabled rules carry a comment with the reason.
 
-### Pruebas
+### Tests
 
-`tests/` usa `node:test`, sin navegador ni dependencias. `tests/helpers/panel.mjs` carga
-`dashboard.js` (con `i18n.js`) en un contexto aislado de Node, con una API de marcadores simulada
-que se comporta como la de Firefox (y, para comparar, como la de Chrome) y emite sus eventos, un
-DOM mínimo y `browser.storage.local` en memoria. Cubren la carpeta de inicio, «Mostrar más»,
-reordenar marcadores y carpetas, «Deshacer» y la selección múltiple. La interfaz visual (estilos,
-animaciones, arrastre real del ratón) se comprueba a mano en Firefox.
+`tests/` uses `node:test`, with no browser and no dependencies. `tests/helpers/panel.mjs` loads
+`dashboard.js` (with `i18n.js`) in an isolated Node context, with a simulated bookmarks API that
+behaves like Firefox's (and, for comparison, like Chrome's) and emits its events, a minimal DOM and
+an in-memory `browser.storage.local`. They cover the home folder, "Show more", reordering bookmarks
+and folders, "Undo", multiple selection, the strip, the masonry, separators, colors and the tab
+name. The visual UI (styles, animations, real mouse dragging) is checked by hand in Firefox.
 
 ---
 
-## Solución de problemas
+## Troubleshooting
 
-- **La interfaz sale en inglés**: es el idioma por defecto. Cámbialo en Ajustes (icono de
-  controles) → _Language_ → Español.
-- **«Open this page from the extension» / «Abre esta página desde la extensión»**: abriste `dashboard.html` como archivo local; debe
-  cargarse como extensión (sección 5).
-- **Algunos favicons no aparecen**: el sitio no sirve `/favicon.ico` (declara el icono solo en su
-  HTML). Se usa la inicial en su lugar.
-- **Un marcador de «Más visitados» o un bookmarklet no se abre**: son URLs `place:` / `javascript:`,
-  que Firefox bloquea desde extensiones; se copia la URL al portapapeles.
+- **The UI is in English**: it is the default language. Change it in Settings (controls icon) →
+  _Language_ → Español.
+- **"Open this page from the extension"**: you opened `dashboard.html` as a local file; it must be
+  loaded as an extension (section 5).
+- **Some favicons do not show**: the site does not serve `/favicon.ico` (it declares the icon only in
+  its HTML). The initial is used instead.
+- **A "Most Visited" bookmark or a bookmarklet does not open**: they are `place:` / `javascript:`
+  URLs, which Firefox blocks from extensions; the URL is copied to the clipboard.

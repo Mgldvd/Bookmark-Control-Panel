@@ -1,11 +1,11 @@
-// «Deshacer» tras mover o eliminar (botón del aviso y Ctrl+Z).
+// "Undo" after moving or deleting (notice button and Ctrl+Z).
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { fakeBookmarks, openPanel, sampleTree } from './helpers/panel.mjs';
 
 const lastAction = (env) => env.toasts.findLast((toast) => toast.action);
 
-test('deshacer un movimiento devuelve los marcadores a su carpeta y posición', async () => {
+test('undoing a move returns the bookmarks to their folder and position', async () => {
   for (const semantics of ['firefox', 'chrome']) {
     const env = await openPanel({ bookmarks: fakeBookmarks(sampleTree(), { semantics }) });
     await env.panel.moveWithUndo(['a', 'c'], 'G');
@@ -21,17 +21,17 @@ test('deshacer un movimiento devuelve los marcadores a su carpeta y posición', 
   }
 });
 
-test('deshacer un reordenado dentro de la misma carpeta', async () => {
+test('undoing a reorder within the same folder', async () => {
   const env = await openPanel();
   await env.panel.moveWithUndo(['d'], 'F', 'a');
   assert.deepEqual(env.bookmarks.childrenOf('F'), ['d', 'a', 'b', 'c']);
   assert.equal(lastAction(env).message, 'Order changed');
   assert.equal(await env.panel.runUndo(), true, 'Ctrl+Z');
   assert.deepEqual(env.bookmarks.childrenOf('F'), ['a', 'b', 'c', 'd']);
-  assert.equal(await env.panel.runUndo(), false, 'solo se deshace una vez');
+  assert.equal(await env.panel.runUndo(), false, 'it is only undone once');
 });
 
-test('deshacer un borrado recrea la carpeta con su contenido y conserva favoritos, grupos y ajustes', async () => {
+test('undoing a deletion recreates the folder with its content and keeps favorites, groups and settings', async () => {
   const stored = {
     homeFolder: 'F',
     favorites: ['b'],
@@ -48,7 +48,7 @@ test('deshacer un borrado recrea la carpeta con su contenido y conserva favorito
   const toolbar = env.bookmarks.childrenOf('toolbar_____');
   assert.equal(toolbar.length, 3);
   const folder = env.bookmarks.nodes.get(toolbar[0]);
-  assert.equal(folder.title, 'F', 'vuelve a su posición');
+  assert.equal(folder.title, 'F', 'it returns to its position');
   const restored = env.bookmarks.childrenOf(folder.id).map((id) => env.bookmarks.nodes.get(id));
   assert.deepEqual(
     restored.map((n) => n.url),
@@ -63,7 +63,7 @@ test('deshacer un borrado recrea la carpeta con su contenido y conserva favorito
   assert.equal(stored.homeFolder, folder.id);
 });
 
-test('deshacer el borrado de varios marcadores los deja en su sitio', async () => {
+test('undoing the deletion of several bookmarks puts them back in place', async () => {
   const env = await openPanel();
   await env.panel.deleteNodes(['a', 'c'].map(env.panel.get), '2 bookmarks deleted');
   assert.deepEqual(env.bookmarks.childrenOf('F'), ['b', 'd']);
@@ -72,15 +72,19 @@ test('deshacer el borrado de varios marcadores los deja en su sitio', async () =
   assert.deepEqual(titles, ['a', 'b', 'c', 'd']);
 });
 
-test('«Deshacer» caduca y solo vale para la última acción', async () => {
+test('"Undo" expires and only applies to the last action', async () => {
   const env = await openPanel();
   await env.panel.moveWithUndo(['a'], 'G');
   const first = lastAction(env).action;
   await env.panel.moveWithUndo(['b'], 'G');
   await first.run();
-  assert.deepEqual(env.bookmarks.childrenOf('G'), ['x', 'a', 'b'], 'el botón de una acción anterior ya no hace nada');
+  assert.deepEqual(
+    env.bookmarks.childrenOf('G'),
+    ['x', 'a', 'b'],
+    'the button of an earlier action no longer does anything',
+  );
 
   env.state.undo.at -= 61_000;
-  assert.equal(await env.panel.runUndo(), false, 'pasado un minuto no se deshace');
+  assert.equal(await env.panel.runUndo(), false, 'after a minute it is not undone');
   assert.deepEqual(env.bookmarks.childrenOf('G'), ['x', 'a', 'b']);
 });

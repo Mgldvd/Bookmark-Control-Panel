@@ -1,13 +1,13 @@
-// Carpeta de inicio («Usar como página de inicio»): cada panel nuevo empieza en ella.
+// Home folder ("Use as home page"): every new panel starts there.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { openPanel } from './helpers/panel.mjs';
 
-test('un panel nuevo abre la carpeta de inicio aunque se navegara a otra', async () => {
+test('a new panel opens the home folder even after navigating elsewhere', async () => {
   const stored = { homeFolder: 'F' };
   const first = await openPanel({ stored });
   assert.equal(first.state.selected, 'F');
-  assert.equal(first.state.expanded.has('toolbar_____'), true, 'se despliegan sus carpetas padre');
+  assert.equal(first.state.expanded.has('toolbar_____'), true, 'its parent folders are expanded');
 
   first.panel.selectView('G');
   await first.flush();
@@ -15,11 +15,11 @@ test('un panel nuevo abre la carpeta de inicio aunque se navegara a otra', async
   assert.equal(stored.lastFolder, 'G');
 
   const second = await openPanel({ stored });
-  assert.equal(second.state.selected, 'F', 'la pestaña nueva no sigue la última carpeta');
-  assert.equal(first.state.selected, 'G', 'la pestaña abierta no cambia');
+  assert.equal(second.state.selected, 'F', 'the new tab does not follow the last folder');
+  assert.equal(first.state.selected, 'G', 'the open tab does not change');
 });
 
-test('cambiar la carpeta de inicio afecta a los paneles siguientes', async () => {
+test('changing the home folder affects later panels', async () => {
   const stored = { homeFolder: 'F' };
   const first = await openPanel({ stored });
   first.panel.setHomeFolder('G');
@@ -27,7 +27,7 @@ test('cambiar la carpeta de inicio afecta a los paneles siguientes', async () =>
   assert.equal((await openPanel({ stored })).state.selected, 'G');
 });
 
-test('vistas especiales como inicio y vuelta a «Todos» si la carpeta ya no vale', async () => {
+test('special views as home and falling back to "All" if the folder is no longer valid', async () => {
   for (const homeFolder of ['view:all', 'view:favorites', 'view:recent']) {
     assert.equal((await openPanel({ stored: { homeFolder, lastFolder: 'G' } })).state.selected, homeFolder);
   }
@@ -36,7 +36,7 @@ test('vistas especiales como inicio y vuelta a «Todos» si la carpeta ya no val
   }
 });
 
-test('modo minimalista y ?home empiezan en la carpeta de inicio', async () => {
+test('minimal mode and ?home start at the home folder', async () => {
   for (const [minimal, search] of [
     [true, ''],
     [false, '?home'],

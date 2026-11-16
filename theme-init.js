@@ -1,8 +1,8 @@
 'use strict';
 
-// Se ejecuta de forma síncrona en <head> para aplicar el tema antes del primer
-// pintado y evitar el destello claro/oscuro. La fuente de verdad sigue siendo
-// browser.storage.local; esto es solo una copia rápida en localStorage.
+// Runs synchronously in <head> to apply the theme before the first paint
+// and avoid the light/dark flash. The source of truth is still
+// browser.storage.local; this is only a quick copy in localStorage.
 try {
   const theme = localStorage.getItem('bd-theme');
   if (theme === 'light' || theme === 'dark' || theme === 'auto') {
@@ -15,7 +15,7 @@ try {
   if (corners === 'round' || corners === 'semi' || corners === 'square') {
     document.documentElement.dataset.corners = corners;
   }
-  // Color principal: sin atributo se usa el índigo de siempre.
+  // Accent color: without an attribute the usual indigo is used.
   const accent = localStorage.getItem('bd-accent');
   if (/^(blue|teal|green|amber|orange|red|pink|violet|slate)$/.test(accent || '')) {
     document.documentElement.dataset.accent = accent;
@@ -24,7 +24,7 @@ try {
   if (/^(indigo|blue|teal|green|amber|orange|red|pink|violet|slate)$/.test(folderColor || '')) {
     document.documentElement.dataset.folderColor = folderColor;
   }
-  // Franja de las tarjetas: "visible|color|grosor" (p. ej. "1|auto|3").
+  // Card stripe: "visible|color|thickness" (e.g. "1|auto|3").
   const [stripe, stripeColor, stripeWidth] = (localStorage.getItem('bd-stripe') || '').split('|');
   if (stripe === '0') document.documentElement.dataset.stripe = 'off';
   if (/^(indigo|blue|teal|green|amber|orange|red|pink|violet|slate)$/.test(stripeColor || '')) {
@@ -40,16 +40,16 @@ try {
     document.documentElement.dataset.boardCols = cols;
     document.documentElement.style.setProperty('--board-cols', cols);
   }
-  // Nombre de la pestaña elegido en Ajustes (sin él queda el del HTML).
+  // Tab name chosen in Settings (without it, the HTML one stays).
   const tabTitle = localStorage.getItem('bd-tab-title');
   if (tabTitle) document.title = tabTitle;
   if (localStorage.getItem('bd-minimal') === '1') {
     document.documentElement.classList.add('minimal');
   }
 } catch {
-  // localStorage no disponible: se usará el tema automático.
+  // localStorage not available: the automatic theme will be used.
 }
-// dashboard.html?home (página de inicio de Firefox) abre siempre el modo minimalista.
+// dashboard.html?home (Firefox's home page) always opens minimal mode.
 if (new URLSearchParams(location.search).has('home')) {
   document.documentElement.classList.add('minimal');
 }

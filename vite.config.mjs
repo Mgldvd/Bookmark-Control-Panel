@@ -1,15 +1,15 @@
-// Vite+ (https://viteplus.dev) solo se usa para revisar y formatear el código:
-//   npm run check     → formato + lint + pruebas (lo que conviene pasar antes de cada commit)
-//   npm test          → pruebas de tests/ con node:test (sin navegador ni dependencias)
-//   npm run lint      → Oxlint          npm run lint:fix  → corrige lo automático
-//   npm run fmt       → Oxfmt (escribe) npm run fmt:check → solo comprueba
-// No hay build: la extensión se carga tal cual y package.sh empaqueta sus archivos.
+// Vite+ (https://viteplus.dev) is only used to lint and format the code:
+//   npm run check     → format + lint + tests (what should pass before every commit)
+//   npm test          → tests in tests/ with node:test (no browser, no dependencies)
+//   npm run lint      → Oxlint          npm run lint:fix  → fixes what it can
+//   npm run fmt       → Oxfmt (writes)  npm run fmt:check → only checks
+// There is no build: the extension loads as is and package.sh packages its files.
 import { defineConfig } from 'vite-plus';
 
 export default defineConfig({
   lint: {
     ignorePatterns: ['dist/**', 'node_modules/**'],
-    // Páginas de una WebExtension de Firefox: DOM del navegador + API `browser`.
+    // Pages of a Firefox WebExtension: browser DOM + the `browser` API.
     env: { browser: true, webextensions: true, es2024: true },
     categories: {
       correctness: 'error',
@@ -17,21 +17,21 @@ export default defineConfig({
       perf: 'warn',
     },
     rules: {
-      // Las funciones auxiliares viven una sola vez dentro del módulo (IIFE); no se recrean.
+      // Helper functions live once inside the module (IIFE); they are not recreated.
       'unicorn/consistent-function-scoping': 'off',
-      // Listas de 3–10 constantes que además se recorren en orden (menús, selectores).
+      // Lists of 3–10 constants that are also iterated in order (menus, selects).
       'unicorn/prefer-set-has': 'off',
-      // _sig y _enterTimer son marcas propias en elementos del DOM, a propósito.
+      // _sig and _enterTimer are our own markers on DOM elements, on purpose.
       'no-underscore-dangle': 'off',
-      // Copia puntual al importar una copia de seguridad; la claridad pesa más.
+      // One-off copy when importing a backup; clarity matters more.
       'oxc/no-map-spread': 'off',
-      // Mover, crear y restaurar marcadores va en orden a propósito: cada índice depende
-      // de la operación anterior, y en paralelo los marcadores acabarían descolocados.
+      // Moving, creating and restoring bookmarks is sequential on purpose: each index depends
+      // on the previous operation, and in parallel the bookmarks would end up out of place.
       'no-await-in-loop': 'off',
     },
     overrides: [
       {
-        // Herramientas de Node del propio repositorio (incluidas las pruebas).
+        // Node tooling of the repository itself (including the tests).
         files: ['vite.config.mjs', 'tests/**'],
         env: { browser: false, webextensions: false, node: true },
       },
@@ -39,7 +39,7 @@ export default defineConfig({
   },
   fmt: {
     ignorePatterns: ['dist/**', 'node_modules/**', 'package-lock.json'],
-    // El estilo que ya tenía el código: comillas simples, punto y coma y comas finales.
+    // The style the code already had: single quotes, semicolons and trailing commas.
     singleQuote: true,
     semi: true,
     trailingComma: 'all',

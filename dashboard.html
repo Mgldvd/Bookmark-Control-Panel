@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
-    <!-- Sin data-i18n: el título lo ponen theme-init.js y dashboard.js (nombre elegido en Ajustes). -->
+    <!-- No data-i18n: the title is set by theme-init.js and dashboard.js (name chosen in Settings). -->
     <title>Bookmarks</title>
     <link rel="icon" type="image/svg+xml" href="icons/icon.svg" />
     <script src="theme-init.js"></script>
@@ -270,7 +270,7 @@
           </div>
           <p class="tree-pick-hint" id="tree-pick-hint" hidden>
             <svg class="icon"><use href="#i-strip" /></svg>
-            <!-- El texto depende de la colección a la vista (lo pone dashboard.js) -->
+            <!-- The text depends on the collection being viewed (set by dashboard.js) -->
             <span class="tree-pick-text">Check the folders for the strip</span>
             <span class="tree-pick-count" id="tree-pick-count"></span>
           </p>
@@ -499,7 +499,7 @@
               <span class="home-here" id="home-here"></span>
             </div>
 
-            <!-- Perfiles de la tira o del mosaico: distintas selecciones de carpetas (los pinta dashboard.js) -->
+            <!-- Strip or masonry profiles: different folder selections (painted by dashboard.js) -->
             <div class="strip-profiles" id="strip-profiles" hidden></div>
 
             <section class="section" id="folders-section" hidden>
@@ -532,7 +532,7 @@
         </div>
       </main>
 
-      <!-- Grupos locales (columna derecha) -->
+      <!-- Local groups (right column) -->
       <aside class="groups" id="groups-panel" aria-labelledby="groups-heading">
         <div class="groups-head">
           <h2 id="groups-heading" data-i18n="groups.title">Groups</h2>
@@ -582,7 +582,7 @@
     <div class="menu" id="menu" role="menu" hidden></div>
     <div class="toasts" id="toasts" aria-live="polite"></div>
 
-    <!-- Barra de la selección múltiple -->
+    <!-- Multiple selection bar -->
     <div
       class="selection-bar"
       id="selection-bar"
@@ -660,7 +660,7 @@
       </form>
     </dialog>
 
-    <!-- Crear / editar grupo -->
+    <!-- Create / edit group -->
     <dialog class="dialog dialog-sm" id="group-dialog" aria-labelledby="group-heading">
       <form id="group-form" novalidate>
         <header class="dialog-head">
@@ -799,7 +799,7 @@
             <svg class="icon"><use href="#i-close" /></svg>
           </button>
 
-          <!-- Apariencia -->
+          <!-- Appearance -->
           <section class="settings-panel" role="tabpanel" id="spanel-appearance" aria-labelledby="stab-appearance">
             <h3 class="panel-title" data-i18n="settings.appearance">Appearance</h3>
             <div class="set-group">
@@ -1134,7 +1134,7 @@
             </p>
           </section>
 
-          <!-- Página de inicio -->
+          <!-- Home page -->
           <section class="settings-panel" role="tabpanel" id="spanel-home" aria-labelledby="stab-home" hidden>
             <h3 class="panel-title" data-i18n="home.title">Home page</h3>
             <div class="set-group">
@@ -1184,7 +1184,7 @@
             </div>
           </section>
 
-          <!-- Copia de seguridad -->
+          <!-- Backup -->
           <section class="settings-panel" role="tabpanel" id="spanel-backup" aria-labelledby="stab-backup" hidden>
             <h3 class="panel-title" data-i18n="backup.title">Backup</h3>
             <div class="set-group">
@@ -1211,7 +1211,7 @@
             </div>
           </section>
 
-          <!-- Atajos -->
+          <!-- Shortcuts -->
           <section class="settings-panel" role="tabpanel" id="spanel-shortcuts" aria-labelledby="stab-shortcuts" hidden>
             <h3 class="panel-title" data-i18n="settings.shortcuts">Keyboard shortcuts</h3>
             <div class="set-group">

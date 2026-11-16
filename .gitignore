@@ -52,5 +52,5 @@ node_modules/
 
 .tmp
 
-# Dependencias de desarrollo (Vite+)
+# Development dependencies (Vite+)
 node_modules/

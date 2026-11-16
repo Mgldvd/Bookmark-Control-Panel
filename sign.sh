@@ -1,24 +1,24 @@
 #!/usr/bin/env sh
-# Firma la extensión en addons.mozilla.org por el canal «unlisted» (privado: no se
-# publica en la tienda) y deja el .xpi firmado en dist/. Ese .xpi se instala de
-# forma permanente en Firefox normal: about:addons → ⚙️ → «Instalar desde archivo».
+# Signs the extension on addons.mozilla.org through the "unlisted" channel (private: it is
+# not published in the store) and leaves the signed .xpi in dist/. That .xpi installs
+# permanently in regular Firefox: about:addons → ⚙️ → "Install Add-on From File".
 #
-# Requiere credenciales de API de AMO (https://addons.mozilla.org/developers/addon/api/key/)
-# en un archivo .env junto a este script (ignorado por git; ver .env.example):
-#   WEB_EXT_API_KEY='user:12345:678'   # «Emisor JWT»
-#   WEB_EXT_API_SECRET='…'             # «Secreto JWT»
-# o exportadas en la terminal (tienen prioridad sobre .env). Luego:
-#   ./sign.sh            # empaqueta y firma
-#   ./sign.sh --check    # solo comprueba que las credenciales se cargan
+# Requires AMO API credentials (https://addons.mozilla.org/developers/addon/api/key/)
+# in a .env file next to this script (ignored by git; see .env.example):
+#   WEB_EXT_API_KEY='user:12345:678'   # "JWT issuer"
+#   WEB_EXT_API_SECRET='…'             # "JWT secret"
+# or exported in the terminal (they take precedence over .env). Then:
+#   ./sign.sh            # packages and signs
+#   ./sign.sh --check    # only checks that the credentials load
 #
-# Usa la herramienta oficial web-ext de Mozilla vía npx (solo para firmar; no forma
-# parte de la extensión). Cada firma necesita un "version" nuevo en manifest.json.
+# Uses Mozilla's official web-ext tool via npx (only for signing; it is not part
+# of the extension). Each signature needs a new "version" in manifest.json.
 set -eu
 
 cd "$(dirname "$0")"
 
-# Credenciales desde .env (ignorado por git) si no vienen ya en el entorno.
-# Se leen como texto (KEY=valor), sin ejecutar el archivo.
+# Credentials from .env (ignored by git) unless already in the environment.
+# They are read as text (KEY=value), without executing the file.
 if [ -f .env ]; then
   CR=$(printf '\r')
   while IFS='=' read -r key value || [ -n "$key" ]; do
@@ -32,33 +32,33 @@ if [ -f .env ]; then
   done < .env
 fi
 
-: "${WEB_EXT_API_KEY:?Falta WEB_EXT_API_KEY (Emisor JWT de AMO): ponlo en .env o expórtalo}"
-: "${WEB_EXT_API_SECRET:?Falta WEB_EXT_API_SECRET (Secreto JWT de AMO): ponlo en .env o expórtalo}"
+: "${WEB_EXT_API_KEY:?Missing WEB_EXT_API_KEY (AMO JWT issuer): put it in .env or export it}"
+: "${WEB_EXT_API_SECRET:?Missing WEB_EXT_API_SECRET (AMO JWT secret): put it in .env or export it}"
 
-# ./sign.sh --check → solo comprueba que hay credenciales, sin empaquetar ni firmar.
+# ./sign.sh --check → only checks that there are credentials, without packaging or signing.
 if [ "${1:-}" = "--check" ]; then
-  echo "Credenciales cargadas: WEB_EXT_API_KEY (${#WEB_EXT_API_KEY} caracteres), WEB_EXT_API_SECRET (${#WEB_EXT_API_SECRET} caracteres)."
+  echo "Credentials loaded: WEB_EXT_API_KEY (${#WEB_EXT_API_KEY} characters), WEB_EXT_API_SECRET (${#WEB_EXT_API_SECRET} characters)."
   exit 0
 fi
 
 VERSION=$(sed -n 's/^ *"version": *"\([^"]*\)".*/\1/p' manifest.json | head -n 1)
 ZIP="dist/bookmark-control-panel-${VERSION}.zip"
 
-# Se firma exactamente el contenido del paquete (sin README, scripts ni .git).
+# Exactly the package contents are signed (no README, scripts or .git).
 ./package.sh
 BUILD=$(mktemp -d)
 ARTIFACTS=$(mktemp -d)
 trap 'rm -rf "$BUILD" "$ARTIFACTS"' EXIT INT TERM
 unzip -q "$ZIP" -d "$BUILD"
 
-echo "Firmando la versión ${VERSION} en AMO (canal unlisted)…"
+echo "Signing version ${VERSION} on AMO (unlisted channel)…"
 npx --yes web-ext@10.8.0 sign \
   --channel=unlisted \
   --source-dir="$BUILD" \
   --artifacts-dir="$ARTIFACTS"
 
-# web-ext usa un nombre interno; se renombra a uno legible.
+# web-ext uses an internal name; it is renamed to a readable one.
 SIGNED=$(ls -1t "$ARTIFACTS"/*.xpi | head -n 1)
 OUT="dist/bookmark-control-panel-${VERSION}-signed.xpi"
 mv "$SIGNED" "$OUT"
-echo "Listo. .xpi firmado: $OUT"
+echo "Done. Signed .xpi: $OUT"

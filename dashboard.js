@@ -1,26 +1,26 @@
 'use strict';
 
 /*
- * Bookmark Control Panel — lógica principal.
+ * Bookmark Control Panel — main logic.
  *
- * Arquitectura:
- *   1. Modelo en memoria (Map id → nodo) construido con browser.bookmarks.getTree().
- *   2. Los eventos onCreated/onRemoved/onChanged/onMoved aplican cambios
- *      incrementales al modelo; la interfaz se repinta en el siguiente frame.
- *   3. El render reutiliza los nodos DOM de las tarjetas por id (reconciliación
- *      por clave), así un cambio no recarga la página ni los favicons.
- *   4. Todo texto procedente de los marcadores se inserta con textContent /
- *      nodos de texto. No se usa innerHTML en ningún punto.
- *   5. Las escrituras en marcadores solo ocurren por acción explícita del
- *      usuario (crear, editar, mover, eliminar). La inicialización solo lee.
- *   6. Textos de la interfaz en i18n.js (inglés por defecto, español opcional).
+ * Architecture:
+ *   1. In-memory model (Map id → node) built with browser.bookmarks.getTree().
+ *   2. The onCreated/onRemoved/onChanged/onMoved events apply incremental
+ *      changes to the model; the UI is repainted on the next frame.
+ *   3. Rendering reuses the cards' DOM nodes by id (keyed reconciliation),
+ *      so a change does not reload the page or the favicons.
+ *   4. All text coming from bookmarks is inserted with textContent / text
+ *      nodes. innerHTML is never used anywhere.
+ *   5. Writes to bookmarks only happen on an explicit user action (create,
+ *      edit, move, delete). Initialization only reads.
+ *   6. UI strings live in i18n.js (English by default, Spanish optional).
  */
 
 (() => {
   const api = globalThis.browser;
 
   // ---------------------------------------------------------------------------
-  // Constantes
+  // Constants
   // ---------------------------------------------------------------------------
 
   const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -29,9 +29,9 @@
   const VIEW_ALL = 'view:all';
   const VIEW_FAVORITES = 'view:favorites';
   const VIEW_RECENT = 'view:recent';
-  // Tira: las carpetas elegidas, una tarjeta del tablero al lado de otra.
+  // Strip: the chosen folders, one board card next to another.
   const VIEW_STRIP = 'view:strip';
-  // Mosaico (masonry): otras carpetas elegidas, en columnas que se rellenan por la más corta.
+  // Masonry: other chosen folders, in columns filled shortest-first.
   const VIEW_MASONRY = 'view:masonry';
   const VIEWS = {
     [VIEW_ALL]: { label: 'view.all', icon: 'layers' },
@@ -40,18 +40,18 @@
     [VIEW_STRIP]: { label: 'view.strip', icon: 'strip' },
     [VIEW_MASONRY]: { label: 'view.masonry', icon: 'masonry' },
   };
-  // Colecciones: vistas de carpetas elegidas con las tarjetas del tablero (la tira y
-  // el mosaico). Cada una tiene su propia selección, sus perfiles y sus subcarpetas
-  // desplegadas; en el estado y en storage sus claves llevan el tipo delante
+  // Collections: views of chosen folders using the board cards (the strip and
+  // the masonry). Each one has its own selection, profiles and expanded
+  // subfolders; in the state and in storage their keys are prefixed with the kind
   // (stripFolders, masonryFolders, stripOpen, masonryOpen…).
   const COLLECTIONS = { strip: VIEW_STRIP, masonry: VIEW_MASONRY };
   const COLLECTION_KINDS = Object.keys(COLLECTIONS);
   const isCollection = (kind) => typeof kind === 'string' && Object.hasOwn(COLLECTIONS, kind);
   const collectionOfView = (id) => COLLECTION_KINDS.find((kind) => COLLECTIONS[kind] === id) || null;
-  const MASONRY_MIN = 300; // ancho mínimo de una columna del mosaico (px)
-  const MASONRY_GAP = 16; // separación entre columnas (igual que en el CSS)
+  const MASONRY_MIN = 300; // minimum width of a masonry column (px)
+  const MASONRY_GAP = 16; // gap between columns (same as in the CSS)
 
-  // Carpetas raíz de Firefox (ids fijos de Places).
+  // Firefox root folders (fixed Places ids).
   const BUILTIN_FOLDERS = {
     menu________: { label: 'builtin.menu', icon: 'book' },
     toolbar_____: { label: 'builtin.toolbar', icon: 'toolbar' },
@@ -64,7 +64,7 @@
 
   const RECENT_LIMIT = 60;
   const PAGE_SIZE = 200;
-  const OPEN_ALL_CONFIRM = 15; // igual que el aviso de Firefox (browser.tabs.maxOpenBeforeWarn)
+  const OPEN_ALL_CONFIRM = 15; // same as Firefox's warning (browser.tabs.maxOpenBeforeWarn)
   const THEMES = ['auto', 'light', 'dark'];
   const LANGS = ['en', 'es'];
   const DEFAULT_LANG = 'en';
@@ -72,23 +72,23 @@
   const GROUP_NAME_MAX = 60;
   const VIEW_MODES = ['grid', 'list', 'board'];
   const CORNERS = ['round', 'semi', 'square'];
-  // Color principal de la interfaz (botones, selección, foco…): 'indigo' es el de siempre.
+  // Accent color of the UI (buttons, selection, focus…): 'indigo' is the usual one.
   const ACCENT_COLORS = GROUP_COLORS;
-  // Color general de las carpetas: 'default' es el amarillo de siempre.
+  // General folder color: 'default' is the usual yellow.
   const FOLDER_COLORS = ['default', ...GROUP_COLORS];
-  // Franja de color a la izquierda de las tarjetas: color general y grosor (px).
+  // Color stripe on the left of the cards: general color and thickness (px).
   const STRIPE_COLORS = ['auto', ...GROUP_COLORS];
   const STRIPE_WIDTHS = [2, 3, 5, 8];
-  const BOARD_COLUMNS = ['auto', 1, 2, 3, 4, 5, 6]; // máximo de columnas del tablero
-  const CONTENT_WIDTHS = ['normal', 'wide', 'full']; // ancho máximo del contenido
-  const TAB_TITLE_MAX = 60; // caracteres del nombre propio de la pestaña
-  const TAB_TITLE_KEY = 'bd-tab-title'; // copia rápida para theme-init.js
+  const BOARD_COLUMNS = ['auto', 1, 2, 3, 4, 5, 6]; // maximum number of board columns
+  const CONTENT_WIDTHS = ['normal', 'wide', 'full']; // maximum content width
+  const TAB_TITLE_MAX = 60; // characters of the custom tab name
+  const TAB_TITLE_KEY = 'bd-tab-title'; // quick copy for theme-init.js
   const SETTINGS_TABS = ['appearance', 'general', 'home', 'backup', 'shortcuts'];
   const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)');
-  const VT_MAX_CARDS = 60; // tarjetas que vuelan a su sitio en la transición (las visibles)
-  const BOARD_ROWS = 10; // enlaces visibles por tarjeta antes de «Mostrar más»
-  const BOARD_PAGE = 40; // tarjetas por página en la vista de tablero
-  const HOME_NAV_KEY = 'bd-home-nav'; // subcarpeta abierta en el modo minimalista (por pestaña)
+  const VT_MAX_CARDS = 60; // cards that fly into place during the transition (the visible ones)
+  const BOARD_ROWS = 10; // visible links per card before "Show more"
+  const BOARD_PAGE = 40; // cards per page in the board view
+  const HOME_NAV_KEY = 'bd-home-nav'; // subfolder open in minimal mode (per tab)
   function readHomeNav() {
     try {
       return sessionStorage.getItem(HOME_NAV_KEY) || null;
@@ -96,7 +96,7 @@
       return null;
     }
   }
-  // Por debajo de este ancho el panel de grupos flota sobre el contenido.
+  // Below this width the groups panel floats over the content.
   const GROUPS_OVERLAY = window.matchMedia('(max-width: 1200px)');
   const SORTS = ['manual', 'name-asc', 'name-desc', 'date-desc', 'date-asc'];
   const THEME_META = {
@@ -118,8 +118,8 @@
     stripeWidth: 3,
     boardColumns: 'auto',
     contentWidth: 'normal',
-    tabTitle: '', // nombre de la pestaña; vacío = el predeterminado («Bookmarks» / «Marcadores»)
-    tabTitleFolder: true, // anteponer la carpeta o búsqueda actual al nombre
+    tabTitle: '', // tab name; empty = the default ("Bookmarks" / "Marcadores")
+    tabTitleFolder: true, // prepend the current folder or search to the name
     theme: 'auto',
     view: 'grid',
     sort: 'manual',
@@ -146,7 +146,7 @@
   });
 
   // ---------------------------------------------------------------------------
-  // Estado
+  // State
   // ---------------------------------------------------------------------------
 
   const state = {
@@ -178,16 +178,16 @@
     expanded: new Set(DEFAULT_PREFS.expanded),
     favorites: new Set(),
     selected: VIEW_ALL,
-    // Modo minimalista: ?home en la URL lo fuerza en esta pestaña (página de inicio);
-    // homeNav es la subcarpeta abierta dentro de ese modo: se guarda por pestaña
-    // (sessionStorage), así sobrevive a una recarga y las pestañas nuevas empiezan
-    // en la carpeta de inicio.
+    // Minimal mode: ?home in the URL forces it in this tab (home page);
+    // homeNav is the subfolder open inside that mode: it is stored per tab
+    // (sessionStorage), so it survives a reload and new tabs start
+    // at the home folder.
     forceHome: new URLSearchParams(location.search).has('home'),
     homeNav: readHomeNav(),
     minimalOn: null,
     settingsTab: 'appearance',
-    // Transición animada en curso: los renders se aplazan para no sustituir
-    // las tarjetas que se están animando.
+    // Animated transition in progress: renders are deferred so the cards
+    // being animated are not replaced.
     vtActive: false,
     renderPending: false,
     query: '',
@@ -203,11 +203,11 @@
     renderQueued: false,
     lastViewKey: '',
     dragId: null,
-    // Todo lo que se arrastra a la vez (la selección, si se arrastra uno de sus marcadores).
+    // Everything dragged at once (the selection, if one of its bookmarks is dragged).
     dragIds: [],
     dropEl: null,
     dropTimer: 0,
-    // Hueco de reordenación en la sección principal: { el, after, x }.
+    // Reorder slot in the main section: { el, after, x }.
     dropSlot: null,
     reorderable: false,
     menuReturnFocus: null,
@@ -216,9 +216,9 @@
     groupIndex: new Map(),
     groupsSig: '',
     groupEditor: { id: null, addBookmarkIds: [] },
-    // Última acción que se puede deshacer: { run, at }.
+    // Last undoable action: { run, at }.
     undo: null,
-    // Selección múltiple de marcadores en la sección principal.
+    // Multiple selection of bookmarks in the main section.
     selection: new Set(),
     selAnchor: null,
     viewItemIds: [],
@@ -230,33 +230,33 @@
     boardCollapsed: new Set(),
     boardShowAll: new Set(),
     boardPages: 1,
-    // Carpetas de la tira, en su orden (pueden quedar ids de carpetas borradas:
-    // no se muestran, y «Deshacer» las vuelve a enlazar).
+    // Strip folders, in order (ids of deleted folders may remain:
+    // they are not shown, and "Undo" links them again).
     stripFolders: [],
-    // Perfiles de la tira: distintas selecciones de carpetas ({ id, name, folders }).
-    // Las del activo son siempre las de stripFolders.
+    // Strip profiles: different folder selections ({ id, name, folders }).
+    // The active one's are always those in stripFolders.
     stripProfiles: [],
     stripProfile: '',
-    // Perfil cuyo nombre se está editando en la barra, y el que recibe el foco al repintar.
+    // Profile whose name is being edited in the bar, and the one that gets focus on repaint.
     profileRenaming: null,
     profileFocus: null,
     viewKind: null,
     treePicking: false,
-    // Subcarpetas desplegadas dentro de las tarjetas de la tira.
+    // Subfolders expanded inside the strip cards.
     stripOpen: new Set(),
-    // Lo mismo para el mosaico (colección independiente de la tira).
+    // The same for the masonry (a collection independent from the strip).
     masonryFolders: [],
     masonryProfiles: [],
     masonryProfile: '',
     masonryOpen: new Set(),
-    // Tarjetas del mosaico en su orden (para recolocarlas si cambia el número de columnas).
+    // Masonry cards in order (to re-lay them out if the number of columns changes).
     masonryItems: [],
     folderColors: Object.create(null),
     separatorColors: Object.create(null),
   };
 
   // ---------------------------------------------------------------------------
-  // Idioma (i18n.js) y formatos dependientes del idioma
+  // Language (i18n.js) and language-dependent formats
   // ---------------------------------------------------------------------------
 
   const STRINGS = globalThis.BD_I18N || {};
@@ -278,8 +278,8 @@
     pluralRules = new Intl.PluralRules(lang);
   }
 
-  // Idioma inicial desde la copia rápida en localStorage (evita un destello en
-  // inglés antes de leer browser.storage.local, que es la fuente de verdad).
+  // Initial language from the quick copy in localStorage (avoids a flash of
+  // English before reading browser.storage.local, which is the source of truth).
   try {
     setLocale(localStorage.getItem('bd-lang') || DEFAULT_LANG);
   } catch {
@@ -296,20 +296,20 @@
     );
   }
 
-  /** Texto traducido (siempre texto plano, nunca HTML). */
+  /** Translated text (always plain text, never HTML). */
   function t(key, vars) {
     const value = lookup(key);
     return fill(typeof value === 'string' ? value : value.other, vars);
   }
 
-  /** Texto traducido con plural; {n} recibe el número formateado. */
+  /** Translated text with plural; {n} receives the formatted number. */
   function tn(key, n, vars) {
     const value = lookup(key);
     const template = typeof value === 'string' ? value : (value[pluralRules.select(n)] ?? value.other);
     return fill(template, { ...vars, n: numberFmt.format(n) });
   }
 
-  /** Traduce los textos estáticos del HTML: data-i18n y data-i18n-attr="attr:clave;…". */
+  /** Translates the static HTML texts: data-i18n and data-i18n-attr="attr:key;…". */
   function translateStatic(root = document) {
     for (const node of root.querySelectorAll('[data-i18n]')) node.textContent = t(node.dataset.i18n);
     for (const node of root.querySelectorAll('[data-i18n-attr]')) {
@@ -321,7 +321,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Utilidades
+  // Utilities
   // ---------------------------------------------------------------------------
 
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -338,7 +338,7 @@
       .replace(/\p{Diacritic}/gu, '')
       .toLowerCase();
 
-  /** Nombre de la pestaña tal como se guarda: una línea, sin espacios sobrantes y con tope de longitud. */
+  /** Tab name as stored: one line, no extra spaces and capped in length. */
   const cleanTabTitle = (v) =>
     typeof v === 'string' ? [...v.replace(/\s+/g, ' ').trim()].slice(0, TAB_TITLE_MAX).join('').trim() : '';
 
@@ -350,7 +350,7 @@
     };
   }
 
-  /** Crea un elemento de forma segura (textos siempre como nodos de texto). */
+  /** Creates an element safely (texts always as text nodes). */
   function el(tag, props = {}, ...children) {
     const node = document.createElement(tag);
     for (const [key, value] of Object.entries(props)) {
@@ -385,7 +385,7 @@
     }
   }
 
-  /** Solo http(s) se puede abrir desde una página de extensión. */
+  /** Only http(s) can be opened from an extension page. */
   const isOpenable = (url) => /^https?:\/\//i.test(url || '');
 
   function prettyUrl(url) {
@@ -395,7 +395,7 @@
     try {
       s = decodeURI(s);
     } catch {
-      /* se deja codificada */
+      /* left encoded */
     }
     return s;
   }
@@ -411,7 +411,7 @@
     return Math.abs(h) % 360;
   }
 
-  /** Normaliza lo que escribe el usuario: "ejemplo.com" → "https://ejemplo.com/". */
+  /** Normalizes what the user types: "example.com" → "https://example.com/". */
   function normalizeUrl(raw) {
     const input = String(raw || '').trim();
     if (!input) return '';
@@ -433,7 +433,7 @@
   const isSeparator = (n) => !!n && n.type === 'separator';
 
   // ---------------------------------------------------------------------------
-  // Modelo
+  // Model
   // ---------------------------------------------------------------------------
 
   function makeNode(raw, parentId) {
@@ -448,7 +448,7 @@
     };
   }
 
-  /** Inserta un subárbol completo en el mapa (iterativo, sin límites de pila). */
+  /** Inserts a whole subtree into the map (iterative, no stack limits). */
   function addSubtree(map, rawRoot, parentId) {
     const stack = [[rawRoot, parentId]];
     while (stack.length) {
@@ -476,11 +476,11 @@
     state.pathCache.clear();
   }
 
-  /** Lee el árbol. Si llegan eventos mientras se lee, vuelve a leer (máx. 3). */
+  /** Reads the tree. If events arrive while reading, reads again (max. 3). */
   async function loadTree() {
     for (let attempt = 0; ; attempt++) {
       const seq = state.eventSeq;
-      // Reintento secuencial a propósito: hay que comparar eventSeq después de cada lectura.
+      // Sequential retry on purpose: eventSeq must be compared after each read.
       // oxlint-disable-next-line no-await-in-loop
       const tree = await api.bookmarks.getTree();
       if (!Array.isArray(tree) || !tree[0]) throw new Error('getTree() returned an empty tree');
@@ -491,7 +491,7 @@
     }
   }
 
-  /** Recuento recursivo de marcadores por carpeta (cacheado hasta el siguiente cambio). */
+  /** Recursive bookmark count per folder (cached until the next change). */
   function getCounts() {
     if (state.counts) return state.counts;
     const counts = new Map();
@@ -581,7 +581,7 @@
     return p;
   }
 
-  /** ¿Es `id` igual a `ancestorId` o está dentro de él? */
+  /** Is `id` equal to `ancestorId` or inside it? */
   function isInside(id, ancestorId) {
     let n = get(id);
     let guard = 0;
@@ -613,7 +613,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Sincronización con Firefox (eventos de marcadores)
+  // Sync with Firefox (bookmark events)
   // ---------------------------------------------------------------------------
 
   function removeFromArray(arr, value) {
@@ -709,7 +709,7 @@
     b.onMoved.addListener(handleMoved);
   }
 
-  /** Relectura completa (solo lectura) como red de seguridad ante incoherencias. */
+  /** Full re-read (read only) as a safety net against inconsistencies. */
   async function resync({ notify = false } = {}) {
     try {
       await loadTree();
@@ -718,7 +718,7 @@
       scheduleRender();
       if (notify) toast(t('toast.resynced'));
     } catch (err) {
-      console.error('[Bookmark Control Panel] Error al releer los marcadores:', err);
+      console.error('[Bookmark Control Panel] Error re-reading the bookmarks:', err);
       $('#live').classList.add('is-error');
       if (notify) toast(t('toast.resyncError', { error: err?.message || err }), 'error');
     }
@@ -728,12 +728,12 @@
   function pulseLive() {
     const dot = $('#live');
     dot.classList.remove('pulse');
-    void dot.offsetWidth; // reinicia la animación
+    void dot.offsetWidth; // restarts the animation
     dot.classList.add('pulse');
   }
 
   // ---------------------------------------------------------------------------
-  // Preferencias (browser.storage.local)
+  // Preferences (browser.storage.local)
   // ---------------------------------------------------------------------------
 
   function applyPrefs(p) {
@@ -793,13 +793,13 @@
     try {
       applyPrefs(await api.storage.local.get({ ...DEFAULT_PREFS }));
     } catch (err) {
-      console.warn('[Bookmark Control Panel] No se pudieron leer las preferencias:', err);
+      console.warn('[Bookmark Control Panel] Could not read the preferences:', err);
     }
   }
 
   function savePrefs(partial) {
     return api.storage.local.set(partial).catch((err) => {
-      console.error('[Bookmark Control Panel] Error al guardar preferencias:', err);
+      console.error('[Bookmark Control Panel] Error saving the preferences:', err);
       toast(t('toast.prefsError'), 'error');
     });
   }
@@ -825,7 +825,7 @@
     scheduleRender();
   }
 
-  /** Mantiene sincronizadas varias pestañas del panel abiertas a la vez. */
+  /** Keeps several open panel tabs in sync. */
   function handleStorageChange(changes, area) {
     if (area !== 'local') return;
     const incoming = {};
@@ -859,7 +859,7 @@
     try {
       localStorage.setItem('bd-theme', theme);
     } catch {
-      /* sin localStorage: solo afecta al primer pintado */
+      /* no localStorage: only affects the first paint */
     }
     const meta = THEME_META[theme];
     const label = t(meta.label);
@@ -869,41 +869,41 @@
     btn.setAttribute('aria-label', label);
   }
 
-  /** Aplica el idioma elegido a toda la interfaz (textos estáticos y dinámicos). */
+  /** Applies the chosen language to the whole UI (static and dynamic texts). */
   function applyLanguage() {
     setLocale(state.prefs.lang);
     document.documentElement.lang = lang;
     try {
       localStorage.setItem('bd-lang', lang);
     } catch {
-      /* sin localStorage: solo afecta al primer pintado */
+      /* no localStorage: only affects the first paint */
     }
     translateStatic();
     applyTheme();
-    applyTabTitle(); // el nombre predeterminado depende del idioma
-    invalidate(); // las rutas de carpeta incluyen nombres traducidos
+    applyTabTitle(); // the default name depends on the language
+    invalidate(); // folder paths include translated names
     if (!state.ready) {
-      // Textos que el render todavía no ha sustituido.
+      // Texts the render has not replaced yet.
       $('#stats').textContent = t('stats.loading');
       $('#view-title').textContent = t('view.loading');
     }
     scheduleRender();
   }
 
-  /** Estilo de esquinas: redondeadas, semi o rectas (atributo en <html>, ver CSS). */
+  /** Corner style: round, semi or square (attribute on <html>, see CSS). */
   function applyCorners() {
     const corners = state.prefs.corners;
     document.documentElement.dataset.corners = corners;
     try {
       localStorage.setItem('bd-corners', corners);
     } catch {
-      /* sin localStorage: solo afecta al primer pintado */
+      /* no localStorage: only affects the first paint */
     }
   }
 
   /**
-   * Color principal de la interfaz y color general de las carpetas (atributos en
-   * <html>, ver CSS); sin atributo se usan los de siempre (índigo y amarillo).
+   * Accent color of the UI and general folder color (attributes on
+   * <html>, see CSS); without an attribute the usual ones are used (indigo and yellow).
    */
   function applyAccent() {
     const { accentColor, folderColor } = state.prefs;
@@ -916,11 +916,11 @@
       localStorage.setItem('bd-accent', accentColor);
       localStorage.setItem('bd-folder-color', folderColor);
     } catch {
-      /* sin localStorage: solo afecta al primer pintado */
+      /* no localStorage: only affects the first paint */
     }
   }
 
-  /** Franja de color de las tarjetas: visible u oculta, color general y grosor (ver CSS). */
+  /** Card color stripe: visible or hidden, general color and thickness (see CSS). */
   function applyStripe() {
     const { stripe, stripeColor, stripeWidth } = state.prefs;
     const root = document.documentElement;
@@ -931,11 +931,11 @@
     try {
       localStorage.setItem('bd-stripe', `${stripe ? 1 : 0}|${stripeColor}|${stripeWidth}`);
     } catch {
-      /* sin localStorage: solo afecta al primer pintado */
+      /* no localStorage: only affects the first paint */
     }
   }
 
-  /** Diseño: máximo de columnas del tablero ('auto' = según el ancho) y ancho del contenido. */
+  /** Layout: maximum board columns ('auto' = by width) and content width. */
   function applyBoardColumns() {
     const cols = state.prefs.boardColumns;
     const width = state.prefs.contentWidth;
@@ -953,13 +953,13 @@
       localStorage.setItem('bd-board-cols', String(cols));
       localStorage.setItem('bd-content-width', width);
     } catch {
-      /* sin localStorage: solo afecta al primer pintado */
+      /* no localStorage: only affects the first paint */
     }
   }
 
   /**
-   * Título de la pestaña: el nombre elegido (o el predeterminado del idioma) y,
-   * si está activado, delante la carpeta, vista o búsqueda que se está viendo.
+   * Tab title: the chosen name (or the language default) and, if enabled,
+   * the folder, view or search being viewed in front of it.
    */
   function docTitle(view) {
     const name = state.prefs.tabTitle || t('app.title');
@@ -969,19 +969,19 @@
       : t('doc.view', { title: view.title, name });
   }
 
-  /** Aplica el nombre de la pestaña y guarda la copia rápida para theme-init.js. */
+  /** Applies the tab name and stores the quick copy for theme-init.js. */
   function applyTabTitle() {
-    // Con el panel listo, renderHeader() pone el título completo (con la carpeta).
+    // Once the panel is ready, renderHeader() sets the full title (with the folder).
     if (!state.ready) document.title = docTitle(null);
     try {
       if (state.prefs.tabTitle) localStorage.setItem(TAB_TITLE_KEY, state.prefs.tabTitle);
       else localStorage.removeItem(TAB_TITLE_KEY);
     } catch {
-      /* sin localStorage: solo afecta al primer pintado */
+      /* no localStorage: only affects the first paint */
     }
   }
 
-  /** Muestra u oculta la barra lateral de carpetas en escritorio (en móvil es un cajón). */
+  /** Shows or hides the folders sidebar on desktop (on mobile it is a drawer). */
   function applySidebar() {
     const visible = state.prefs.sidebarPanel;
     document.documentElement.classList.toggle('sidebar-hidden', !visible);
@@ -989,17 +989,17 @@
     try {
       localStorage.setItem('bd-sidebar', visible ? '1' : '0');
     } catch {
-      /* sin localStorage: solo afecta al primer pintado */
+      /* no localStorage: only affects the first paint */
     }
   }
 
-  // ----- Modo minimalista: solo el tablero de la carpeta de inicio -----
+  // ----- Minimal mode: only the board of the home folder -----
 
   const isMinimal = () => state.forceHome || state.prefs.minimal;
 
-  /** Algo que se puede mostrar en el modo minimalista: una carpeta o una vista (Todos, Destacados…). */
+  /** Something that can be shown in minimal mode: a folder or a view (All, Starred…). */
   const isShowable = (id) => isView(id) || isFolder(get(id));
-  /** Lo que muestra el modo minimalista: la carpeta abierta en él o, si no hay, la de inicio. */
+  /** What minimal mode shows: the folder open in it or, if none, the home folder. */
   const minimalSelection = () => (state.homeNav && isShowable(state.homeNav) ? state.homeNav : homeId());
 
   function setHomeNav(id) {
@@ -1008,12 +1008,12 @@
       if (id) sessionStorage.setItem(HOME_NAV_KEY, id);
       else sessionStorage.removeItem(HOME_NAV_KEY);
     } catch {
-      /* sin sessionStorage: la subcarpeta no sobrevive a una recarga */
+      /* no sessionStorage: the subfolder does not survive a reload */
     }
   }
-  /** Tipo de vista efectivo: el modo minimalista siempre usa el tablero. */
+  /** Effective view type: minimal mode always uses the board. */
   const viewMode = () => (isMinimal() ? 'board' : state.prefs.view);
-  /** Carpeta (o vista) de inicio; si ya no existe, se usa «Todos los marcadores». */
+  /** Home folder (or view); if it no longer exists, "All bookmarks" is used. */
   const homeId = () => resolveSelection(state.prefs.homeFolder);
 
   function selectionTitle(id) {
@@ -1022,12 +1022,12 @@
     return n ? folderName(n) : '';
   }
 
-  /** Aplica el modo (clase en <html>, ver CSS) y guarda la copia rápida para theme-init.js. */
+  /** Applies the mode (class on <html>, see CSS) and stores the quick copy for theme-init.js. */
   function applyMinimal() {
     const on = isMinimal();
     const root = document.documentElement;
-    // Al entrar o salir se vuelve a la carpeta de inicio; al arrancar (minimalOn
-    // aún null) se conserva la subcarpeta guardada de esta pestaña.
+    // Entering or leaving goes back to the home folder; at startup (minimalOn
+    // still null) this tab's saved subfolder is kept.
     if (state.minimalOn !== null && on !== state.minimalOn) {
       setHomeNav(null);
       state.limit = PAGE_SIZE;
@@ -1047,17 +1047,17 @@
     try {
       localStorage.setItem('bd-minimal', state.prefs.minimal ? '1' : '0');
     } catch {
-      /* sin localStorage: solo afecta al primer pintado */
+      /* no localStorage: only affects the first paint */
     }
   }
 
-  // ----- Transición animada entre el panel y el modo minimalista -----
-  // View Transitions API: el navegador captura el estado anterior y el nuevo y
-  // anima la diferencia. Los paneles salen por su borde, las tarjetas vuelan a
-  // su nueva posición (escalonadas) y las que aparecen o desaparecen se funden.
-  // Sin la API, o con «reducir movimiento», el cambio es instantáneo.
+  // ----- Animated transition between the panel and minimal mode -----
+  // View Transitions API: the browser captures the old and new state and
+  // animates the difference. Panels slide out through their edge, cards fly to
+  // their new position (staggered) and those that appear or disappear fade.
+  // Without the API, or with "reduce motion", the change is instant.
 
-  /** Da un nombre de transición a cada tarjeta visible (hasta VT_MAX_CARDS). */
+  /** Gives a transition name to each visible card (up to VT_MAX_CARDS). */
   function nameTransitionCards() {
     const names = [];
     const used = new Set();
@@ -1069,7 +1069,7 @@
       if (!id || names.length >= VT_MAX_CARDS) continue;
       const r = card.getBoundingClientRect();
       if (!r.width || r.bottom < 0 || r.top > window.innerHeight) continue;
-      // El mismo id en una baldosa de carpeta y en una tarjeta del tablero: una se transforma en la otra.
+      // The same id on a folder tile and on a board card: one morphs into the other.
       const name = `bd-c-${id.replace(/[^A-Za-z0-9_-]/g, '_')}`;
       if (used.has(name)) continue;
       used.add(name);
@@ -1079,7 +1079,7 @@
     return names;
   }
 
-  /** Retrasos escalonados y animaciones de entrada y salida para cada tarjeta. */
+  /** Staggered delays and enter/exit animations for each card. */
   function writeTransitionStyle(before, after) {
     const had = new Set(before);
     const has = new Set(after);
@@ -1112,7 +1112,7 @@
       return;
     }
     const root = document.documentElement;
-    root.classList.add('vt-minimal'); // nombra paneles, cabecera y botón de salida (ver CSS)
+    root.classList.add('vt-minimal'); // names panels, header and exit button (see CSS)
     const before = nameTransitionCards();
     state.vtActive = true;
     const finish = () => {
@@ -1130,7 +1130,7 @@
     try {
       transition = document.startViewTransition(() => {
         update();
-        render(); // el estado nuevo tiene que estar en el DOM al terminar esta función
+        render(); // the new state must be in the DOM when this function ends
         writeTransitionStyle(before, nameTransitionCards());
       });
     } catch {
@@ -1138,14 +1138,14 @@
       update();
       return;
     }
-    transition.ready.catch(() => {}); // si se omite, el cambio ya está aplicado igualmente
+    transition.ready.catch(() => {}); // if it is skipped, the change is applied anyway
     transition.finished.finally(finish);
   }
 
   function enterMinimal() {
     closeMenu();
     if ($('#settings-dialog').open) $('#settings-dialog').close();
-    // Se entra mostrando la carpeta (o vista) en la que se estaba, no la de inicio.
+    // It enters showing the folder (or view) you were on, not the home folder.
     const from = state.ready ? state.selected : null;
     animateMinimalSwitch(() => {
       setPref('minimal', true);
@@ -1156,7 +1156,7 @@
   }
 
   function exitMinimal() {
-    // Al salir, el panel normal se queda en lo que se estaba viendo.
+    // On exit, the normal panel stays on what was being viewed.
     const at = state.ready ? minimalSelection() : null;
     animateMinimalSwitch(() => {
       if (state.forceHome) {
@@ -1175,7 +1175,7 @@
     });
   }
 
-  /** Casa de la cabecera: marca lo que se ve como página de inicio (o indica que ya lo es). */
+  /** Header house: marks what is shown as the home page (or says it already is). */
   function renderHomeSetBtn(view) {
     const btn = $('#home-set-btn');
     btn.hidden = view.kind === 'search';
@@ -1187,7 +1187,7 @@
     btn.setAttribute('aria-label', label);
   }
 
-  /** Lo que muestra ahora el panel (carpeta o vista), o null en una búsqueda. */
+  /** What the panel shows now (folder or view), or null during a search. */
   function currentShown() {
     if (isMinimal()) return minimalSelection();
     return state.query ? null : state.selected;
@@ -1200,7 +1200,7 @@
     else setHomeFolder(id);
   }
 
-  /** Menú contextual de las vistas de la barra lateral (Todos, Destacados, Recientes, Tira, Mosaico). */
+  /** Context menu of the sidebar views (All, Starred, Recent, Strip, Masonry). */
   function viewMenu(id) {
     const kind = collectionOfView(id);
     return [
@@ -1215,7 +1215,7 @@
     toast(t('toast.homeSet', { name: selectionTitle(id) }));
   }
 
-  /** Lista de la carpeta de inicio en Ajustes: vistas y todas las carpetas. */
+  /** Home folder list in Settings: views and every folder. */
   function fillHomeSelect() {
     const select = $('#opt-home');
     fillFolderSelect(select, homeId());
@@ -1234,7 +1234,7 @@
     }
   }
 
-  /** Barra «Volver a …» cuando se abre una subcarpeta dentro del modo minimalista. */
+  /** "Back to …" bar when a subfolder is opened inside minimal mode. */
   function renderHomeBar(view) {
     const bar = $('#home-bar');
     const away = isMinimal() && view.kind !== 'search' && minimalSelection() !== homeId();
@@ -1268,7 +1268,7 @@
     $('#opt-subfolders').checked = state.prefs.includeSubfolders;
     $('#opt-favicons').checked = state.prefs.showFavicons;
     $('#opt-tab-folder').checked = state.prefs.tabTitleFolder;
-    // No se toca el campo mientras se escribe en él (se perderían los espacios finales).
+    // The field is not touched while typing in it (trailing spaces would be lost).
     const tabTitleInput = $('#opt-tab-title');
     if (document.activeElement !== tabTitleInput) tabTitleInput.value = state.prefs.tabTitle;
     $('#opt-stripe').checked = state.prefs.stripe;
@@ -1278,13 +1278,13 @@
       radio.checked = radio.value === state.prefs.contentWidth;
     for (const radio of form.querySelectorAll('input[name="stripe-color"]'))
       radio.checked = radio.value === state.prefs.stripeColor;
-    // «Ninguno» (0) equivale al interruptor apagado; el grosor elegido se conserva.
+    // "None" (0) is the switch turned off; the chosen thickness is kept.
     const width = state.prefs.stripe ? state.prefs.stripeWidth : 0;
     for (const radio of form.querySelectorAll('input[name="stripe-width"]'))
       radio.checked = Number(radio.value) === width;
   }
 
-  /** Grosor de la franja: 0 («Ninguno») la oculta; cualquier otro la muestra con ese grosor. */
+  /** Stripe thickness: 0 ("None") hides it; any other value shows it with that thickness. */
   function setStripeWidth(width) {
     if (width === 0) {
       setPref('stripe', false);
@@ -1298,7 +1298,7 @@
     syncControls();
   }
 
-  /** Muestras de color de Ajustes → Apariencia. Los textos se traducen con translateStatic. */
+  /** Color swatches in Settings → Appearance. Texts are translated with translateStatic. */
   function buildSwatches(container, name, colors) {
     container.replaceChildren(
       ...colors.map((c) => {
@@ -1319,7 +1319,7 @@
     );
   }
 
-  /** Pestañas de Ajustes (patrón ARIA tabs: flechas, Inicio y Fin). */
+  /** Settings tabs (ARIA tabs pattern: arrows, Home and End). */
   function showSettingsTab(name, focus = false) {
     const tab = SETTINGS_TABS.includes(name) ? name : SETTINGS_TABS[0];
     state.settingsTab = tab;
@@ -1352,7 +1352,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Selección, búsqueda y orden
+  // Selection, search and sort
   // ---------------------------------------------------------------------------
 
   function resolveSelection(id) {
@@ -1386,7 +1386,7 @@
     clearSelection();
     const target = resolveSelection(id);
     if (isMinimal()) {
-      // Dentro del modo minimalista se navega sin tocar la carpeta del panel normal.
+      // Inside minimal mode, navigation does not touch the normal panel's folder.
       setHomeNav(target !== homeId() && isShowable(target) ? target : null);
       state.limit = PAGE_SIZE;
       renderMain();
@@ -1454,11 +1454,11 @@
       case 'date-asc':
         return list.toSorted((a, b) => a.dateAdded - b.dateAdded);
       default:
-        return list; // orden original de Firefox
+        return list; // Firefox's original order
     }
   }
 
-  /** Resalta los términos buscados sin usar HTML (nodos de texto + <mark>). */
+  /** Highlights the search terms without using HTML (text nodes + <mark>). */
   function highlight(text) {
     const terms = state.terms;
     if (!terms.length || !text) return document.createTextNode(text);
@@ -1537,7 +1537,7 @@
     }
 
     const tree = $('#tree');
-    // En una colección (tira o mosaico), el tipo; si no, false.
+    // In a collection (strip or masonry), its kind; otherwise false.
     const picking = pickingCollection();
     state.treePicking = picking || false;
     tree.classList.toggle('is-picking', !!picking);
@@ -1555,7 +1555,7 @@
     for (const id of root?.children || []) {
       const f = get(id);
       if (!isFolder(f)) continue;
-      if (id === MOBILE_ID && f.children.length === 0) continue; // oculta "móvil" si está vacía
+      if (id === MOBILE_ID && f.children.length === 0) continue; // hides "mobile" if it is empty
       frag.append(treeItem(f, 0, counts));
     }
     tree.replaceChildren(frag);
@@ -1632,7 +1632,7 @@
   }
 
   function updateSidebarSelection() {
-    // Entrar o salir de una colección (o pasar de una a otra) cambia el árbol (casillas de selección).
+    // Entering or leaving a collection (or switching between them) changes the tree (checkboxes).
     if (state.ready && state.treePicking !== (pickingCollection() || false)) {
       renderSidebar();
       return;
@@ -1674,7 +1674,7 @@
     saveExpanded();
   }
 
-  // ----- Contenido principal -----
+  // ----- Main content -----
 
   function computeView() {
     const sel = isMinimal() ? minimalSelection() : state.selected;
@@ -1752,8 +1752,8 @@
     const folders = children.filter(isFolder);
     const direct = children.filter(isBookmark);
     const items = sortNodes(state.prefs.includeSubfolders ? collectBookmarks(folder.id) : direct, bookmarkTitle);
-    // Separadores de Firefox: solo en la vista de lista, con el orden original
-    // y sin mezclar subcarpetas (fuera de ese contexto no tienen sentido).
+    // Firefox separators: only in the list view, in the original order
+    // and without mixing subfolders (outside that context they make no sense).
     const showSeparators = viewMode() === 'list' && state.prefs.sort === 'manual' && !state.prefs.includeSubfolders;
     return {
       kind: 'folder',
@@ -1769,7 +1769,7 @@
     };
   }
 
-  /** Marcadores directos con sus separadores (sin separadores al principio, al final ni seguidos). */
+  /** Direct bookmarks with their separators (no separators at the start, at the end or in a row). */
   function withSeparators(children, keep = isBookmark) {
     const rows = [];
     for (const c of children) {
@@ -1856,14 +1856,14 @@
     renderHeader(view);
 
     $('#content').dataset.dropId = view.kind === 'folder' ? view.folder.id : '';
-    // Reordenar arrastrando solo tiene sentido si se ve el orden real de Firefox.
+    // Reordering by dragging only makes sense when Firefox's real order is shown.
     state.reorderable = (view.kind === 'folder' || isCollection(view.kind)) && state.prefs.sort === 'manual';
     state.viewFolderId = view.kind === 'folder' ? view.folder.id : null;
     state.viewItemIds = view.items.map((n) => n.id);
     state.viewKind = view.kind;
 
-    // Las colecciones siempre usan las tarjetas del tablero: la tira en una sola fila
-    // y el mosaico en columnas que se rellenan por la más corta.
+    // Collections always use the board cards: the strip in a single row
+    // and the masonry in columns filled shortest-first.
     const collection = isCollection(view.kind);
     const strip = view.kind === 'strip';
     const masonry = view.kind === 'masonry';
@@ -1873,7 +1873,7 @@
     renderHomeBar(view);
     renderStripProfiles(view.kind);
 
-    // Carpetas (en el tablero cada carpeta es una tarjeta propia)
+    // Folders (on the board each folder is its own card)
     const folderGrid = $('#folder-grid');
     $('#folders-section').hidden = board || view.folders.length === 0;
     $('#folders-count').textContent = numberFmt.format(view.folders.length);
@@ -1896,7 +1896,7 @@
       $('#bookmarks-count').textContent = numberFmt.format(view.items.length);
       state.cardEls.clear();
       const seen = new Set();
-      // Cada tarjeta de la tira tiene su propio scroll vertical: se conserva al repintar.
+      // Each strip card has its own vertical scroll: it is kept on repaint.
       const scrolls = new Map();
       if (strip) {
         for (const card of cards.querySelectorAll(':scope > .board-card')) {
@@ -1905,7 +1905,7 @@
         }
       }
       const cardEls = shown.map((s) => boardCard(s, view, seen));
-      // Al final de la colección, un hueco para añadir (o soltar) carpetas.
+      // At the end of the collection, a slot to add (or drop) folders.
       if (collection && shown.length === sections.length) cardEls.push(stripAddTile());
       if (masonry) layoutMasonry(cards, cardEls);
       else cards.replaceChildren(...cardEls);
@@ -1917,7 +1917,7 @@
       for (const id of state.rowEls.keys()) if (!seen.has(id)) state.rowEls.delete(id);
       remaining = sections.length - shown.length;
     } else {
-      // Marcadores (y separadores, si la vista los incluye)
+      // Bookmarks (and separators, if the view includes them)
       const rows = view.rows || view.items;
       const visible = rows.slice(0, state.limit);
       section.hidden = view.items.length === 0;
@@ -1928,7 +1928,7 @@
       remaining = view.items.length - visible.filter(isBookmark).length;
     }
 
-    // Paginación incremental
+    // Incremental pagination
     const more = $('#load-more');
     loadMoreObserver.unobserve(more);
     more.hidden = remaining <= 0;
@@ -1937,11 +1937,11 @@
       loadMoreObserver.observe(more);
     }
 
-    // Animación al cambiar de vista
+    // Animation when switching views
     const viewKey = `${view.key}|${viewMode()}`;
     if (viewKey !== state.lastViewKey) {
       state.lastViewKey = viewKey;
-      // Durante la transición animada las tarjetas ya se mueven solas.
+      // During the animated transition the cards already move on their own.
       if (!state.vtActive) {
         animateEntering(folderGrid);
         animateEntering(cards);
@@ -1953,9 +1953,9 @@
     state.newIds.clear();
   }
 
-  // ----- Vista de tablero: una tarjeta por carpeta con sus enlaces debajo -----
+  // ----- Board view: one card per folder with its links below -----
 
-  /** Filas de una carpeta: marcadores directos (con separadores si el orden es el original). */
+  /** Rows of a folder: direct bookmarks (with separators if the order is the original one). */
   function boardRowsOf(folder) {
     const children = folder.children.map(get);
     if (state.prefs.sort === 'manual') return withSeparators(children);
@@ -1963,8 +1963,8 @@
   }
 
   /**
-   * Subcarpetas de la tira. En orden manual van en el orden de Firefox y con los
-   * separadores que hay entre ellas; si no, por nombre y sin separadores.
+   * Strip subfolders. In manual order they follow Firefox's order, with the
+   * separators between them; otherwise by name and without separators.
    */
   function stripSubsOf(folder) {
     const children = folder.children.map(get);
@@ -1990,14 +1990,14 @@
         sections.push({
           folder: f,
           rows: boardRowsOf(f),
-          // Las sub-subcarpetas se muestran como accesos dentro de la tarjeta.
+          // Sub-subfolders are shown as shortcuts inside the card.
           subfolders: state.prefs.includeSubfolders ? [] : f.children.map(get).filter(isFolder),
         });
       }
       return sections;
     }
 
-    // Todos, destacados, recientes y búsqueda: los marcadores agrupados por carpeta.
+    // All, starred, recent and search: bookmarks grouped by folder.
     const byParent = new Map();
     for (const n of view.items) {
       if (!byParent.has(n.parentId)) byParent.set(n.parentId, []);
@@ -2016,7 +2016,7 @@
     return sections;
   }
 
-  /** Enlace de un marcador: abre http(s); el resto copia la URL (Firefox no deja abrirlos). */
+  /** Bookmark link: opens http(s); anything else copies the URL (Firefox does not allow opening them). */
   function bookmarkLink(n, className, title) {
     const openable = isOpenable(n.url);
     const link = el(
@@ -2052,7 +2052,7 @@
     );
   }
 
-  /** Fila reutilizable por id (como las tarjetas): un cambio no recarga los favicons. */
+  /** Row reusable by id (like the cards): a change does not reload the favicons. */
   function boardRowEl(n) {
     if (isSeparator(n))
       return paintSeparator(
@@ -2111,7 +2111,7 @@
     const collapsed = view.kind !== 'search' && state.boardCollapsed.has(f.id);
     const showAll = state.boardShowAll.has(f.id);
 
-    // Recorta a BOARD_ROWS enlaces (sin dejar un separador colgando al final).
+    // Trims to BOARD_ROWS links (without leaving a separator dangling at the end).
     const rows = [];
     let count = 0;
     for (const row of s.rows) {
@@ -2126,11 +2126,11 @@
 
     const name = folderName(f);
     const path = s.showPath ? pathText(f.id) : '';
-    // La cabecera arrastra la carpeta entera (para reordenarla o moverla a otra).
-    // En las colecciones también las carpetas raíz: ahí solo se cambia su sitio en ella.
+    // The header drags the whole folder (to reorder it or move it into another).
+    // In collections, root folders too: there only their place in the collection changes.
     const collection = isCollection(view.kind) ? view.kind : null;
     const movable = !isBuiltin(f.id) || !!collection;
-    // En una colección, cada tarjeta con subcarpetas tiene su «Expandir / Contraer todo».
+    // In a collection, each card with subfolders has its own "Expand / Collapse all".
     let expandAll = null;
     if (collection && stripSubfolderIds([f]).length) {
       expandAll = el(
@@ -2252,20 +2252,20 @@
     return card;
   }
 
-  // ----- Tira: subcarpetas desplegables dentro de cada tarjeta -----
-  // En vez de accesos sueltos, las subcarpetas forman un árbol: al desplegar una
-  // se ven sus enlaces (y sus propias subcarpetas) sin salir de la tira.
+  // ----- Strip: expandable subfolders inside each card -----
+  // Instead of loose shortcuts, the subfolders form a tree: expanding one
+  // shows its links (and its own subfolders) without leaving the strip.
 
-  // Subcarpetas desplegadas de todas las colecciones (stripOpen, masonryOpen…).
+  // Expanded subfolders of every collection (stripOpen, masonryOpen…).
   const saveStripOpen = debounce(
     () => savePrefs(Object.fromEntries(COLLECTION_KINDS.map((kind) => [`${kind}Open`, [...state[`${kind}Open`]]]))),
     300,
   );
-  /** Colección a la vista (o la tira, si no hay ninguna): la de los botones y gestos sin tipo. */
+  /** Collection being viewed (or the strip, if none): the one for kind-less buttons and gestures. */
   const viewCol = () => collectionOfView(currentShown()) || 'strip';
   const openSet = (kind) => state[`${kind}Open`];
 
-  /** Recorta a BOARD_ROWS enlaces (sin dejar un separador colgando al final). */
+  /** Trims to BOARD_ROWS links (without leaving a separator dangling at the end). */
   function trimRows(all, showAll) {
     const rows = [];
     let count = 0;
@@ -2369,7 +2369,7 @@
     return li;
   }
 
-  /** Despliega o pliega una subcarpeta de la colección (y repinta solo esa rama). */
+  /** Expands or collapses a subfolder of the collection (and repaints only that branch). */
   function toggleStripSub(id, li, kind = viewCol()) {
     const open = openSet(kind);
     if (open.has(id)) open.delete(id);
@@ -2380,7 +2380,7 @@
     renderStripExpandBtn();
   }
 
-  /** Todas las subcarpetas (a cualquier profundidad) de las carpetas `roots`. */
+  /** Every subfolder (at any depth) of the `roots` folders. */
   function stripSubfolderIds(roots) {
     const ids = [];
     const walk = (folder) => {
@@ -2394,7 +2394,7 @@
     return ids;
   }
 
-  /** ¿Está todo a la vista? Tarjetas sin plegar y cada subcarpeta desplegada. */
+  /** Is everything visible? Cards not collapsed and every subfolder expanded. */
   function stripAllExpanded(kind = viewCol()) {
     const cards = stripFolderNodes(kind);
     if (!cards.length) return false;
@@ -2403,8 +2403,8 @@
   }
 
   /**
-   * «Expandir todo»: abre las tarjetas plegadas y despliega todas sus subcarpetas.
-   * «Contraer todo»: pliega las subcarpetas (las tarjetas siguen abiertas).
+   * "Expand all": opens the collapsed cards and expands all their subfolders.
+   * "Collapse all": folds the subfolders (the cards stay open).
    */
   function toggleStripExpandAll(kind = viewCol()) {
     const cards = stripFolderNodes(kind);
@@ -2421,7 +2421,7 @@
     renderMain();
   }
 
-  /** ¿Está toda la tarjeta `id` de la colección a la vista? Abierta y con cada subcarpeta desplegada. */
+  /** Is the whole card `id` of the collection visible? Open and with every subfolder expanded. */
   function stripCardExpanded(id, kind = viewCol()) {
     const f = get(id);
     if (!isFolder(f) || state.boardCollapsed.has(id)) return false;
@@ -2431,8 +2431,8 @@
   }
 
   /**
-   * «Expandir / Contraer todo» de una sola columna de la tira: lo mismo que el
-   * botón general, pero solo con esa tarjeta y sus subcarpetas.
+   * "Expand / Collapse all" for a single strip column: the same as the
+   * general button, but only with that card and its subfolders.
    */
   function toggleStripCardExpand(id, kind = viewCol()) {
     const f = get(id);
@@ -2449,7 +2449,7 @@
     renderMain();
   }
 
-  /** Icono, título y estado del botón «Expandir / Contraer todo» de una tarjeta. */
+  /** Icon, title and state of a card's "Expand / Collapse all" button. */
   function paintStripCardExpand(btn, all, kind = viewCol()) {
     const title = t(all ? `${kind}.cardCollapseAllTitle` : `${kind}.cardExpandAllTitle`);
     btn.title = title;
@@ -2459,15 +2459,15 @@
   }
 
   function renderStripExpandBtn(kind = state.viewKind) {
-    // Los botones de cada columna siguen a los cambios hechos a mano (flechas, plegar).
+    // Each column's buttons follow manual changes (arrows, collapsing).
     const collection = isCollection(kind) ? kind : null;
     if (collection) {
       for (const btn of document.querySelectorAll('.strip-card-expand')) {
         paintStripCardExpand(btn, stripCardExpanded(btn.dataset.target, collection), collection);
       }
     }
-    // El general: en la cabecera y su copia en la barra de perfiles (la única a la
-    // vista en el modo minimalista, que oculta la cabecera).
+    // The general one: in the header and its copy in the profiles bar (the only one
+    // visible in minimal mode, which hides the header).
     const show = !!collection && stripFolderNodes(collection).length > 0;
     const all = show && stripAllExpanded(collection);
     const title = show ? t(all ? `${collection}.collapseAllTitle` : `${collection}.expandAllTitle`) : '';
@@ -2485,14 +2485,14 @@
   }
 
   const saveBoardCollapsed = debounce(() => savePrefs({ boardCollapsed: [...state.boardCollapsed] }), 300);
-  // Tarjetas con «Mostrar N más» desplegado: se recuerda entre pestañas y sesiones.
+  // Cards with "Show N more" expanded: remembered across tabs and sessions.
   const saveBoardShowAll = debounce(() => savePrefs({ boardShowAll: [...state.boardShowAll] }), 300);
 
   function toggleBoardCollapsed(id, card) {
     const collapse = !state.boardCollapsed.has(id);
     if (collapse) state.boardCollapsed.add(id);
     else state.boardCollapsed.delete(id);
-    // Se cambia el DOM directamente para que la animación se vea.
+    // The DOM is changed directly so the animation shows.
     card?.classList.toggle('is-collapsed', collapse);
     const btn = card?.querySelector('.board-toggle');
     if (btn) {
@@ -2505,10 +2505,10 @@
     renderStripExpandBtn();
   }
 
-  // ----- Colecciones (tira y mosaico): carpetas elegidas -----
-  // Todo lo de aquí abajo recibe el tipo de colección (`kind`): 'strip' o 'masonry'.
+  // ----- Collections (strip and masonry): chosen folders -----
+  // Everything below takes the collection kind (`kind`): 'strip' or 'masonry'.
 
-  /** Ids elegidos de la colección (pueden quedar carpetas borradas). */
+  /** Chosen ids of the collection (deleted folders may remain). */
   const colFolders = (kind) => state[`${kind}Folders`];
   const colProfiles = (kind) => state[`${kind}Profiles`];
   const colProfile = (kind) => state[`${kind}Profile`];
@@ -2521,7 +2521,7 @@
     });
   const inStrip = (id, kind = 'strip') => colFolders(kind).includes(id);
 
-  /** Carpetas de la colección que aún existen, en su orden. */
+  /** Folders of the collection that still exist, in order. */
   function stripFolderNodes(kind = 'strip') {
     return colFolders(kind)
       .map(get)
@@ -2534,7 +2534,7 @@
     scheduleRender();
   }
 
-  // ----- Perfiles de la tira: varias selecciones de carpetas, una activa -----
+  // ----- Strip profiles: several folder selections, one active -----
 
   const PROFILE_NAME_MAX = 40;
   const cleanIds = (list) => [...new Set((Array.isArray(list) ? list : []).filter((x) => typeof x === 'string'))];
@@ -2553,9 +2553,9 @@
   }
 
   /**
-   * Aplica perfiles y perfil activo guardados. Siempre queda al menos uno (el primero
-   * se crea a partir de la tira de antes de que existieran los perfiles), y si llega
-   * stripFolders (otra pestaña, una copia antigua) son las carpetas del activo.
+   * Applies saved profiles and active profile. At least one always remains (the first
+   * is created from the strip as it was before profiles existed), and if
+   * stripFolders arrives (another tab, an old backup) it holds the active one's folders.
    */
   function applyStripProfiles(p, kind = 'strip') {
     const P = `${kind}Profiles`;
@@ -2577,7 +2577,7 @@
     colProfiles(kind).find((x) => x.id === colProfile(kind)) || colProfiles(kind)[0];
   const profileName = (pr) => pr?.name || t('strip.profileDefault');
 
-  /** Copia de los perfiles para guardar (el activo, con las carpetas de la colección). */
+  /** Copy of the profiles to save (the active one, with the collection's folders). */
   function serializeProfiles(kind = 'strip') {
     const active = colProfile(kind);
     return colProfiles(kind).map((pr) => ({
@@ -2588,14 +2588,14 @@
     }));
   }
 
-  /** Activa un perfil (sin guardar): su selección pasa a ser la de la colección. */
+  /** Activates a profile (without saving): its selection becomes the collection's. */
   function activateProfile(pr, kind) {
-    // Solo si el activo sigue en la lista (al eliminarlo ya no está).
+    // Only if the active one is still in the list (when deleting it, it is gone).
     const current = colProfiles(kind).find((x) => x.id === colProfile(kind));
     if (current) current.folders = [...colFolders(kind)];
     state[`${kind}Profile`] = pr.id;
     state[`${kind}Folders`] = [...pr.folders];
-    // Otra selección de carpetas: la tira empieza desde el principio.
+    // Another folder selection: the strip starts from the beginning.
     if (kind === 'strip') {
       if (momentum.raf) stopMomentum();
       if (wheelScroll.raf) stopWheelScroll();
@@ -2618,7 +2618,7 @@
 
   const newProfileId = () => `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
-  /** Perfil nuevo (vacío, o copia de `fromId`) justo después del de origen; queda activo. */
+  /** New profile (empty, or a copy of `fromId`) right after the source one; it becomes active. */
   function addStripProfile(fromId = null, kind = viewCol()) {
     const list = colProfiles(kind);
     const from = fromId ? list.find((x) => x.id === fromId) : null;
@@ -2640,7 +2640,7 @@
     const at = from ? list.indexOf(from) + 1 : list.length;
     list.splice(at, 0, pr);
     activateProfile(pr, kind);
-    // Se le pone nombre nada más crearlo.
+    // It gets named right after being created.
     state.profileRenaming = pr.id;
     commitProfiles(kind);
     return pr.id;
@@ -2651,7 +2651,7 @@
     const clean = String(name ?? '')
       .trim()
       .slice(0, PROFILE_NAME_MAX);
-    // Vacío: se queda como estaba.
+    // Empty: it stays as it was.
     if (!pr || !clean || clean === pr.name) return;
     pr.name = clean;
     commitProfiles(kind);
@@ -2745,13 +2745,13 @@
     renderStripProfiles();
   }
 
-  /** Barra de perfiles, sobre la colección a la vista (también en el modo minimalista). */
+  /** Profiles bar, above the collection being viewed (also in minimal mode). */
   function renderStripProfiles(kind = state.viewKind) {
     const bar = $('#strip-profiles');
     const show = isCollection(kind);
     bar.hidden = !show;
     if (!show) return;
-    // No se rehace mientras se escribe un nombre (un repintado se llevaría lo escrito).
+    // Not rebuilt while a name is being typed (a repaint would discard what was typed).
     const editing = bar.querySelector('.strip-profile-input');
     if (editing && editing.dataset.profileId === state.profileRenaming) return;
     const live = (ids) => ids.filter((id) => id !== state.rootId && isFolder(get(id))).length;
@@ -2789,8 +2789,8 @@
         icon(iconName),
       );
     const more = t('strip.profileMore', { name: profileName(activeProfile(kind)) });
-    // Expandir / contraer TODA la colección: en la cabecera ya hay un botón; aquí solo se
-    // ve en el modo minimalista (ver CSS). renderStripExpandBtn() pone icono y título.
+    // Expand / collapse the WHOLE collection: the header already has a button; this one is
+    // only visible in minimal mode (see CSS). renderStripExpandBtn() sets icon and title.
     const expand = tool('strip-expand-all', 'expand-all', t(`${kind}.expandAllTitle`));
     expand.classList.add('strip-expand-tool');
     bar.replaceChildren(
@@ -2870,14 +2870,14 @@
     );
   }
 
-  /** Coloca una carpeta en la posición `index` de la colección (sin contarla a ella). */
+  /** Puts a folder at position `index` of the collection (not counting itself). */
   function placeInStrip(id, index, kind = viewCol()) {
     const list = colFolders(kind).filter((x) => x !== id);
     list.splice(clamp(index, 0, list.length), 0, id);
     setStripFolders(list, kind);
   }
 
-  /** Hueco del final de la tira: abre el selector y acepta carpetas arrastradas. */
+  /** Slot at the end of the collection: opens the picker and accepts dragged folders. */
   function stripAddTile() {
     return el(
       'button',
@@ -2888,9 +2888,9 @@
   }
 
   /**
-   * Hueco de la colección para una carpeta arrastrada (desde ella o desde el árbol):
-   * en la tira, a la izquierda o a la derecha de la tarjeta bajo el puntero; en el
-   * mosaico, encima o debajo; o al final (el hueco de «Añadir»).
+   * Collection slot for a dragged folder (from the collection or from the tree):
+   * in the strip, to the left or right of the card under the pointer; in the
+   * masonry, above or below; or at the end (the "Add" slot).
    */
   function stripSlot(event) {
     const kind = state.viewKind;
@@ -2917,14 +2917,14 @@
     return { el: item, after, x, noop, folderId: id, index };
   }
 
-  // ----- Mosaico: columnas que se rellenan por la más corta -----
-  // A diferencia del tablero (columnas CSS, que se leen de arriba abajo), el orden
-  // va de izquierda a derecha: cada tarjeta entra en la columna que menos mide en
-  // ese momento. Al desplegar o plegar algo no se recoloca nada (las tarjetas no
-  // saltan de sitio bajo el puntero); sí al repintar la vista o al cambiar el
-  // número de columnas.
+  // ----- Masonry: columns filled shortest-first -----
+  // Unlike the board (CSS columns, read top to bottom), the order goes left
+  // to right: each card goes into the column that is shortest at that
+  // moment. Expanding or collapsing something does not move anything (cards do
+  // not jump under the pointer); repainting the view or changing the number of
+  // columns does.
 
-  /** Columnas que caben (con el máximo de Ajustes → Diseño, como el tablero). */
+  /** Columns that fit (with the maximum from Settings → Layout, like the board). */
   function masonryColumns(cards) {
     const max = state.prefs.boardColumns;
     const min = max === 'auto' ? MASONRY_MIN : 160;
@@ -2940,7 +2940,7 @@
     const heights = cols.map(() => 0);
     const sizes = cols.map(() => 0);
     for (const item of items) {
-      // La más corta; si miden lo mismo (o no hay medidas), la de menos tarjetas y la de la izquierda.
+      // The shortest; if they are equal (or there are no measurements), the one with fewer cards, then the leftmost.
       let best = 0;
       for (let i = 1; i < count; i++) {
         const diff = heights[i] - heights[best];
@@ -2952,7 +2952,7 @@
     }
   }
 
-  /** Al cambiar el ancho: si cambia el número de columnas, se recolocan las mismas tarjetas. */
+  /** When the width changes: if the number of columns changes, the same cards are re-laid out. */
   function relayoutMasonry() {
     const cards = $('#cards');
     if (!cards.classList.contains('is-masonry') || !state.masonryItems.length) return;
@@ -2960,11 +2960,11 @@
     if (String(count) !== cards.dataset.cols) layoutMasonry(cards, state.masonryItems, count);
   }
 
-  // ----- Elegir las carpetas de una colección en el árbol lateral -----
-  // Con la tira o el mosaico a la vista, el árbol entra en «modo selección»: cada
-  // carpeta lleva una casilla y un clic la añade o la quita (en vez de abrirla).
+  // ----- Choosing a collection's folders in the sidebar tree -----
+  // With the strip or the masonry in view, the tree enters "selection mode": each
+  // folder gets a checkbox and a click adds or removes it (instead of opening it).
 
-  /** Colección cuyas carpetas se marcan en el árbol ahora mismo (o null). */
+  /** Collection whose folders are being checked in the tree right now (or null). */
   const pickingCollection = () => (isMinimal() ? null : collectionOfView(currentShown()));
 
   function toggleStripPick(id, kind = pickingCollection() || 'strip') {
@@ -2973,11 +2973,11 @@
     setStripFolders(inStrip(id, kind) ? list.filter((x) => x !== id) : [...list, id], kind);
   }
 
-  /** «Elegir carpetas»: muestra el árbol (cajón en móvil) y señala dónde marcar. */
+  /** "Choose folders": shows the tree (drawer on mobile) and points out where to check. */
   function revealTreePicker(kind = viewCol()) {
     closeMenu();
     const view = COLLECTIONS[isCollection(kind) ? kind : 'strip'];
-    // El modo minimalista no tiene árbol: se sale de él (y se queda en la colección).
+    // Minimal mode has no tree: it is exited (staying on the collection).
     if (isMinimal()) {
       if (minimalSelection() !== view) selectView(view);
       exitMinimal();
@@ -2988,16 +2988,16 @@
     else if (!state.prefs.sidebarPanel) setPref('sidebarPanel', true);
     const hint = $('#tree-pick-hint');
     hint.classList.remove('is-flash');
-    void hint.offsetWidth; // reinicia la animación
+    void hint.offsetWidth; // restarts the animation
     hint.classList.add('is-flash');
     hint.scrollIntoView({ block: 'nearest' });
     $('#tree .tree-label')?.focus({ preventScroll: true });
   }
 
-  // ----- Desplazamiento de la tira (sin barra visible) -----
-  // La rueda la mueve en horizontal (con suavizado), el fondo se puede agarrar y
-  // arrastrar con el ratón (al soltarlo sigue con inercia y se va frenando), y al arrastrar una tarjeta o un marcador cerca de un
-  // borde la tira avanza sola. Unos degradados en los bordes indican que hay más.
+  // ----- Strip scrolling (no visible scrollbar) -----
+  // The wheel moves it horizontally (smoothed), the background can be grabbed and
+  // dragged with the mouse (on release it keeps going with momentum and slows down), and dragging a card or a bookmark near an
+  // edge makes the strip advance on its own. Gradients on the edges show there is more.
 
   const stripEl = () => {
     const cards = $('#cards');
@@ -3005,7 +3005,7 @@
   };
   const stripMax = (cards) => Math.max(0, cards.scrollWidth - cards.clientWidth);
 
-  /** Marca en qué lados queda contenido oculto (para los degradados del CSS). */
+  /** Marks which sides have hidden content (for the CSS gradients). */
   function updateStripEdges() {
     const cards = $('#cards');
     const on = cards.classList.contains('is-strip');
@@ -3013,8 +3013,8 @@
     cards.classList.toggle('has-more-left', on && cards.scrollLeft > 1);
     cards.classList.toggle('has-more-right', on && cards.scrollLeft < max - 1);
     $('#content').classList.toggle('can-pan', max > 0);
-    // Altura máxima de las tarjetas: lo que queda de pantalla bajo la cabecera
-    // (cada tarjeta se desplaza por dentro; la página no).
+    // Maximum card height: what is left of the screen below the header
+    // (each card scrolls on its own; the page does not).
     if (on) {
       const content = $('#content');
       const top = cards.getBoundingClientRect().top - content.getBoundingClientRect().top + content.scrollTop;
@@ -3022,18 +3022,18 @@
     }
   }
 
-  // Rueda: se acumula un destino y se llega a él poco a poco.
-  // Cada «gesto» de rueda (golpes separados por menos de WHEEL_LATCH ms) se queda
-  // en el eje con el que empezó: mientras la tira avanza de lado, las tarjetas con
-  // scroll propio que pasan bajo el puntero no lo roban. Y una tarjeta solo se
-  // desplaza en vertical si el puntero lleva un momento sobre ella (HOVER_SETTLE),
-  // no si solo está cruzándola de camino a otra columna.
+  // Wheel: a target accumulates and is reached little by little.
+  // Each wheel "gesture" (ticks less than WHEEL_LATCH ms apart) stays
+  // on the axis it started with: while the strip moves sideways, cards with
+  // their own scroll passing under the pointer do not steal it. And a card only
+  // scrolls vertically if the pointer has rested on it for a moment (HOVER_SETTLE),
+  // not if it is just crossing it on the way to another column.
   const WHEEL_LATCH = 300;
   const HOVER_SETTLE = 150;
   const wheelScroll = { target: 0, raf: 0, axis: null, at: 0 };
   const stripHover = { el: null, since: 0 };
 
-  /** Tarjeta (su parte con scroll) bajo el puntero, y desde cuándo. */
+  /** Card (its scrollable part) under the pointer, and since when. */
   function trackStripHover(event) {
     const inner = event.target.closest?.('.board-inner') || null;
     if (inner === stripHover.el) return;
@@ -3044,15 +3044,15 @@
   function stripWheel(event) {
     const cards = stripEl();
     if (!cards || event.ctrlKey || event.target.closest?.('#view-head, #home-bar, #strip-profiles')) return;
-    // El desplazamiento horizontal del touchpad (o Mayús+rueda) ya lo hace el navegador.
+    // Horizontal touchpad scrolling (or Shift+wheel) is already handled by the browser.
     if (event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
     const now = performance.now();
     const latched = now - wheelScroll.at < WHEEL_LATCH ? wheelScroll.axis : null;
     wheelScroll.at = now;
-    // Con la rueda, la tira se mueve bajo el puntero quieto: también cuenta como llegar a otra tarjeta.
+    // With the wheel, the strip moves under a still pointer: that also counts as reaching another card.
     trackStripHover(event);
-    // Sobre una tarjeta con más contenido del que cabe, la rueda la desplaza a ella
-    // (salvo en mitad de un gesto horizontal, o si el puntero solo está de paso).
+    // Over a card with more content than fits, the wheel scrolls the card
+    // (except in the middle of a horizontal gesture, or if the pointer is just passing by).
     const inner = stripHover.el;
     const scrollable = inner && inner.scrollHeight > inner.clientHeight + 1;
     if (scrollable && (latched === 'y' || (latched !== 'x' && now - stripHover.since >= HOVER_SETTLE))) {
@@ -3065,8 +3065,8 @@
     const unit = event.deltaMode === 1 ? 40 : event.deltaMode === 2 ? cards.clientWidth : 1;
     const delta = event.deltaY * unit;
     const from = wheelScroll.raf ? wheelScroll.target : cards.scrollLeft;
-    // En el extremo, la rueda vuelve a ser de la página (por si se desplaza en vertical);
-    // si el gesto ya iba de lado, se queda ahí quieta (sin desplazar la tarjeta de debajo).
+    // At the end, the wheel goes back to the page (in case it scrolls vertically);
+    // if the gesture was already sideways, it stays still (without scrolling the card underneath).
     if ((delta < 0 && from <= 0) || (delta > 0 && from >= max - 1)) {
       if (latched === 'x') event.preventDefault();
       else wheelScroll.axis = null;
@@ -3098,7 +3098,7 @@
     wheelScroll.raf = 0;
   }
 
-  // Agarrar el fondo: lo que no es un enlace, un botón ni algo arrastrable.
+  // Grabbing the background: whatever is not a link, a button or something draggable.
   const PAN_IGNORE =
     'a, button, input, select, textarea, label, [draggable="true"], #view-head, #home-bar, #strip-profiles, #empty';
   let pan = null;
@@ -3106,7 +3106,7 @@
   function stripPointerDown(event) {
     const cards = stripEl();
     if (!cards || event.button !== 0 || event.pointerType !== 'mouse' || !stripMax(cards)) return;
-    // Un clic mientras la tira aún se desliza la detiene (y no abre lo que haya debajo).
+    // A click while the strip is still sliding stops it (and does not open what is underneath).
     if (stopMomentum() > MOMENTUM_GRAB) swallowNextClick();
     if (event.target.closest?.(PAN_IGNORE)) return;
     stopWheelScroll();
@@ -3130,14 +3130,14 @@
       try {
         $('#content').setPointerCapture(pan.id);
       } catch {
-        /* sin captura: el arrastre sigue mientras el puntero esté sobre el contenido */
+        /* no capture: dragging continues while the pointer is over the content */
       }
       document.documentElement.classList.add('is-panning');
       window.getSelection?.()?.removeAllRanges();
     }
     event.preventDefault();
     pan.cards.scrollLeft = pan.left - dx;
-    // Últimas posiciones, para saber a qué velocidad iba el ratón al soltar.
+    // Last positions, to know how fast the mouse was moving on release.
     const now = performance.now();
     pan.samples.push({ t: now, x: event.clientX });
     while (pan.samples.length > 2 && now - pan.samples[0].t > MOMENTUM_WINDOW) pan.samples.shift();
@@ -3149,7 +3149,7 @@
     pan = null;
     document.documentElement.classList.remove('is-panning');
     if (!moved) return;
-    // Que soltar tras arrastrar no cuente como clic (el clic llega justo después).
+    // So that releasing after dragging does not count as a click (the click arrives right after).
     swallowNextClick();
     if (event.type === 'pointerup') startMomentum(cards, releaseVelocity(samples));
   }
@@ -3163,26 +3163,26 @@
     setTimeout(() => window.removeEventListener('click', swallow, { capture: true }), 0);
   }
 
-  // Inercia al soltar: la tira sigue a la velocidad del gesto y se frena poco a poco.
-  const MOMENTUM_WINDOW = 100; // ms de movimiento que cuentan para la velocidad
-  const MOMENTUM_FRICTION = 0.95; // velocidad que se conserva cada 16 ms
-  const MOMENTUM_MIN = 0.02; // px/ms: por debajo, se para
-  const MOMENTUM_GRAB = 0.1; // px/ms: por encima, un clic solo la detiene
-  const MOMENTUM_MAX = 6; // px/ms: tope para un lanzamiento muy brusco
+  // Momentum on release: the strip keeps the gesture's speed and slows down gradually.
+  const MOMENTUM_WINDOW = 100; // ms of movement that count towards the speed
+  const MOMENTUM_FRICTION = 0.95; // speed kept every 16 ms
+  const MOMENTUM_MIN = 0.02; // px/ms: below this, it stops
+  const MOMENTUM_GRAB = 0.1; // px/ms: above this, a click only stops it
+  const MOMENTUM_MAX = 6; // px/ms: cap for a very abrupt fling
   const momentum = { v: 0, raf: 0 };
 
-  /** Velocidad del puntero (px/ms, positiva hacia la derecha) al soltar. */
+  /** Pointer speed (px/ms, positive to the right) on release. */
   function releaseVelocity(samples) {
     const last = samples.at(-1);
     const first = samples.find((s) => last.t - s.t <= MOMENTUM_WINDOW) || last;
-    // Si se paró antes de soltar, no hay lanzamiento.
+    // If it stopped before release, there is no fling.
     if (performance.now() - last.t > 60 || last.t - first.t < 8) return 0;
     return clamp((last.x - first.x) / (last.t - first.t), -MOMENTUM_MAX, MOMENTUM_MAX);
   }
 
   function startMomentum(cards, velocity) {
     stopMomentum();
-    // La tira va al revés que el ratón: arrastrar a la izquierda muestra lo de la derecha.
+    // The strip moves opposite to the mouse: dragging left reveals what is on the right.
     if (REDUCED_MOTION.matches || Math.abs(velocity) < MOMENTUM_MIN * 5) return;
     momentum.v = -velocity;
     let pos = cards.scrollLeft;
@@ -3205,7 +3205,7 @@
     momentum.raf = requestAnimationFrame(step);
   }
 
-  /** Detiene la inercia; devuelve la velocidad que llevaba (px/ms). */
+  /** Stops the momentum; returns the speed it had (px/ms). */
   function stopMomentum() {
     const v = momentum.raf ? Math.abs(momentum.v) : 0;
     cancelAnimationFrame(momentum.raf);
@@ -3214,7 +3214,7 @@
     return v;
   }
 
-  // Bordes durante un arrastre (drag & drop): cuanto más cerca, más rápido.
+  // Edges during a drag (drag & drop): the closer, the faster.
   const EDGE_ZONE = 90;
   const EDGE_SPEED = 22;
   const edgeScroll = { v: 0, at: 0, raf: 0 };
@@ -3237,7 +3237,7 @@
     stopWheelScroll();
     stopMomentum();
     const step = () => {
-      // dragover llega continuamente; si deja de llegar (fuera de la ventana), se para.
+      // dragover arrives continuously; if it stops arriving (outside the window), it stops.
       if (!edgeScroll.v || performance.now() - edgeScroll.at > 150 || !cards.classList.contains('is-strip')) {
         edgeScroll.raf = 0;
         return;
@@ -3264,7 +3264,7 @@
     content.addEventListener('pointercancel', stripPointerUp);
     $('#cards').addEventListener('scroll', updateStripEdges, { passive: true });
     window.addEventListener('resize', debounce(updateStripEdges, 100));
-    // El ancho del contenido también cambia al abrir o cerrar los paneles laterales.
+    // The content width also changes when the side panels open or close.
     if (typeof ResizeObserver === 'function') new ResizeObserver(debounce(relayoutMasonry, 60)).observe($('#cards'));
     else window.addEventListener('resize', debounce(relayoutMasonry, 100));
   }
@@ -3273,7 +3273,7 @@
     container.classList.remove('is-entering');
     void container.offsetWidth;
     let i = 0;
-    // En el mosaico se escalonan las tarjetas (en su orden), no las columnas.
+    // In the masonry the cards are staggered (in their order), not the columns.
     const masonry = container.classList.contains('is-masonry');
     for (const child of masonry ? state.masonryItems : container.children) {
       child.style.setProperty('--i', Math.min(i++, 24));
@@ -3364,7 +3364,7 @@
         link.rel = 'noopener noreferrer';
       }
     } else {
-      // place:, javascript:, about:, file:… Firefox no deja abrirlos desde extensiones.
+      // place:, javascript:, about:, file:… Firefox does not allow opening them from extensions.
       link.href = '#';
       link.dataset.action = 'open-blocked';
     }
@@ -3430,7 +3430,7 @@
     return [selectButton(title), faviconEl(n, title), main, meta, actions];
   }
 
-  /** Casilla para la selección múltiple (su estado lo pone syncSelection). */
+  /** Checkbox for multiple selection (its state is set by syncSelection). */
   function selectButton(title) {
     return el(
       'button',
@@ -3447,8 +3447,8 @@
   }
 
   /**
-   * Favicon: se pide /favicon.ico al propio sitio (nunca a servicios de terceros).
-   * Mientras carga o si falla, se muestra una inicial con color derivado del dominio.
+   * Favicon: /favicon.ico is requested from the site itself (never from third-party services).
+   * While loading or on failure, an initial is shown with a color derived from the domain.
    */
   function faviconEl(n, title) {
     const host = hostOf(n.url);
@@ -3600,7 +3600,7 @@
       return;
     }
     box.classList.toggle('is-error', error);
-    // replaceChildren() escribiría «null»: se filtran los que faltan.
+    // replaceChildren() would write "null": missing ones are filtered out.
     box.replaceChildren(
       ...[
         el('div', { class: 'empty-icon' }, icon(spec.icon)),
@@ -3633,7 +3633,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Acciones sobre marcadores (solo por acción explícita del usuario)
+  // Bookmark actions (only on an explicit user action)
   // ---------------------------------------------------------------------------
 
   function openUrl(url, newTab) {
@@ -3655,8 +3655,8 @@
   }
 
   /**
-   * Abre en pestañas nuevas (en segundo plano, a continuación de esta) los
-   * marcadores indicados. Pide confirmación si son muchos, como Firefox.
+   * Opens the given bookmarks in new tabs (in the background, right after this
+   * one). Asks for confirmation if there are many, like Firefox.
    */
   async function openAllInTabs(nodes, name) {
     const bookmarks = nodes.filter(isBookmark);
@@ -3685,7 +3685,7 @@
       const current = await api.tabs.getCurrent();
       if (current) where = { windowId: current.windowId, index: current.index + 1 };
     } catch {
-      /* sin pestaña actual: Firefox decide la posición */
+      /* no current tab: Firefox decides the position */
     }
 
     let opened = 0;
@@ -3694,7 +3694,7 @@
         const props = { url, active: false };
         if (where.windowId !== undefined)
           Object.assign(props, { windowId: where.windowId, index: where.index + opened });
-        // Una a una a propósito: así las pestañas quedan en el orden de los marcadores.
+        // One by one on purpose: that way the tabs end up in the bookmarks' order.
         // oxlint-disable-next-line no-await-in-loop
         await api.tabs.create(props);
         opened++;
@@ -3713,7 +3713,7 @@
     toast([tn('toast.openedTabs', opened), skipped ? tn('toast.skipped', skipped) : ''].filter(Boolean).join(' · '));
   }
 
-  /** Como Firefox: abrir una carpeta "en pestañas" abre solo sus marcadores directos. */
+  /** Like Firefox: opening a folder "in tabs" opens only its direct bookmarks. */
   const directBookmarks = (f) => f.children.map(get).filter(isBookmark);
 
   function openFolderInTabs(id) {
@@ -3770,7 +3770,7 @@
     await deleteNodes([n], done);
   }
 
-  /** Borra los marcadores seleccionados (con confirmación y opción de deshacer). */
+  /** Deletes the selected bookmarks (with confirmation and an undo option). */
   async function confirmDeleteMany(ids) {
     const nodes = ids.map(get).filter(isBookmark);
     if (!nodes.length) return;
@@ -3788,11 +3788,11 @@
     await deleteNodes(nodes, tn('toast.deletedMany', nodes.length));
   }
 
-  // ----- Deshacer -----
+  // ----- Undo -----
 
   const UNDO_TTL = 60_000;
 
-  /** Copia de un nodo y su contenido desde el modelo, con su posición: basta para recrearlo. */
+  /** Copy of a node and its content from the model, with its position: enough to recreate it. */
   function snapshotNode(id) {
     const n = get(id);
     const parent = get(n.parentId);
@@ -3806,7 +3806,7 @@
     return { ...copy(n), parentId: n.parentId, index: parent ? parent.children.indexOf(id) : -1 };
   }
 
-  /** Muestra el aviso con «Deshacer»; también vale Ctrl+Z mientras siga reciente. */
+  /** Shows the notice with "Undo"; Ctrl+Z also works while it is recent. */
   function offerUndo(message, run) {
     const entry = { run, at: Date.now() };
     state.undo = entry;
@@ -3840,7 +3840,7 @@
     if (removed.length) offerUndo(message, () => restoreSnapshots(removed));
   }
 
-  /** Vuelve a crear lo borrado en su sitio y pasa favoritos, grupos y ajustes a los ids nuevos. */
+  /** Recreates what was deleted in its place and moves favorites, groups and settings to the new ids. */
   async function restoreSnapshots(snaps) {
     const ids = new Map();
     const create = async (s, parentId, index) => {
@@ -3848,7 +3848,7 @@
       if (index != null) info.index = index;
       if (s.type === 'separator') info.type = 'separator';
       else {
-        // Sin URL, Firefox crea una carpeta.
+        // Without a URL, Firefox creates a folder.
         info.title = s.title;
         if (s.type === 'bookmark') info.url = s.url;
       }
@@ -3857,7 +3857,7 @@
       for (const child of s.children) await create(child, created.id, null);
     };
     try {
-      // En orden de posición, para que cada uno vuelva exactamente a su índice.
+      // In position order, so each one returns exactly to its index.
       for (const s of snaps.toSorted((a, b) => a.index - b.index)) await create(s, s.parentId, Math.max(0, s.index));
     } finally {
       remapRefs(ids);
@@ -3902,7 +3902,7 @@
     scheduleRender();
   }
 
-  /** Posiciones actuales de unos nodos, para devolverlos a su sitio al deshacer. */
+  /** Current positions of some nodes, to put them back in place on undo. */
   function positionsOf(ids) {
     return ids.map((id) => {
       const n = get(id);
@@ -3911,8 +3911,8 @@
   }
 
   /**
-   * Deja un nodo en la posición final `index` de `parentId`. Firefox interpreta así
-   * el índice; Chrome lo cuenta antes de quitarlo de su sitio y se corrige.
+   * Leaves a node at the final position `index` of `parentId`. Firefox interprets
+   * the index this way; Chrome counts it before removing it from its place, which is corrected.
    */
   async function placeAt(id, parentId, index) {
     const moved = await api.bookmarks.move(id, { parentId, index });
@@ -3921,7 +3921,7 @@
     }
   }
 
-  /** Mueve `ids` (en ese orden) a `parentId`, justo antes de `beforeId` o al final. */
+  /** Moves `ids` (in that order) into `parentId`, right before `beforeId` or at the end. */
   async function moveNodes(ids, parentId, beforeId = null) {
     for (const id of ids) {
       if (!beforeId) {
@@ -3936,13 +3936,13 @@
   }
 
   async function restorePositions(list) {
-    // En orden de posición: cada nodo vuelve a su índice sin descolocar a los anteriores.
+    // In position order: each node returns to its index without displacing the previous ones.
     for (const p of list.toSorted((a, b) => a.index - b.index)) {
       if (get(p.id) && isFolder(get(p.parentId))) await placeAt(p.id, p.parentId, p.index);
     }
   }
 
-  /** Mueve con aviso y «Deshacer». */
+  /** Moves with a notice and "Undo". */
   async function moveWithUndo(ids, parentId, beforeId = null) {
     const before = positionsOf(ids);
     const changesFolder = before.some((p) => p.parentId !== parentId);
@@ -3980,7 +3980,7 @@
     });
   }
 
-  // ----- Editor (crear / renombrar / mover) -----
+  // ----- Editor (create / rename / move) -----
 
   function fillFolderSelect(select, selectedId, excludeId) {
     const options = [];
@@ -4005,7 +4005,7 @@
     box.hidden = !message;
   }
 
-  /** Diálogo «Mover a…» para varios marcadores a la vez (solo la carpeta de destino). */
+  /** "Move to…" dialog for several bookmarks at once (only the destination folder). */
   function openMoveManyDialog(ids) {
     if (!state.ready || !ids.length) return;
     closeMenu();
@@ -4145,8 +4145,8 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Grupos locales (panel derecho). Solo guardan ids de marcadores en
-  // browser.storage.local: nunca crean, mueven ni borran marcadores de Firefox.
+  // Local groups (right panel). They only store bookmark ids in
+  // browser.storage.local: they never create, move or delete Firefox bookmarks.
   // ---------------------------------------------------------------------------
 
   function sanitizeGroups(raw) {
@@ -4168,7 +4168,7 @@
   }
 
   const getGroup = (gid) => (gid ? state.groups.find((g) => g.id === gid) || null : null);
-  // Los ids de marcadores borrados se conservan (como los destacados) por si se deshace el borrado.
+  // Ids of deleted bookmarks are kept (like starred ones) in case the deletion is undone.
   const groupBookmarks = (g) => g.items.map(get).filter(isBookmark);
   const serializeGroups = () =>
     state.groups.map((g) => ({ id: g.id, name: g.name, color: g.color, items: [...g.items], collapsed: g.collapsed }));
@@ -4196,7 +4196,7 @@
 
   const newGroupId = () => `g${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
-  /** Añade un marcador a un grupo; si viene arrastrado desde otro grupo, lo mueve. */
+  /** Adds a bookmark to a group; if it is dragged from another group, it moves it. */
   function addToGroup(gid, bookmarkId, fromGid = null) {
     const g = getGroup(gid);
     if (!g || !isBookmark(get(bookmarkId)) || fromGid === gid) return;
@@ -4226,7 +4226,7 @@
     const g = getGroup(gid);
     if (!g) return;
     g.collapsed = !g.collapsed;
-    syncGroupCollapsed(g); // sin recrear el DOM, para que se anime
+    syncGroupCollapsed(g); // without recreating the DOM, so it animates
     saveGroups({ rerender: false });
   }
 
@@ -4258,7 +4258,7 @@
     if (g) openAllInTabs(groupBookmarks(g), g.name);
   }
 
-  // ----- Diálogo de grupo (crear / editar) -----
+  // ----- Group dialog (create / edit) -----
 
   function setGroupError(message) {
     const box = $('#group-error');
@@ -4334,7 +4334,7 @@
     toast(t('toast.groupCreated', { name }));
   }
 
-  // ----- Panel: visibilidad -----
+  // ----- Panel: visibility -----
 
   const isGroupsOverlay = () => GROUPS_OVERLAY.matches;
 
@@ -4378,7 +4378,7 @@
 
   function renderGroups() {
     $('#groups-count').textContent = state.groups.length ? numberFmt.format(state.groups.length) : '';
-    // El estado contraído no forma parte de la firma: se aplica sin recrear el DOM.
+    // The collapsed state is not part of the signature: it is applied without recreating the DOM.
     const sig = [
       lang,
       state.prefs.showFavicons,
@@ -4509,7 +4509,7 @@
     btn.title = t(g.collapsed ? 'group.expand' : 'group.collapse');
   }
 
-  // ----- Panel: menús -----
+  // ----- Panel: menus -----
 
   function groupMenu(g) {
     const items = groupBookmarks(g);
@@ -4540,7 +4540,7 @@
     ];
   }
 
-  /** Submenú «Añadir a un grupo»: marca los grupos que ya lo contienen (clic = quitar). */
+  /** "Add to a group" submenu: marks the groups that already contain it (click = remove). */
   function openAddToGroupMenu(n, anchor) {
     if (!state.groups.length) {
       openGroupDialog({ addBookmarkId: n.id });
@@ -4563,7 +4563,7 @@
     );
   }
 
-  /** Añade varios marcadores a un grupo (los que ya estaban no se duplican). */
+  /** Adds several bookmarks to a group (those already there are not duplicated). */
   function addManyToGroup(gid, ids) {
     const g = getGroup(gid);
     if (!g) return;
@@ -4595,7 +4595,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Menú contextual
+  // Context menu
   // ---------------------------------------------------------------------------
 
   function bookmarkMenu(n) {
@@ -4626,12 +4626,12 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Copia de seguridad de los datos locales: grupos, colores de carpeta,
-  // destacados y ajustes. Los marcadores de Firefox no se incluyen ni se tocan.
+  // Backup of the local data: groups, folder colors, starred items and
+  // settings. Firefox bookmarks are neither included nor touched.
   // ---------------------------------------------------------------------------
 
-  // Identificador interno del formato: se conserva el del nombre anterior para
-  // que las copias ya exportadas se sigan pudiendo importar.
+  // Internal format identifier: the one from the previous name is kept so that
+  // already exported backups can still be imported.
   const BACKUP_FORMAT = 'bookmark-dashboard-backup';
   const BACKUP_VERSION = 1;
   const BACKUP_MAX_BYTES = 5 * 1024 * 1024;
@@ -4659,7 +4659,7 @@
   };
   const isPlainObject = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 
-  /** Ruta con los títulos originales: identifica una carpeta en otro perfil u ordenador. */
+  /** Path with the original titles: identifies a folder on another profile or computer. */
   function rawFolderPath(id) {
     const n = get(id);
     return n ? [...ancestors(id).map((a) => a.title), n.title].join('\u001f') : '';
@@ -4681,8 +4681,8 @@
       state.prefs.homeFolder,
     ]);
 
-    // URL y título de cada marcador referenciado (y ruta de cada carpeta), para
-    // poder reconocerlos aunque en otro perfil tengan otro id interno.
+    // URL and title of each referenced bookmark (and path of each folder), so
+    // they can be recognized even if they have another internal id on another profile.
     const bookmarks = {};
     for (const id of bookmarkIds) {
       const n = get(id);
@@ -4693,7 +4693,7 @@
       const f = get(id);
       if (isFolder(f)) folders[id] = { title: f.title, path: rawFolderPath(id) };
     }
-    // Los separadores no tienen título ni URL: se reconocen por su carpeta y su posición.
+    // Separators have no title or URL: they are recognized by their folder and position.
     const separators = {};
     for (const id of Object.keys(state.separatorColors)) {
       const ref = separatorRef(id);
@@ -4705,7 +4705,7 @@
     try {
       app = api.runtime?.getManifest?.().version || '';
     } catch {
-      /* sin versión */
+      /* no version */
     }
     return {
       format: BACKUP_FORMAT,
@@ -4727,8 +4727,8 @@
   }
 
   /**
-   * Selección, perfiles y subcarpetas desplegadas de cada colección, con sus claves
-   * de storage (stripFolders, stripProfiles, stripProfile, stripOpen, masonry…).
+   * Selection, profiles and expanded subfolders of each collection, with their
+   * storage keys (stripFolders, stripProfiles, stripProfile, stripOpen, masonry…).
    */
   function collectionPrefs(withActive = true) {
     const out = {};
@@ -4760,7 +4760,7 @@
     }
   }
 
-  /** Traduce ids de la copia a ids de este perfil (por id, URL o ruta de carpeta). */
+  /** Maps ids from the backup to ids in this profile (by id, URL or folder path). */
   function makeRemapper(refs) {
     const bookmarkRefs = isPlainObject(refs?.bookmarks) ? refs.bookmarks : {};
     const folderRefs = isPlainObject(refs?.folders) ? refs.folders : {};
@@ -4784,7 +4784,7 @@
     return {
       bookmark(id) {
         if (typeof id !== 'string') return null;
-        if (isBookmark(get(id))) return id; // mismo perfil o sincronizado: el id es el mismo
+        if (isBookmark(get(id))) return id; // same profile or synced: the id is the same
         const ref = Object.hasOwn(bookmarkRefs, id) ? bookmarkRefs[id] : null;
         if (!isPlainObject(ref) || typeof ref.url !== 'string') return null;
         buildIndex();
@@ -4852,7 +4852,7 @@
         if (Object.hasOwn(data.prefs, key) && valid(data.prefs[key])) prefs[key] = data.prefs[key];
       }
     }
-    // La carpeta de inicio es un id de carpeta (o una vista) que también se traduce.
+    // The home folder is a folder id (or a view) that is also mapped.
     const home =
       typeof data.homeFolder === 'string'
         ? isView(data.homeFolder)
@@ -4870,13 +4870,13 @@
         boardCollapsed: mapFolders(data.boardCollapsed),
         boardShowAll: mapFolders(data.boardShowAll),
         stripFolders: mapFolders(data.stripFolders),
-        // Copias anteriores a los perfiles: solo traen la tira (va al perfil activo).
+        // Backups older than profiles: they only bring the strip (it goes to the active profile).
         ...(Array.isArray(data.stripProfiles) && {
           stripProfiles: sanitizeProfiles(data.stripProfiles).map((pr) => ({ ...pr, folders: mapFolders(pr.folders) })),
           ...(typeof data.stripProfile === 'string' && { stripProfile: data.stripProfile }),
         }),
         stripOpen: mapFolders(data.stripOpen),
-        // El mosaico solo si la copia lo trae (una anterior a él no lo vacía).
+        // The masonry only if the backup has it (an older one does not empty it).
         ...((Array.isArray(data.masonryFolders) || Array.isArray(data.masonryProfiles)) && {
           masonryFolders: mapFolders(data.masonryFolders),
           ...(Array.isArray(data.masonryProfiles) && {
@@ -4943,7 +4943,7 @@
       toast(t('toast.importError', { error: err?.message || err }), 'error');
       return;
     }
-    // storage.onChanged también lo aplicaría; se aplica ya para no esperar.
+    // storage.onChanged would apply it too; it is applied now so as not to wait.
     applyPrefs(values);
     applyLanguage();
     applyTheme(true);
@@ -4960,9 +4960,9 @@
     toast([t('toast.imported'), missing ? tn('toast.importMissing', missing) : ''].filter(Boolean).join(' · '));
   }
 
-  // ----- Color propio de cada carpeta (solo en esta extensión; Firefox no guarda colores) -----
+  // ----- Own color per folder (only in this extension; Firefox does not store colors) -----
 
-  /** Aplica el color elegido para la carpeta `id` a un elemento (o quita el que tuviera). */
+  /** Applies the color chosen for folder `id` to an element (or removes the one it had). */
   function paintFolder(node, id) {
     const color = id ? state.folderColors[id] : undefined;
     node.classList.toggle('has-color', !!color);
@@ -4979,12 +4979,12 @@
   }
 
   /**
-   * Fila de colores para un menú (openMenu la pinta como puntos): un clic elige el
-   * color y el último punto («Predeterminado») lo quita.
+   * Color row for a menu (openMenu paints it as dots): a click picks the
+   * color and the last dot ("Default") removes it.
    */
   const colorRow = (current, set) => ({ colors: true, current: current || null, set });
 
-  /** Puntos de color dentro del menú: un clic elige y cierra. */
+  /** Color dots inside the menu: a click picks and closes. */
   function menuColors(item) {
     const swatch = (color, label) =>
       el(
@@ -5017,7 +5017,7 @@
     );
   }
 
-  // ----- Color de los separadores (también solo en esta extensión) -----
+  // ----- Separator color (also only in this extension) -----
 
   const isColorMap = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
   function cleanColors(map) {
@@ -5041,7 +5041,7 @@
     scheduleRender();
   }
 
-  /** Carpeta (por ruta) y posición entre sus separadores: lo que identifica a uno en otro perfil. */
+  /** Folder (by path) and position among its separators: what identifies one on another profile. */
   function separatorRef(id) {
     const n = get(id);
     const parent = isSeparator(n) ? get(n.parentId) : null;
@@ -5163,7 +5163,7 @@
   }
 
   function handleMenuKeys(event) {
-    // Cada opción es una parada; la fila de colores cuenta como una sola.
+    // Each option is a stop; the color row counts as a single one.
     const stops = [...$('#menu').querySelectorAll('.menu-item:not(:disabled), .menu-swatches')];
     const active = document.activeElement;
     const index = stops.findIndex((stop) => stop === active || stop.contains(active));
@@ -5193,10 +5193,10 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Arrastrar y soltar
+  // Drag and drop
   // ---------------------------------------------------------------------------
 
-  /** Se pueden meter todos en la carpeta y al menos uno cambia de sitio. */
+  /** All of them can go into the folder and at least one changes place. */
   function canMoveInto(nodeIds, targetId) {
     const target = get(targetId);
     if (!isFolder(target) || targetId === state.rootId || !nodeIds.length) return false;
@@ -5244,7 +5244,7 @@
     state.dropEl = target;
     if (!target) return;
     target.classList.add('is-drop-target');
-    // Al mantener un elemento sobre una carpeta contraída, se expande.
+    // Holding an item over a collapsed folder expands it.
     const li = target.classList.contains('tree-row') ? target.parentElement : null;
     if (li && li.querySelector(':scope > .tree-collapse') && !li.classList.contains('is-expanded')) {
       const id = target.dataset.id;
@@ -5280,8 +5280,8 @@
   const gridColumns = (node) => getComputedStyle(node).gridTemplateColumns.trim().split(/\s+/).length;
 
   /**
-   * Hueco para una carpeta arrastrada sobre un bloque de carpeta o una tarjeta del
-   * tablero: solo en los bordes (el centro sigue siendo «meter dentro»).
+   * Slot for a folder dragged over a folder tile or a board card: only
+   * at the edges (the center still means "put inside").
    */
   function folderEdge(item, event) {
     const rect = item.getBoundingClientRect();
@@ -5299,8 +5299,8 @@
   }
 
   /**
-   * Hueco de la sección principal donde caería lo arrastrado: antes o después del
-   * marcador (o carpeta) bajo el puntero, con su índice real en la carpeta.
+   * Slot in the main section where the dragged item would land: before or after the
+   * bookmark (or folder) under the pointer, with its real index in the folder.
    */
   function reorderSlot(event) {
     if (!state.reorderable || state.dragFromGroup) return null;
@@ -5316,7 +5316,7 @@
     } else {
       item = event.target.closest?.(REORDER_ITEMS);
       if (item) {
-        // Cuadrícula con varias columnas: en horizontal; lista y tablero: en vertical.
+        // Grid with several columns: horizontal; list and board: vertical.
         const cards = $('#cards');
         const x = item.classList.contains('card') && !cards.classList.contains('is-list') && gridColumns(cards) > 1;
         const rect = item.getBoundingClientRect();
@@ -5328,14 +5328,14 @@
     }
     if (!edge) return null;
     const node = get(item.dataset.id || item.dataset.folderId);
-    // La tarjeta de la propia carpeta abierta no se reordena (sus hermanas no se ven).
+    // The card of the open folder itself is not reordered (its siblings are not shown).
     if (!node || ids.includes(node.id) || node.id === state.viewFolderId) return null;
     const parent = get(node.parentId);
     if (!isFolder(parent) || parent.id === state.rootId) return null;
     if (folderDrag && (isBuiltin(ids[0]) || isInside(parent.id, ids[0]))) return null;
 
     const index = parent.children.indexOf(node.id) + (edge.after ? 1 : 0);
-    // Se coloca delante del primer hermano que no se mueve (o al final).
+    // It is placed before the first sibling that does not move (or at the end).
     const beforeId = parent.children.slice(index).find((id) => !ids.includes(id)) ?? null;
     let noop = false;
     if (ids.length === 1 && get(ids[0]).parentId === parent.id) {
@@ -5368,7 +5368,7 @@
     }
   }
 
-  /** Etiqueta «N marcadores» que acompaña al puntero al arrastrar varios. */
+  /** "N bookmarks" label that follows the pointer when dragging several. */
   function setDragCount(dt, n) {
     const badge = el('div', { class: 'drag-count', text: tn('drag.count', n) });
     document.body.append(badge);
@@ -5389,7 +5389,7 @@
       closeMenu();
       state.dragId = n.id;
       state.dragFromGroup = source.dataset.fromGroup || null;
-      // Arrastrar un marcador seleccionado arrastra toda la selección.
+      // Dragging a selected bookmark drags the whole selection.
       const many = !state.dragFromGroup && state.selection.has(n.id) && state.selection.size > 1;
       state.dragIds = many ? selectedIds() : [n.id];
       const dt = event.dataTransfer;
@@ -5402,7 +5402,7 @@
         }
       }
       if (n.url) {
-        // Permite también soltar el marcador en la barra de pestañas o en otra app.
+        // Also allows dropping the bookmark on the tab bar or in another app.
         dt.setData('text/x-moz-url', `${n.url}\n${bookmarkTitle(n)}`);
         dt.setData('text/uri-list', n.url);
         dt.setData('text/plain', n.url);
@@ -5415,11 +5415,11 @@
 
     document.addEventListener('dragend', endDrag);
 
-    // Soltar marcadores sobre un grupo (o sobre «Nuevo grupo») del panel derecho.
+    // Dropping bookmarks on a group (or on "New group") in the right panel.
     const draggedBookmarks = () =>
       state.dragIds.length && state.dragIds.every((id) => isBookmark(get(id))) ? state.dragIds : null;
-    // Un elemento arrastrado desde un grupo solo se mueve en Firefox si se suelta
-    // sobre una carpeta concreta, no sobre el fondo del contenido.
+    // An item dragged from a group is only moved in Firefox if it is dropped
+    // on a specific folder, not on the content background.
     const folderDropTarget = (event) => {
       const target = event.target.closest?.('[data-drop-id]');
       if (target?.id === 'content' && state.dragFromGroup) return null;
@@ -5440,7 +5440,7 @@
         setDropTarget(groupTarget);
         return;
       }
-      // Tira: una carpeta soltada junto a una tarjeta se coloca ahí (o se añade).
+      // Collection: a folder dropped next to a card is placed there (or added).
       const strip = stripSlot(event);
       if (strip) {
         event.preventDefault();
@@ -5449,7 +5449,7 @@
         setDropSlot(strip.noop ? null : strip);
         return;
       }
-      // Reordenar: antes o después de un marcador de la sección principal.
+      // Reorder: before or after a bookmark in the main section.
       const slot = reorderSlot(event);
       if (slot) {
         event.preventDefault();
@@ -5467,7 +5467,7 @@
       }
       event.preventDefault();
       event.dataTransfer.dropEffect = state.dragIds.length ? 'move' : 'copy';
-      // El contenedor principal no se resalta entero; solo carpetas concretas.
+      // The main container is not highlighted as a whole; only specific folders.
       setDropTarget(target.id === 'content' ? null : target);
     });
 
@@ -5503,7 +5503,7 @@
       if (slot) {
         event.preventDefault();
         const ids = state.dragIds;
-        // Los datos de un enlace externo solo se pueden leer durante el evento.
+        // External link data can only be read during the event.
         const link = ids.length ? null : extractDroppedLink(event.dataTransfer);
         endDrag();
         if (slot.noop) return;
@@ -5524,7 +5524,7 @@
       try {
         if (ids.length) {
           if (ids.length > 1) clearSelection();
-          // Los que ya están en esa carpeta se quedan donde están.
+          // Those already in that folder stay where they are.
           await moveWithUndo(
             ids.filter((id) => get(id).parentId !== targetId),
             targetId,
@@ -5546,13 +5546,13 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Selección múltiple: Ctrl/⌘+clic, Mayús+clic (rango) o la casilla de cada marcador
+  // Multiple selection: Ctrl/⌘+click, Shift+click (range) or each bookmark's checkbox
   // ---------------------------------------------------------------------------
 
   const SELECTABLE = '#cards .card[data-id], #cards .board-row[data-id]';
   const shownSelectable = () => [...document.querySelectorAll(SELECTABLE)].map((node) => node.dataset.id);
 
-  /** Seleccionados en el orden en que se ven (los que no están a la vista, al final). */
+  /** Selected ones in the order they are shown (those not in view, at the end). */
   function selectedIds() {
     const ordered = shownSelectable().filter((id) => state.selection.has(id));
     for (const id of state.viewItemIds) if (state.selection.has(id) && !ordered.includes(id)) ordered.push(id);
@@ -5582,7 +5582,7 @@
     syncSelection();
   }
 
-  /** Todos los marcadores de la vista, también los de páginas aún no cargadas. */
+  /** Every bookmark in the view, including those on pages not loaded yet. */
   function selectAll() {
     for (const id of [...shownSelectable(), ...state.viewItemIds]) if (isBookmark(get(id))) state.selection.add(id);
     syncSelection();
@@ -5609,8 +5609,8 @@
   }
 
   /**
-   * Clics en la sección principal (fase de captura): con Ctrl/⌘ o Mayús, en la
-   * casilla, o con una selección activa, el clic selecciona en vez de abrir.
+   * Clicks in the main section (capture phase): with Ctrl/⌘ or Shift, on the
+   * checkbox, or with an active selection, the click selects instead of opening.
    */
   function handleSelectClick(event) {
     const host = event.target.closest(SELECTABLE);
@@ -5618,7 +5618,7 @@
     const action = event.target.closest('[data-action]')?.dataset.action;
     const modifier = event.ctrlKey || event.metaKey || event.shiftKey;
     if (action !== 'select' && !modifier) {
-      // Con selección activa, los botones propios (destacar, ⋯, ruta) siguen funcionando.
+      // With an active selection, the item's own buttons (star, ⋯, path) still work.
       if (!state.selection.size || (action && action !== 'open-blocked')) return;
     }
     event.preventDefault();
@@ -5657,10 +5657,10 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Toasts y panel lateral móvil
+  // Toasts and mobile side panel
   // ---------------------------------------------------------------------------
 
-  /** Aviso breve; `action` ({ label, run }) añade un botón, p. ej. «Deshacer». */
+  /** Short notice; `action` ({ label, run }) adds a button, e.g. "Undo". */
   function toast(message, type = 'info', action = null) {
     const node = el(
       'div',
@@ -5699,7 +5699,7 @@
   const closeDrawer = () => document.body.classList.remove('nav-open');
 
   // ---------------------------------------------------------------------------
-  // Eventos de la interfaz
+  // UI events
   // ---------------------------------------------------------------------------
 
   const loadMoreObserver = new IntersectionObserver(
@@ -5734,13 +5734,13 @@
       }
     });
 
-    // Vistas especiales
+    // Special views
     $('#views').addEventListener('click', (event) => {
       const btn = event.target.closest('[data-view]');
       if (btn) selectView(btn.dataset.view);
     });
 
-    // Árbol de carpetas
+    // Folder tree
     const tree = $('#tree');
     tree.addEventListener('click', (event) => {
       const actionEl = event.target.closest('[data-action]');
@@ -5754,14 +5754,14 @@
     });
     tree.addEventListener('dblclick', (event) => {
       const row = event.target.closest('.tree-row');
-      if (state.treePicking) return; // dos clics ya marcan y desmarcan
+      if (state.treePicking) return; // two clicks already check and uncheck
       if (row && event.target.closest('.tree-label') && row.parentElement.querySelector(':scope > .tree-collapse')) {
         toggleExpanded(row.dataset.id);
       }
     });
     tree.addEventListener('keydown', handleTreeKeys);
 
-    // Clic central en una carpeta (árbol, bloque o ruta): abre sus marcadores en pestañas.
+    // Middle-click on a folder (tree, tile or path): opens its bookmarks in tabs.
     const FOLDER_TARGETS = '.tree-row, .folder-tile, .crumb, .board-head, .board-sub, .strip-sub-head';
     const folderIdFrom = (target) => {
       const host = target.closest?.(FOLDER_TARGETS);
@@ -5769,7 +5769,7 @@
     };
     const groupHeadFrom = (target) => target.closest?.('.group-head');
     document.addEventListener('mousedown', (event) => {
-      // Evita el desplazamiento automático del botón central sobre carpetas y grupos.
+      // Prevents middle-button autoscroll over folders and groups.
       if (event.button === 1 && (folderIdFrom(event.target) || groupHeadFrom(event.target))) event.preventDefault();
     });
     document.addEventListener('auxclick', (event) => {
@@ -5788,7 +5788,7 @@
       openFolderInTabs(id);
     });
 
-    // Menú contextual (clic derecho) en carpetas y tarjetas
+    // Context menu (right-click) on folders and cards
     document.addEventListener('contextmenu', (event) => {
       if (event.target.closest('input, textarea, select, dialog')) return;
       const groupHost = event.target.closest('.group-item, .group-head');
@@ -5821,11 +5821,11 @@
       openMenu(menuFor(n), { x: event.clientX, y: event.clientY });
     });
 
-    // Selección múltiple (antes que abrir enlaces o ejecutar acciones)
+    // Multiple selection (before opening links or running actions)
     $('#content').addEventListener('click', handleSelectClick, true);
     $('#selection-bar').addEventListener('click', handleSelectionBar);
 
-    // Contenido principal (delegación)
+    // Main content (delegation)
     $('#content').addEventListener('click', (event) => {
       const actionEl = event.target.closest('[data-action]');
       if (!actionEl) return;
@@ -5866,7 +5866,7 @@
         case 'strip-sub': {
           const id = actionEl.dataset.target;
           toggleStripSub(id, actionEl.closest('.strip-sub'));
-          // La rama se repinta: el foco vuelve a su botón (para seguir con el teclado).
+          // The branch is repainted: focus returns to its button (to keep going with the keyboard).
           $(`.strip-sub[data-folder-id="${CSS.escape(id)}"] > .strip-sub-head .strip-sub-toggle`)?.focus({
             preventScroll: true,
           });
@@ -5883,12 +5883,12 @@
           break;
         case 'strip-expand-all':
           toggleStripExpandAll();
-          $('#strip-profiles .strip-expand-tool')?.focus({ preventScroll: true }); // la barra se rehace
+          $('#strip-profiles .strip-expand-tool')?.focus({ preventScroll: true }); // the bar is rebuilt
           break;
         case 'strip-card-expand': {
           const id = actionEl.dataset.target;
           toggleStripCardExpand(id);
-          // La tira se repinta: el foco vuelve al botón de esa columna.
+          // The collection is repainted: focus returns to that card's button.
           $(`.strip-card-expand[data-target="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
           break;
         }
@@ -5900,14 +5900,14 @@
       }
     });
 
-    // Tira: elegir carpetas (en el árbol) y desplazamiento (rueda, arrastre del fondo)
+    // Collections: choosing folders (in the tree) and strip scrolling (wheel, background drag)
     $('#strip-pick-btn').addEventListener('click', () => revealTreePicker(viewCol()));
     $('#strip-expand-btn').addEventListener('click', () => toggleStripExpandAll(viewCol()));
     $('#home-set-btn').addEventListener('click', setHomeHere);
     bindStripScroll();
     bindStripProfiles();
 
-    // Controles de vista
+    // View controls
     $('#open-all-btn').addEventListener('click', openAllInView);
     $('#sort').addEventListener('change', (event) => setPref('sort', event.target.value));
     $('#subfolders-toggle').addEventListener('change', (event) => setPref('includeSubfolders', event.target.checked));
@@ -5919,7 +5919,7 @@
       renderMain();
     });
 
-    // Barra superior
+    // Top bar
     $('#theme-btn').addEventListener('click', cycleTheme);
     $('#settings-btn').addEventListener('click', () => {
       syncControls();
@@ -5966,13 +5966,13 @@
       openEditor({ mode: 'new-folder', parentId: defaultParentId() }),
     );
 
-    // Barra lateral: botón para ocultarla en escritorio; cajón en móvil
+    // Sidebar: button to hide it on desktop; drawer on mobile
     $('#sidebar-btn').addEventListener('click', () => setPref('sidebarPanel', !state.prefs.sidebarPanel));
     $('#drawer-open').addEventListener('click', openDrawer);
     $('#drawer-close').addEventListener('click', closeDrawer);
     $('#scrim').addEventListener('click', closeDrawer);
 
-    // Menú: cierre al hacer clic fuera, con Esc, al hacer scroll o al redimensionar
+    // Menu: closes on outside click, Esc, scroll or resize
     const menu = $('#menu');
     menu.addEventListener('keydown', handleMenuKeys);
     document.addEventListener(
@@ -5986,7 +5986,7 @@
     window.addEventListener('resize', () => closeMenu());
     window.addEventListener('blur', () => closeMenu());
 
-    // Panel de grupos
+    // Groups panel
     $('#groups-btn').addEventListener('click', toggleGroupsPanel);
     $('#groups-close').addEventListener('click', () =>
       isGroupsOverlay() ? closeGroupsOverlay() : setPref('groupsPanel', false),
@@ -6024,13 +6024,13 @@
       btn.addEventListener('click', () => $('#group-dialog').close());
     }
 
-    // Diálogo de edición
+    // Edit dialog
     $('#edit-form').addEventListener('submit', submitEditor);
     for (const btn of document.querySelectorAll('#edit-dialog [data-close]')) {
       btn.addEventListener('click', () => $('#edit-dialog').close());
     }
 
-    // Ajustes
+    // Settings
     $('#settings-form').addEventListener('change', (event) => {
       const input = event.target;
       if (input.name === 'theme') setPref('theme', input.value);
@@ -6053,40 +6053,40 @@
       else if (input.id === 'opt-tab-folder') setPref('tabTitleFolder', input.checked);
       else if (input.id === 'opt-tab-title') {
         setPref('tabTitle', cleanTabTitle(input.value));
-        input.value = state.prefs.tabTitle; // muestra el nombre ya limpio
+        input.value = state.prefs.tabTitle; // shows the already cleaned name
       } else if (input.id === 'opt-favicons') {
         state.failedIcons.clear();
         setPref('showFavicons', input.checked);
       }
     });
-    // Nombre de la pestaña: se ve en vivo mientras se escribe; Intro lo confirma
-    // sin cerrar el diálogo (el formulario es method="dialog").
+    // Tab name: previewed live while typing; Enter confirms it
+    // without closing the dialog (the form is method="dialog").
     const tabTitleInput = $('#opt-tab-title');
     const saveTabTitle = debounce(() => setPref('tabTitle', cleanTabTitle(tabTitleInput.value)), 300);
     tabTitleInput.addEventListener('input', saveTabTitle);
     tabTitleInput.addEventListener('keydown', (event) => {
       if (event.key !== 'Enter') return;
       event.preventDefault();
-      tabTitleInput.blur(); // dispara «change», que guarda
+      tabTitleInput.blur(); // fires "change", which saves
     });
     $('#resync-btn').addEventListener('click', () => resync({ notify: true }));
 
-    // Copia de seguridad
+    // Backup
     const importInput = $('#import-file');
     $('#export-btn').addEventListener('click', exportBackup);
     $('#import-btn').addEventListener('click', () => importInput.click());
     importInput.addEventListener('change', () => {
       const file = importInput.files?.[0];
-      importInput.value = ''; // permite volver a elegir el mismo archivo
+      importInput.value = ''; // allows picking the same file again
       importBackupFile(file);
     });
 
-    // Atajos globales
+    // Global shortcuts
     document.addEventListener('keydown', (event) => {
       if (event.defaultPrevented || document.querySelector('dialog[open]')) return;
       const typing = event.target.closest?.('input, textarea, select, [contenteditable="true"]');
       if (isMinimal() && (event.key === '/' || ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k'))) {
-        // Sin buscador en el modo minimalista.
+        // No search box in minimal mode.
       } else if (
         (event.key === '/' && !typing) ||
         ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k')
@@ -6128,8 +6128,8 @@
       }
     });
 
-    // Al volver a la pestaña, se relee el árbol por si hubo cambios masivos
-    // (p. ej. restaurar una copia de seguridad), que pueden no emitir eventos.
+    // When returning to the tab, the tree is re-read in case of bulk changes
+    // (e.g. restoring a backup), which may not emit events.
     let hiddenAt = 0;
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') hiddenAt = Date.now();
@@ -6175,14 +6175,14 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Arranque
+  // Startup
   // ---------------------------------------------------------------------------
 
   async function start() {
     try {
       await loadTree();
     } catch (err) {
-      console.error('[Bookmark Control Panel] Error al leer los marcadores:', err);
+      console.error('[Bookmark Control Panel] Error reading the bookmarks:', err);
       showFatal(t('fatal.read.title'), t('fatal.read.text'), String(err?.message || err), () => {
         showEmpty(null);
         $('#skeleton').hidden = false;
@@ -6193,7 +6193,7 @@
     state.ready = true;
     $('#live').classList.remove('is-error');
     $('#controls').hidden = false;
-    // Cada panel nuevo empieza en la carpeta de inicio, también fuera del modo minimalista.
+    // Each new panel starts at the home folder, also outside minimal mode.
     state.selected = homeId();
     expandAncestors(state.selected);
     render();
@@ -6201,11 +6201,11 @@
   }
 
   async function init() {
-    state.prefs.lang = lang; // copia rápida de localStorage hasta leer las preferencias
+    state.prefs.lang = lang; // quick copy from localStorage until the preferences are read
     try {
       state.prefs.tabTitle = cleanTabTitle(localStorage.getItem(TAB_TITLE_KEY));
     } catch {
-      /* sin localStorage: el nombre llega con las preferencias */
+      /* no localStorage: the name arrives with the preferences */
     }
     document.documentElement.lang = lang;
     translateStatic();
@@ -6235,7 +6235,7 @@
   }
 
   init().catch((err) => {
-    console.error('[Bookmark Control Panel] Error inesperado:', err);
+    console.error('[Bookmark Control Panel] Unexpected error:', err);
     showFatal(t('fatal.unexpected.title'), t('fatal.unexpected.text'), String(err?.message || err), () =>
       location.reload(),
     );

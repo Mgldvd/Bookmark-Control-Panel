@@ -1,7 +1,7 @@
 {
   "name": "bookmark-control-panel",
   "private": true,
-  "description": "Herramientas de desarrollo (lint y formato con Vite+, pruebas con node:test). La extensión no usa dependencias: package.sh solo empaqueta sus propios archivos.",
+  "description": "Development tools (lint and formatting with Vite+, tests with node:test). The extension has no dependencies: package.sh only packages its own files.",
   "scripts": {
     "check": "vp check && npm test",
     "test": "node --test tests/*.test.mjs",

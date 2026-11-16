@@ -1,6 +1,6 @@
-// Entorno de prueba: carga dashboard.js (con i18n.js) en un contexto aislado de Node,
-// con una API de marcadores simulada que se comporta como la de Firefox y emite sus
-// eventos, un DOM mínimo y browser.storage.local en memoria. No hace falta navegador.
+// Test environment: loads dashboard.js (with i18n.js) in an isolated Node context,
+// with a simulated bookmarks API that behaves like Firefox's and emits its
+// events, a minimal DOM and an in-memory browser.storage.local. No browser needed.
 import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
@@ -9,7 +9,7 @@ const ROOT = path.resolve(import.meta.dirname, '..', '..');
 const SOURCE = fs.readFileSync(path.join(ROOT, 'dashboard.js'), 'utf8');
 const I18N = fs.readFileSync(path.join(ROOT, 'i18n.js'), 'utf8');
 
-// Funciones internas que las pruebas usan directamente.
+// Internal functions the tests use directly.
 const EXPOSE = [
   'state',
   'get',
@@ -67,7 +67,7 @@ const EXPOSE = [
 
 const noop = () => {};
 
-/** Elemento de DOM mínimo: clases, dataset y atributos; el resto no hace nada. */
+/** Minimal DOM element: classes, dataset and attributes; the rest does nothing. */
 export function fakeElement({ id, classes = [], dataset = {}, rect } = {}) {
   const set = new Set(classes);
   const attrs = new Map();
@@ -105,8 +105,8 @@ export function fakeElement({ id, classes = [], dataset = {}, rect } = {}) {
 }
 
 /**
- * API de marcadores en memoria. `semantics`: 'firefox' (índice final, como Places)
- * o 'chrome' (índice contado antes de quitar el elemento de su sitio).
+ * In-memory bookmarks API. `semantics`: 'firefox' (final index, like Places)
+ * or 'chrome' (index counted before removing the item from its place).
  */
 export function fakeBookmarks(tree, { semantics = 'firefox' } = {}) {
   const nodes = new Map();
@@ -145,7 +145,7 @@ export function fakeBookmarks(tree, { semantics = 'firefox' } = {}) {
   };
   const need = (id) => {
     const n = nodes.get(id);
-    if (!n) throw new Error(`No existe el marcador ${id}`);
+    if (!n) throw new Error(`No such bookmark ${id}`);
     return n;
   };
   const dropTree = (id) => {
@@ -198,7 +198,7 @@ export function fakeBookmarks(tree, { semantics = 'firefox' } = {}) {
     remove: async (id) => {
       calls.push(['remove', id]);
       const n = need(id);
-      if (n.children?.length) throw new Error('La carpeta no está vacía');
+      if (n.children?.length) throw new Error('The folder is not empty');
       const parent = nodes.get(n.parentId);
       const index = parent.children.indexOf(id);
       parent.children.splice(index, 1);
@@ -225,7 +225,7 @@ export function fakeBookmarks(tree, { semantics = 'firefox' } = {}) {
   return api;
 }
 
-/** Árbol de ejemplo: barra con la carpeta F (marcadores a–d), G (x) y H vacía. */
+/** Sample tree: toolbar with folder F (bookmarks a–d), G (x) and an empty H. */
 export function sampleTree() {
   const bm = (id) => ({ id, type: 'bookmark', title: id, url: `https://${id}.example/` });
   return {
@@ -248,8 +248,8 @@ export function sampleTree() {
 }
 
 /**
- * Abre un panel nuevo. `stored` es browser.storage.local (se comparte entre paneles
- * para simular pestañas); `bookmarks`, la API simulada.
+ * Opens a new panel. `stored` is browser.storage.local (shared between panels
+ * to simulate tabs); `bookmarks`, the simulated API.
  */
 export async function openPanel({
   stored = {},
@@ -260,7 +260,7 @@ export async function openPanel({
 } = {}) {
   const timers = [];
   const toasts = [];
-  // Reloj de performance.now() que avanza la prueba (ms).
+  // performance.now() clock advanced by the test (ms).
   const clock = { now: 0 };
   const byId = new Map();
   const bySelector = new Map();
@@ -272,7 +272,7 @@ export async function openPanel({
     getElementById: (id) => element(id, byId),
     querySelector: (sel) =>
       sel.startsWith('#') && !sel.includes(' ') ? element(sel.slice(1), byId) : element(sel, bySelector),
-    // Solo los marcadores seleccionables «a la vista», en el orden que diga la prueba.
+    // Only the selectable bookmarks "in view", in the order the test says.
     querySelectorAll: (sel) => (sel.includes('.board-row[data-id]') ? selectable : []),
     createElement: () => fakeElement(),
     createElementNS: () => fakeElement(),
@@ -286,7 +286,7 @@ export async function openPanel({
     Intl,
     setTimeout: (fn) => timers.push(fn),
     performance: { now: () => clock.now },
-    // Sin fotogramas: las animaciones no avanzan (las pruebas fijan scrollLeft a mano).
+    // No frames: animations do not advance (the tests set scrollLeft by hand).
     requestAnimationFrame: () => 0,
     cancelAnimationFrame: noop,
     clearTimeout: noop,
@@ -318,7 +318,7 @@ export async function openPanel({
 
   const tail = /\n {2}init\(\)\.catch\([\s\S]*\n\}\)\(\);\s*$/;
   if (!tail.test(SOURCE))
-    throw new Error('dashboard.js ya no termina en init().catch(…): actualiza tests/helpers/panel.mjs');
+    throw new Error('dashboard.js no longer ends with init().catch(…): update tests/helpers/panel.mjs');
   const instrumented = SOURCE.replace(
     tail,
     `
@@ -346,7 +346,7 @@ export async function openPanel({
     toasts,
     document,
     clock,
-    /** Ejecuta los temporizadores pendientes (debounce) y espera a que se guarde. */
+    /** Runs the pending timers (debounce) and waits for saving. */
     async flush() {
       while (timers.length) timers.shift()();
       await new Promise((resolve) => setImmediate(resolve));
@@ -358,19 +358,19 @@ export async function openPanel({
 }
 
 /**
- * Destino de un evento: el primero de la cadena (de dentro hacia fuera) que
- * coincide con el selector, como Element.closest().
+ * Event target: the first in the chain (from inside out) that
+ * matches the selector, like Element.closest().
  */
 export function targetIn(...chain) {
   return { closest: (sel) => chain.find((node) => matches(node, sel)) ?? null };
 }
 
-/** Evento de arrastre simulado sobre `item` (un fakeElement), en el punto (x, y). */
+/** Simulated drag event over `item` (a fakeElement), at point (x, y). */
 export function dragEvent(item, { x = 50, y = 10, types = [] } = {}) {
   return { target: targetIn(item), clientX: x, clientY: y, dataTransfer: { types } };
 }
 
-/** Clic simulado; registra si el panel lo intercepta (preventDefault). */
+/** Simulated click; records whether the panel intercepts it (preventDefault). */
 export function clickEvent(chain, { ctrl = false, shift = false } = {}) {
   const event = {
     target: targetIn(...chain),
@@ -387,7 +387,7 @@ export function clickEvent(chain, { ctrl = false, shift = false } = {}) {
   return event;
 }
 
-/** Coincidencia sencilla (última parte de cada selector: clases y [data-…]). */
+/** Simple matching (last part of each selector: classes and [data-…]). */
 function matches(node, sel) {
   return sel.split(',').some((part) => {
     const last = part.trim().split(' ').pop();
@@ -399,5 +399,5 @@ function matches(node, sel) {
   });
 }
 
-/** Tarjeta de marcador «a la vista» para la selección y el arrastre. */
+/** Bookmark card "in view" for selection and dragging. */
 export const card = (id, rect) => fakeElement({ classes: ['card'], dataset: { id, dragId: id }, rect });
