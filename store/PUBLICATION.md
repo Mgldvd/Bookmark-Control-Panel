@@ -13,14 +13,15 @@ de su archivo es `unreviewed`; la firma y la publicación efectiva todavía no e
 Recibo de AMO: versión **6718719**, archivo **5262802**.
 Administración de la versión: https://addons.mozilla.org/en-US/developers/addon/bookmark-control-panel/versions/6718719
 
-Estado comprobado por API el 16 de noviembre de 2026 a las 13:14 de Colombia: el archivo sigue `unreviewed`.
-Hay **5 de 11 capturas** subidas; AMO volvió a aplicar el límite horario tras la quinta.
-La siguiente continuación automática está programada para las **13:16:30 de Colombia (18:16:30 UTC)**.
+Estado comprobado por API el 16 de noviembre de 2026 a las 13:19 de Colombia: el archivo sigue `unreviewed`.
+Hay **6 de 11 capturas** subidas, todas de 1280×800; AMO volvió a aplicar el límite horario tras la sexta.
+La siguiente continuación automática está programada para las **16:42:18 de Colombia (21:42:18 UTC)**.
 Subirá las capturas pendientes y volverá a comprobar la revisión y la firma, sin reenviar esta versión.
 
 GitHub: [v1.16.0](https://github.com/Mgldvd/Bookmark-Control-Panel/releases/tag/v1.16.0) contiene el XPI firmado
 (canal no listado). [v1.16.1](https://github.com/Mgldvd/Bookmark-Control-Panel/releases/tag/v1.16.1) es un pre-release con
-las fuentes, las capturas y el video; el XPI firmado se añadirá cuando Mozilla lo apruebe.
+el paquete enviado, las fuentes, las capturas y el video; el XPI firmado se añadirá cuando Mozilla lo apruebe.
+También está publicado como paquete npm `@mgldvd/bookmark-control-panel` en GitHub Packages.
 
 URL reservada para la ficha: https://addons.mozilla.org/en-US/firefox/addon/bookmark-control-panel/
 Esta URL puede no estar disponible públicamente hasta que Mozilla apruebe la versión.
