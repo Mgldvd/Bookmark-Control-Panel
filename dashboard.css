@@ -150,6 +150,79 @@
   color-scheme: dark;
 }
 
+/* Style (Settings → Appearance → Style): palettes on top of the light/dark theme.
+   Without data-style, the classic one from :root is used. Each style brings its
+   own main color while the user keeps the default one (no data-accent). */
+:root[data-style='nord'] {
+  --bg: light-dark(#eceff4, #242933);
+  --surface: light-dark(#ffffff, #2e3440);
+  --surface-2: light-dark(#e5e9f0, #343b48);
+  --surface-3: light-dark(#d8dee9, #3b4252);
+  --sidebar-bg: light-dark(#f3f5f9, #272c36);
+  --border: light-dark(#dde3ec, #3b4252);
+  --border-strong: light-dark(#c9d1dd, #4c566a);
+  --text: light-dark(#2e3440, #eceff4);
+  --text-2: light-dark(#4c566a, #c5cbd6);
+  --text-3: light-dark(#7b8698, #8a94a6);
+  --folder-bg: light-dark(#f6efdc, #3a3a35);
+  --folder-fg: light-dark(#b4881f, #ebcb8b);
+  --mark-bg: light-dark(#f3e3b5, #5c5236);
+}
+:root[data-style='nord']:not([data-accent]) {
+  --accent: light-dark(#5e81ac, #88c0d0);
+  --accent-hover: light-dark(#4c6d96, #9fcfdc);
+  --accent-contrast: light-dark(#ffffff, #1f252f);
+  --accent-soft: light-dark(#e3eaf3, #33424f);
+}
+:root[data-style='sepia'] {
+  --bg: light-dark(#f4ecd8, #1e1a15);
+  --surface: light-dark(#fbf6ea, #27221b);
+  --surface-2: light-dark(#efe5cf, #2f2920);
+  --surface-3: light-dark(#e6d9bd, #3a3227);
+  --sidebar-bg: light-dark(#f7f0df, #221d17);
+  --border: light-dark(#e4d7bb, #3a3228);
+  --border-strong: light-dark(#d4c4a2, #4a4033);
+  --text: light-dark(#3b2f22, #ece0c8);
+  --text-2: light-dark(#6b5a45, #bfae92);
+  --text-3: light-dark(#9a876c, #8a7a62);
+  --hover: light-dark(rgb(90 60 20 / 0.06), rgb(255 235 200 / 0.06));
+  --pressed: light-dark(rgb(90 60 20 / 0.1), rgb(255 235 200 / 0.1));
+  --shadow-color: light-dark(rgb(80 50 10 / 0.1), rgb(0 0 0 / 0.45));
+}
+:root[data-style='sepia']:not([data-accent]) {
+  --accent: light-dark(#a0522d, #e0a370);
+  --accent-hover: light-dark(#87441f, #ebb88d);
+  --accent-contrast: light-dark(#ffffff, #23180e);
+  --accent-soft: light-dark(#f3e1cf, #3d2c1e);
+}
+/* Glass: translucent, frosted surfaces over the background image (or, without
+   one, over a gradient made with the main color). See "Background image and Glass". */
+:root[data-style='glass'] {
+  --page-bg: light-dark(#e9edf4, #0e1016);
+  --bg: light-dark(rgb(255 255 255 / 0.5), rgb(10 12 18 / 0.35));
+  --surface: light-dark(rgb(255 255 255 / 0.62), rgb(28 30 38 / 0.55));
+  --surface-2: light-dark(rgb(255 255 255 / 0.45), rgb(255 255 255 / 0.07));
+  --surface-3: light-dark(rgb(255 255 255 / 0.75), rgb(255 255 255 / 0.13));
+  --sidebar-bg: light-dark(rgb(255 255 255 / 0.5), rgb(14 16 22 / 0.52));
+  --border: light-dark(rgb(255 255 255 / 0.7), rgb(255 255 255 / 0.1));
+  --border-strong: light-dark(rgb(30 30 60 / 0.16), rgb(255 255 255 / 0.2));
+  --text-2: light-dark(#43423e, #cbcac5);
+  --text-3: light-dark(#64635d, #a09f9a);
+  --hover: light-dark(rgb(255 255 255 / 0.5), rgb(255 255 255 / 0.08));
+  --pressed: light-dark(rgb(255 255 255 / 0.7), rgb(255 255 255 / 0.13));
+  --shadow-color: light-dark(rgb(20 20 60 / 0.1), rgb(0 0 0 / 0.35));
+  --accent-soft: color-mix(in srgb, var(--accent) 18%, transparent);
+  --folder-bg: color-mix(in srgb, var(--folder-fg) 20%, transparent);
+  --glass: blur(22px) saturate(1.7);
+  --glass-solid: light-dark(rgb(250 250 253 / 0.82), rgb(22 24 31 / 0.8));
+  --bg-fallback:
+    radial-gradient(55% 60% at 12% 18%, color-mix(in srgb, var(--accent) 60%, transparent), transparent 70%),
+    radial-gradient(45% 55% at 88% 12%, light-dark(rgb(244 114 182 / 0.55), rgb(190 24 93 / 0.5)), transparent 70%),
+    radial-gradient(60% 60% at 72% 92%, light-dark(rgb(45 212 191 / 0.5), rgb(15 118 110 / 0.55)), transparent 70%),
+    radial-gradient(40% 45% at 30% 85%, light-dark(rgb(251 191 36 / 0.4), rgb(180 83 9 / 0.4)), transparent 70%),
+    var(--page-bg);
+}
+
 /* Smooth transition only while the theme changes */
 .theme-transition,
 .theme-transition *,
@@ -4123,6 +4196,471 @@ label.set-row {
   .cards.is-list .card-link {
     max-width: 100%;
   }
+}
+
+/* ---------- Background image and Glass style ----------
+   #backdrop is fixed behind everything: the image (Settings → Background) with its
+   blur, and a layer that lightens or darkens it (--bg-dim) so text reads well.
+   The Glass style always shows it; without an image, its gradient. */
+.backdrop {
+  display: none;
+}
+:root:is([data-backdrop], [data-style='glass']) {
+  background: var(--page-bg, var(--bg));
+}
+:root:is([data-backdrop], [data-style='glass']) body {
+  background: transparent;
+}
+:root:is([data-backdrop], [data-style='glass']) .backdrop {
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.backdrop::before {
+  content: '';
+  position: absolute;
+  /* The blur fades the edges: the image overflows so they are not seen. */
+  inset: calc(var(--bg-blur, 0px) * -2);
+  background:
+    var(--bg-image, none) center / cover no-repeat,
+    var(--bg-fallback, var(--bg));
+  filter: blur(var(--bg-blur, 0px));
+}
+:root[data-backdrop='image'] .backdrop::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: light-dark(rgb(255 255 255 / var(--bg-dim, 0.2)), rgb(0 0 0 / var(--bg-dim, 0.2)));
+}
+/* Text directly over the image */
+:root:is([data-backdrop], [data-style='glass']) :is(.view-title-text, .breadcrumb, .section-title, .home-here) {
+  text-shadow: 0 1px 3px light-dark(rgb(255 255 255 / 0.75), rgb(0 0 0 / 0.6));
+}
+:root:is([data-backdrop], [data-style='glass']) .view-subtitle {
+  color: var(--text-2);
+}
+/* Opaque styles with an image: only the top bar becomes translucent. */
+:root[data-backdrop]:not([data-style='glass']) .topbar {
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+  backdrop-filter: blur(14px) saturate(1.4);
+}
+
+/* Glass materials. :where() keeps the specificity of each component, so its
+   states (hover, selected, dragging…) still apply. */
+:where(:root[data-style='glass'])
+  :is(
+    .sidebar,
+    .groups,
+    .topbar,
+    .card,
+    .folder-tile,
+    .board-card,
+    .group,
+    .cards.is-list,
+    .selection-bar,
+    .strip-add,
+    .minimal-exit,
+    .controls :is(.btn, .segmented, .toggle-chip, .select-wrap select)
+  ) {
+  backdrop-filter: var(--glass);
+}
+:where(:root[data-style='glass']) .cards.is-list .card {
+  backdrop-filter: none;
+}
+:where(:root[data-style='glass']) .topbar {
+  background: light-dark(rgb(255 255 255 / 0.3), rgb(12 14 20 / 0.32));
+}
+:where(:root[data-style='glass']) :is(.card, .folder-tile, .board-card, .group, .cards.is-list) {
+  box-shadow:
+    inset 0 1px 0 light-dark(rgb(255 255 255 / 0.65), rgb(255 255 255 / 0.06)),
+    var(--shadow-sm);
+}
+:where(:root[data-style='glass']) :is(.menu, .dialog) {
+  background: var(--glass-solid);
+  backdrop-filter: blur(30px) saturate(1.8);
+}
+:where(:root[data-style='glass']) .dialog::backdrop {
+  background: rgb(10 10 20 / 0.22);
+}
+:where(:root[data-style='glass']) .settings-nav {
+  background: light-dark(rgb(255 255 255 / 0.4), rgb(255 255 255 / 0.04));
+}
+
+/* Unsplash credit (bottom left of the content) */
+.main {
+  position: relative;
+}
+.bg-credit {
+  position: absolute;
+  left: 14px;
+  bottom: 10px;
+  z-index: 4;
+  max-width: calc(100% - 28px);
+  margin: 0;
+  padding: 3px 10px;
+  border-radius: var(--pill);
+  background: rgb(0 0 0 / 0.3);
+  backdrop-filter: blur(8px);
+  color: rgb(255 255 255 / 0.88);
+  font-size: 11.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0.65;
+  transition: opacity 0.15s;
+}
+.bg-credit:hover,
+.bg-credit:focus-within {
+  opacity: 1;
+}
+.bg-credit a,
+.bg-photo-info a {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: none;
+}
+.bg-credit a:hover,
+.bg-photo-info a:hover {
+  text-decoration: underline;
+}
+.bg-photo-info a {
+  color: var(--accent);
+}
+
+/* Settings → Appearance → Style: a thumbnail of each one (in the current theme) */
+.style-picks {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
+  gap: 10px;
+}
+.style-pick {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 6px 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: calc(10px * var(--rf));
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 12.5px;
+  font-weight: 550;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s,
+    color 0.15s;
+}
+.style-pick:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+.style-pick input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.style-pick:has(input:checked) {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+  color: var(--text);
+}
+.style-pick:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.style-thumb {
+  position: relative;
+  display: block;
+  height: 58px;
+  border-radius: calc(6px * var(--rf));
+  background: var(--t-bg);
+  overflow: hidden;
+}
+.style-thumb i {
+  position: absolute;
+  top: 20%;
+  width: 29%;
+  height: 34%;
+  border: 1px solid var(--t-line);
+  border-radius: calc(3px * var(--rf));
+  background: var(--t-card);
+}
+.style-thumb i:nth-child(1) {
+  inset: 0 auto 0 0;
+  width: 24%;
+  height: auto;
+  border-width: 0 1px 0 0;
+  border-radius: 0;
+  background: var(--t-side);
+}
+.style-thumb i:nth-child(2) {
+  left: 33%;
+}
+.style-thumb i:nth-child(3) {
+  left: 66%;
+}
+[data-style-pick='classic'] .style-thumb {
+  --t-bg: light-dark(#f7f7f5, #161616);
+  --t-side: light-dark(#fbfbfa, #1b1b1b);
+  --t-card: light-dark(#ffffff, #1f1f1f);
+  --t-line: light-dark(#e3e2dd, #2f2f2f);
+}
+[data-style-pick='glass'] .style-thumb {
+  --t-bg:
+    radial-gradient(60% 70% at 15% 25%, #8b7cf6, transparent 70%),
+    radial-gradient(50% 60% at 90% 15%, #f472b6, transparent 70%),
+    radial-gradient(60% 70% at 70% 95%, #2dd4bf, transparent 70%), light-dark(#e8ecf5, #10121a);
+  --t-side: light-dark(rgb(255 255 255 / 0.45), rgb(14 16 22 / 0.45));
+  --t-card: light-dark(rgb(255 255 255 / 0.55), rgb(30 32 40 / 0.5));
+  --t-line: light-dark(rgb(255 255 255 / 0.75), rgb(255 255 255 / 0.14));
+}
+/* With a background image, the Glass thumbnail shows it. */
+:root[data-backdrop='image'] [data-style-pick='glass'] .style-thumb {
+  background:
+    var(--bg-image) center / cover no-repeat,
+    var(--t-bg);
+}
+[data-style-pick='glass'] .style-thumb i {
+  backdrop-filter: blur(4px);
+}
+[data-style-pick='nord'] .style-thumb {
+  --t-bg: light-dark(#eceff4, #242933);
+  --t-side: light-dark(#f3f5f9, #272c36);
+  --t-card: light-dark(#ffffff, #2e3440);
+  --t-line: light-dark(#d8dee9, #3b4252);
+}
+[data-style-pick='sepia'] .style-thumb {
+  --t-bg: light-dark(#f4ecd8, #1e1a15);
+  --t-side: light-dark(#f7f0df, #221d17);
+  --t-card: light-dark(#fbf6ea, #27221b);
+  --t-line: light-dark(#e2d4b6, #3a3228);
+}
+
+/* Settings → Background */
+.bg-preview {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  height: 140px;
+  margin: 0 0 14px;
+  padding: 36px 20px;
+  border: 1px solid var(--border);
+  border-radius: calc(12px * var(--rf));
+  background: var(--page-bg, var(--bg));
+  overflow: hidden;
+}
+.bg-preview-img {
+  position: absolute;
+  inset: calc(var(--bg-blur, 0px) * -1);
+  z-index: -1;
+  background:
+    var(--bg-image, none) center / cover no-repeat,
+    var(--bg-fallback, var(--bg));
+  filter: blur(calc(var(--bg-blur, 0px) * 0.5));
+}
+:root[data-backdrop='image'] .bg-preview-img::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: light-dark(rgb(255 255 255 / var(--bg-dim, 0.2)), rgb(0 0 0 / var(--bg-dim, 0.2)));
+}
+.bg-preview-card {
+  border: 1px solid var(--border);
+  border-radius: calc(8px * var(--rf));
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+:where(:root[data-style='glass']) .bg-preview-card {
+  backdrop-filter: blur(10px) saturate(1.6);
+}
+.bg-options {
+  margin-top: 12px;
+}
+.bg-link-row {
+  display: flex;
+  gap: 8px;
+}
+.set-input-mono {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.set-range {
+  flex: none;
+  width: min(220px, 45%);
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.bg-photo-info {
+  min-width: 0;
+}
+.bg-photo-info small {
+  overflow-wrap: anywhere;
+}
+#bg-next.is-busy .icon {
+  animation: bd-spin 0.9s linear infinite;
+}
+@keyframes bd-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+
+/* Gradients included with the extension (Settings → Background → Gradient).
+   Each one gives its colors (--g0 base, --g1…--g4 glows, in light and dark) to
+   <html> when it is the background, and to its thumbnail in Settings. Aurora is
+   the Glass gradient: its first glow is the main color. */
+:root[data-bg-preset='aurora'],
+[data-preset='aurora'] {
+  --g0: light-dark(#eef1f7, #0f1117);
+  --g1: color-mix(in srgb, var(--accent) 60%, transparent);
+  --g2: light-dark(rgb(244 114 182 / 0.55), rgb(190 24 93 / 0.5));
+  --g3: light-dark(rgb(45 212 191 / 0.5), rgb(15 118 110 / 0.55));
+  --g4: light-dark(rgb(251 191 36 / 0.4), rgb(180 83 9 / 0.4));
+}
+:root[data-bg-preset='sunset'],
+[data-preset='sunset'] {
+  --g0: light-dark(#fff1e8, #1a0f14);
+  --g1: light-dark(rgb(251 146 60 / 0.65), rgb(194 65 12 / 0.55));
+  --g2: light-dark(rgb(244 63 94 / 0.5), rgb(159 18 57 / 0.55));
+  --g3: light-dark(rgb(168 85 247 / 0.45), rgb(88 28 135 / 0.6));
+  --g4: light-dark(rgb(250 204 21 / 0.45), rgb(161 98 7 / 0.45));
+}
+:root[data-bg-preset='ocean'],
+[data-preset='ocean'] {
+  --g0: light-dark(#eaf4fb, #07121c);
+  --g1: light-dark(rgb(59 130 246 / 0.55), rgb(29 78 216 / 0.5));
+  --g2: light-dark(rgb(34 211 238 / 0.5), rgb(14 116 144 / 0.55));
+  --g3: light-dark(rgb(45 212 191 / 0.45), rgb(17 94 89 / 0.55));
+  --g4: light-dark(rgb(99 102 241 / 0.4), rgb(55 48 163 / 0.5));
+}
+:root[data-bg-preset='forest'],
+[data-preset='forest'] {
+  --g0: light-dark(#eef6ee, #0b140f);
+  --g1: light-dark(rgb(74 222 128 / 0.5), rgb(21 128 61 / 0.5));
+  --g2: light-dark(rgb(190 242 100 / 0.45), rgb(77 124 15 / 0.45));
+  --g3: light-dark(rgb(45 212 191 / 0.4), rgb(15 118 110 / 0.45));
+  --g4: light-dark(rgb(253 224 71 / 0.35), rgb(133 77 14 / 0.4));
+}
+:root[data-bg-preset='lavender'],
+[data-preset='lavender'] {
+  --g0: light-dark(#f4f0fb, #110d1a);
+  --g1: light-dark(rgb(167 139 250 / 0.6), rgb(91 33 182 / 0.55));
+  --g2: light-dark(rgb(244 114 182 / 0.45), rgb(157 23 77 / 0.45));
+  --g3: light-dark(rgb(129 140 248 / 0.5), rgb(49 46 129 / 0.6));
+  --g4: light-dark(rgb(125 211 252 / 0.35), rgb(12 74 110 / 0.45));
+}
+:root[data-bg-preset='peach'],
+[data-preset='peach'] {
+  --g0: light-dark(#fff5ef, #1a1210);
+  --g1: light-dark(rgb(253 186 116 / 0.6), rgb(154 52 18 / 0.5));
+  --g2: light-dark(rgb(251 113 133 / 0.45), rgb(136 19 55 / 0.5));
+  --g3: light-dark(rgb(254 215 170 / 0.6), rgb(120 53 15 / 0.5));
+  --g4: light-dark(rgb(216 180 254 / 0.45), rgb(76 29 149 / 0.4));
+}
+:root[data-bg-preset='mint'],
+[data-preset='mint'] {
+  --g0: light-dark(#effaf6, #08140f);
+  --g1: light-dark(rgb(110 231 183 / 0.55), rgb(4 120 87 / 0.5));
+  --g2: light-dark(rgb(125 211 252 / 0.45), rgb(3 105 161 / 0.45));
+  --g3: light-dark(rgb(217 249 157 / 0.45), rgb(63 98 18 / 0.4));
+  --g4: light-dark(rgb(94 234 212 / 0.4), rgb(17 94 89 / 0.45));
+}
+:root[data-bg-preset='midnight'],
+[data-preset='midnight'] {
+  --g0: light-dark(#e8ecf6, #05070f);
+  --g1: light-dark(rgb(99 102 241 / 0.4), rgb(49 46 129 / 0.7));
+  --g2: light-dark(rgb(56 189 248 / 0.35), rgb(7 89 133 / 0.55));
+  --g3: light-dark(rgb(192 132 252 / 0.35), rgb(88 28 135 / 0.55));
+  --g4: light-dark(rgb(148 163 184 / 0.35), rgb(30 41 59 / 0.7));
+}
+:root[data-bg-preset='candy'],
+[data-preset='candy'] {
+  --g0: light-dark(#fdf2f8, #150a14);
+  --g1: light-dark(rgb(236 72 153 / 0.5), rgb(157 23 77 / 0.55));
+  --g2: light-dark(rgb(59 130 246 / 0.45), rgb(30 64 175 / 0.5));
+  --g3: light-dark(rgb(250 204 21 / 0.45), rgb(133 77 14 / 0.45));
+  --g4: light-dark(rgb(34 197 94 / 0.4), rgb(20 83 45 / 0.45));
+}
+:root[data-bg-preset='graphite'],
+[data-preset='graphite'] {
+  --g0: light-dark(#f1f1f0, #121212);
+  --g1: light-dark(rgb(0 0 0 / 0.08), rgb(255 255 255 / 0.08));
+  --g2: light-dark(rgb(120 113 108 / 0.15), rgb(255 255 255 / 0.05));
+  --g3: light-dark(rgb(0 0 0 / 0.06), rgb(255 255 255 / 0.06));
+  --g4: light-dark(rgb(168 162 158 / 0.18), rgb(120 113 108 / 0.12));
+}
+:root[data-backdrop='preset'] {
+  --page-bg: var(--g0);
+}
+:root[data-backdrop='preset'] .backdrop::before,
+:root[data-backdrop='preset'] .bg-preview-img,
+.bg-preset-swatch {
+  background:
+    radial-gradient(55% 60% at 12% 18%, var(--g1), transparent 70%),
+    radial-gradient(45% 55% at 88% 12%, var(--g2), transparent 70%),
+    radial-gradient(60% 60% at 72% 92%, var(--g3), transparent 70%),
+    radial-gradient(40% 45% at 30% 85%, var(--g4), transparent 70%), var(--g0);
+  filter: none;
+}
+.bg-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 12px 10px;
+}
+.bg-preset {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 550;
+  text-align: center;
+  cursor: pointer;
+}
+.bg-preset input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.bg-preset-swatch {
+  display: block;
+  height: 58px;
+  border: 1px solid var(--border);
+  border-radius: calc(8px * var(--rf));
+  transition:
+    box-shadow 0.15s,
+    transform 0.15s var(--ease);
+}
+.bg-preset:hover {
+  color: var(--text);
+}
+.bg-preset:hover .bg-preset-swatch {
+  transform: translateY(-1px);
+}
+.bg-preset:has(input:checked) {
+  color: var(--text);
+}
+.bg-preset:has(input:checked) .bg-preset-swatch {
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 4px var(--accent);
+}
+.bg-preset:has(input:focus-visible) .bg-preset-swatch {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
 }
 
 @media (hover: none) {

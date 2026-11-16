@@ -66,6 +66,30 @@
   const PAGE_SIZE = 200;
   const OPEN_ALL_CONFIRM = 15; // same as Firefox's warning (browser.tabs.maxOpenBeforeWarn)
   const THEMES = ['auto', 'light', 'dark'];
+  // Style (palette and materials) on top of the light/dark theme; 'classic' is the usual one.
+  const STYLES = ['classic', 'glass', 'nord', 'sepia'];
+  // Background image: none, a random Unsplash photo or a custom one (link or file).
+  const BG_SOURCES = ['none', 'preset', 'unsplash', 'custom'];
+  // Gradients included with the extension (CSS: [data-bg-preset] / [data-preset]); light and dark.
+  const BG_PRESETS = [
+    'aurora',
+    'sunset',
+    'ocean',
+    'forest',
+    'lavender',
+    'peach',
+    'mint',
+    'midnight',
+    'candy',
+    'graphite',
+  ];
+  const BG_EVERY = { hour: 3600e3, day: 86400e3, manual: Infinity }; // how often the Unsplash photo changes
+  const BG_BLUR_MAX = 24; // px
+  const BG_DIM_MAX = 80; // %
+  const BG_FILE_MAX_SIDE = 2560; // px of the longest side of an uploaded image (it is reduced)
+  const BG_CACHE_KEY = 'bd-bg'; // quick copy for theme-init.js
+  const UNSPLASH_API = 'https://api.unsplash.com';
+  const UNSPLASH_UTM = 'utm_source=bookmark_control_panel&utm_medium=referral';
   const LANGS = ['en', 'es'];
   const DEFAULT_LANG = 'en';
   const GROUP_COLORS = ['indigo', 'blue', 'teal', 'green', 'amber', 'orange', 'red', 'pink', 'violet', 'slate'];
@@ -83,7 +107,7 @@
   const CONTENT_WIDTHS = ['normal', 'wide', 'full']; // maximum content width
   const TAB_TITLE_MAX = 60; // characters of the custom tab name
   const TAB_TITLE_KEY = 'bd-tab-title'; // quick copy for theme-init.js
-  const SETTINGS_TABS = ['appearance', 'general', 'home', 'backup', 'shortcuts'];
+  const SETTINGS_TABS = ['appearance', 'background', 'general', 'home', 'backup', 'shortcuts'];
   const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)');
   const VT_MAX_CARDS = 60; // cards that fly into place during the transition (the visible ones)
   const BOARD_ROWS = 10; // visible links per card before "Show more"
@@ -121,6 +145,16 @@
     tabTitle: '', // tab name; empty = the default ("Bookmarks" / "Marcadores")
     tabTitleFolder: true, // prepend the current folder or search to the name
     theme: 'auto',
+    style: 'classic',
+    bgSource: 'none',
+    bgPreset: 'aurora',
+    bgCustom: '', // https link or data: URL of an uploaded image
+    bgBlur: 0,
+    bgDim: 20,
+    unsplashKey: '',
+    unsplashQuery: '',
+    unsplashEvery: 'day',
+    unsplashPhoto: null, // current photo: { id, url, color, author, authorUrl, link, query, at }
     view: 'grid',
     sort: 'manual',
     lastFolder: VIEW_ALL,
@@ -167,6 +201,16 @@
       boardColumns: DEFAULT_PREFS.boardColumns,
       contentWidth: DEFAULT_PREFS.contentWidth,
       theme: DEFAULT_PREFS.theme,
+      style: DEFAULT_PREFS.style,
+      bgSource: DEFAULT_PREFS.bgSource,
+      bgPreset: DEFAULT_PREFS.bgPreset,
+      bgCustom: DEFAULT_PREFS.bgCustom,
+      bgBlur: DEFAULT_PREFS.bgBlur,
+      bgDim: DEFAULT_PREFS.bgDim,
+      unsplashKey: DEFAULT_PREFS.unsplashKey,
+      unsplashQuery: DEFAULT_PREFS.unsplashQuery,
+      unsplashEvery: DEFAULT_PREFS.unsplashEvery,
+      unsplashPhoto: DEFAULT_PREFS.unsplashPhoto,
       view: DEFAULT_PREFS.view,
       sort: DEFAULT_PREFS.sort,
       lastFolder: DEFAULT_PREFS.lastFolder,
@@ -740,6 +784,16 @@
     const prefs = state.prefs;
     if (LANGS.includes(p.lang)) prefs.lang = p.lang;
     if (THEMES.includes(p.theme)) prefs.theme = p.theme;
+    if (STYLES.includes(p.style)) prefs.style = p.style;
+    if (BG_SOURCES.includes(p.bgSource)) prefs.bgSource = p.bgSource;
+    if (BG_PRESETS.includes(p.bgPreset)) prefs.bgPreset = p.bgPreset;
+    if (p.bgCustom === '' || isBgImageUrl(p.bgCustom)) prefs.bgCustom = p.bgCustom;
+    if (isIntIn(p.bgBlur, 0, BG_BLUR_MAX)) prefs.bgBlur = p.bgBlur;
+    if (isIntIn(p.bgDim, 0, BG_DIM_MAX)) prefs.bgDim = p.bgDim;
+    if (typeof p.unsplashKey === 'string') prefs.unsplashKey = p.unsplashKey.trim().slice(0, 200);
+    if (typeof p.unsplashQuery === 'string') prefs.unsplashQuery = p.unsplashQuery.trim().slice(0, 80);
+    if (Object.hasOwn(BG_EVERY, p.unsplashEvery)) prefs.unsplashEvery = p.unsplashEvery;
+    if (p.unsplashPhoto === null || isUnsplashPhoto(p.unsplashPhoto)) prefs.unsplashPhoto = p.unsplashPhoto;
     if (CORNERS.includes(p.corners)) prefs.corners = p.corners;
     if (ACCENT_COLORS.includes(p.accentColor)) prefs.accentColor = p.accentColor;
     if (FOLDER_COLORS.includes(p.folderColor)) prefs.folderColor = p.folderColor;
@@ -811,6 +865,8 @@
     state.prefs[key] = value;
     savePrefs({ [key]: value });
     if (key === 'theme') applyTheme(true);
+    if (key === 'style') applyStyle(true);
+    if (BG_KEYS.has(key)) applyBackground();
     if (key === 'corners') applyCorners();
     if (key === 'accentColor' || key === 'folderColor') applyAccent();
     if (key === 'sidebarPanel') applySidebar();
@@ -837,6 +893,8 @@
     if (incoming.lang !== undefined) applyLanguage();
     applyCorners();
     applyAccent();
+    applyStyle();
+    applyBackground();
     applySidebar();
     applyMinimal();
     applyStripe();
@@ -918,6 +976,344 @@
     } catch {
       /* no localStorage: only affects the first paint */
     }
+  }
+
+  // ----- Style and background image -----
+  // The style changes the palette (and, in Glass, the materials) on top of the
+  // light/dark theme. The background image lives in #backdrop (fixed, behind
+  // everything): Glass always shows it (with a gradient if there is no image).
+
+  const isIntIn = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
+  // Preferences that change the background (setPref repaints it).
+  const BG_KEYS = new Set(['style', 'bgSource', 'bgPreset', 'bgCustom', 'bgBlur', 'bgDim', 'unsplashPhoto']);
+
+  /** Image usable as a background: an http(s) link or an uploaded image (data: URL). */
+  function isBgImageUrl(v) {
+    if (typeof v !== 'string' || !v) return false;
+    if (v.startsWith('data:'))
+      return v.length <= 8e6 && /^data:image\/(jpeg|png|webp|gif|avif);base64,[\w+/=]+$/.test(v);
+    if (v.length > 2048) return false;
+    try {
+      const u = new URL(v);
+      return u.protocol === 'https:' || u.protocol === 'http:';
+    } catch {
+      return false;
+    }
+  }
+
+  function isUnsplashPhoto(p) {
+    return (
+      !!p &&
+      typeof p === 'object' &&
+      typeof p.id === 'string' &&
+      typeof p.url === 'string' &&
+      p.url.startsWith('https://images.unsplash.com/') &&
+      typeof p.author === 'string' &&
+      typeof p.authorUrl === 'string' &&
+      p.authorUrl.startsWith('https://unsplash.com/') &&
+      typeof p.link === 'string' &&
+      p.link.startsWith('https://unsplash.com/') &&
+      typeof p.query === 'string' &&
+      Number.isFinite(p.at)
+    );
+  }
+
+  /** Width (px) to ask for the photos: the screen's, rounded up so the cache is reused. */
+  function bgWidth() {
+    const w = (globalThis.screen?.width || 1920) * (globalThis.devicePixelRatio || 1);
+    return Math.min(3840, Math.ceil(w / 640) * 640);
+  }
+
+  /**
+   * Link typed in Settings → image URL. An Unsplash photo page
+   * (unsplash.com/photos/<name>-<id>, also translated: /es/fotos/…) becomes
+   * its image, at the screen's size. '' if it is not a valid link.
+   */
+  function resolveBgLink(raw) {
+    let u;
+    try {
+      u = new URL(String(raw).trim());
+    } catch {
+      return '';
+    }
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return '';
+    if (/^(www\.)?unsplash\.com$/.test(u.hostname)) {
+      const parts = u.pathname.split('/').filter(Boolean);
+      if (parts.at(-1) === 'download') parts.pop();
+      const slug = parts.at(-1) || '';
+      const id = slug.length > 11 && slug.at(-12) === '-' ? slug.slice(-11) : slug;
+      if (
+        parts.length >= 2 &&
+        /^[\w-]{10,12}$/.test(id) &&
+        !parts.some((x) => x === 'collections' || x.startsWith('@'))
+      )
+        return `https://unsplash.com/photos/${id}/download?w=${bgWidth()}`;
+    }
+    return u.href;
+  }
+
+  /** The image to show now ('' = none). */
+  function bgImage() {
+    const { bgSource, bgCustom, unsplashPhoto } = state.prefs;
+    if (bgSource === 'unsplash') return unsplashPhoto?.url || '';
+    if (bgSource === 'custom') return bgCustom;
+    return '';
+  }
+
+  const cssUrl = (u) => `url("${u.replace(/["\\\s]/g, encodeURIComponent)}")`;
+
+  function applyStyle(animate = false) {
+    const style = state.prefs.style;
+    const root = document.documentElement;
+    if (animate) {
+      root.classList.add('theme-transition');
+      setTimeout(() => root.classList.remove('theme-transition'), 350);
+    }
+    if (style === DEFAULT_PREFS.style) delete root.dataset.style;
+    else root.dataset.style = style;
+    try {
+      localStorage.setItem('bd-style', style);
+    } catch {
+      /* no localStorage: only affects the first paint */
+    }
+  }
+
+  let bgCache = null; // last quick copy written (the image can weigh a few MB)
+  let bgShown = ''; // image in --bg-image (it is not rewritten if it does not change)
+
+  function applyBackground() {
+    const { bgBlur, bgDim } = state.prefs;
+    const url = bgImage();
+    const preset = state.prefs.bgSource === 'preset' ? state.prefs.bgPreset : '';
+    const root = document.documentElement;
+    if (url) {
+      root.dataset.backdrop = 'image';
+      if (bgShown !== url) root.style.setProperty('--bg-image', cssUrl(url));
+    } else {
+      if (preset) root.dataset.backdrop = 'preset';
+      else delete root.dataset.backdrop;
+      root.style.removeProperty('--bg-image');
+    }
+    if (preset) root.dataset.bgPreset = preset;
+    else delete root.dataset.bgPreset;
+    bgShown = url;
+    root.style.setProperty('--bg-blur', `${bgBlur}px`);
+    root.style.setProperty('--bg-dim', String(bgDim / 100));
+    renderBgCredit();
+    const cache = JSON.stringify({ url, preset, blur: bgBlur, dim: bgDim });
+    if (cache === bgCache) return;
+    bgCache = cache;
+    try {
+      localStorage.setItem(BG_CACHE_KEY, cache);
+    } catch {
+      // Without localStorage, or the uploaded image does not fit: it only affects the first paint.
+      try {
+        localStorage.setItem(BG_CACHE_KEY, JSON.stringify({ url: '', preset, blur: bgBlur, dim: bgDim }));
+      } catch {
+        /* no localStorage */
+      }
+    }
+  }
+
+  const unsplashUrl = (href) => `${href}${href.includes('?') ? '&' : '?'}${UNSPLASH_UTM}`;
+
+  /** "Photo by <author> on <Unsplash>" with links (required by Unsplash). */
+  function creditNodes(photo) {
+    const link = (href, text) =>
+      el('a', { href: unsplashUrl(href), target: '_blank', rel: 'noopener noreferrer' }, text);
+    return [
+      `${t('bg.photoBy')} `,
+      link(photo.authorUrl, photo.author),
+      ` ${t('bg.on')} `,
+      link('https://unsplash.com/', 'Unsplash'),
+    ];
+  }
+
+  function renderBgCredit() {
+    const credit = $('#bg-credit');
+    const photo = state.prefs.unsplashPhoto;
+    const show = state.prefs.bgSource === 'unsplash' && !!photo;
+    credit.hidden = !show;
+    credit.replaceChildren(...(show ? creditNodes(photo) : []));
+  }
+
+  function setBgPrefs(partial) {
+    Object.assign(state.prefs, partial);
+    savePrefs(partial);
+    applyBackground();
+    syncControls();
+  }
+
+  /** Loads (and decodes) an image before showing it; fails if it does not arrive in 20 s. */
+  function preloadImage(url) {
+    const img = new Image();
+    img.decoding = 'async';
+    img.referrerPolicy = 'no-referrer';
+    img.src = url;
+    return Promise.race([
+      img.decode(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 20000)),
+    ]);
+  }
+
+  function unsplashError(status) {
+    if (status === 401) return t('bg.errKey');
+    if (status === 403) return t('bg.errLimit');
+    if (status === 404) return t('bg.errNone');
+    return `HTTP ${status}`;
+  }
+
+  let unsplashBusy = false;
+
+  /**
+   * Fetches a random Unsplash photo (with the chosen topic) if the current one has
+   * expired, or always with `force` ("Another photo" button). Uses the user's own
+   * key, sent as client_id so the request needs no CORS preflight.
+   */
+  async function refreshUnsplash(force = false) {
+    const { bgSource, unsplashKey, unsplashQuery, unsplashEvery, unsplashPhoto } = state.prefs;
+    if (bgSource !== 'unsplash' || unsplashBusy || !unsplashKey) return;
+    const fresh =
+      unsplashPhoto && unsplashPhoto.query === unsplashQuery && Date.now() - unsplashPhoto.at < BG_EVERY[unsplashEvery];
+    if (fresh && !force) return;
+    unsplashBusy = true;
+    syncControls();
+    try {
+      const params = new URLSearchParams({ orientation: 'landscape', content_filter: 'high', client_id: unsplashKey });
+      if (unsplashQuery) params.set('query', unsplashQuery);
+      const res = await fetch(`${UNSPLASH_API}/photos/random?${params}`, {
+        credentials: 'omit',
+        referrerPolicy: 'no-referrer',
+      });
+      if (!res.ok) throw new Error(unsplashError(res.status));
+      const data = await res.json();
+      const raw = data?.urls?.raw;
+      const photo = {
+        id: String(data?.id || ''),
+        url: typeof raw === 'string' ? `${raw}${raw.includes('?') ? '&' : '?'}w=${bgWidth()}&q=80&fm=jpg&fit=max` : '',
+        color: typeof data?.color === 'string' ? data.color : '',
+        author: String(data?.user?.name || data?.user?.username || 'Unsplash'),
+        authorUrl: String(data?.user?.links?.html || 'https://unsplash.com/'),
+        link: String(data?.links?.html || 'https://unsplash.com/'),
+        query: unsplashQuery,
+        at: Date.now(),
+      };
+      if (!isUnsplashPhoto(photo)) throw new Error(t('bg.errBad'));
+      await preloadImage(photo.url);
+      // Unsplash asks to count it as a download when a photo is used as a background.
+      const track = data?.links?.download_location;
+      if (typeof track === 'string' && track.startsWith(`${UNSPLASH_API}/`)) {
+        fetch(`${track}${track.includes('?') ? '&' : '?'}client_id=${encodeURIComponent(unsplashKey)}`, {
+          credentials: 'omit',
+          referrerPolicy: 'no-referrer',
+        }).catch(() => {});
+      }
+      if (state.prefs.bgSource === 'unsplash') setBgPrefs({ unsplashPhoto: photo });
+    } catch (err) {
+      // Without a previous photo (or when asked by hand) the error is shown; otherwise the old one stays.
+      if (force || !unsplashPhoto) toast(t('bg.unsplashError', { error: err?.message || err }), 'error');
+      else console.warn('[Bookmark Control Panel] Could not renew the Unsplash photo:', err);
+    } finally {
+      unsplashBusy = false;
+      syncControls();
+    }
+  }
+
+  /** "Use" in Settings → Background: a link to an image or to an Unsplash photo. */
+  async function applyBgLink() {
+    const input = $('#bg-link');
+    const raw = input.value.trim();
+    if (!raw) return;
+    const url = resolveBgLink(raw);
+    if (!url || !isBgImageUrl(url)) {
+      toast(t('bg.errLink'), 'error');
+      return;
+    }
+    const btn = $('#bg-link-apply');
+    btn.disabled = true;
+    try {
+      await preloadImage(url);
+    } catch {
+      toast(t('bg.errLoad'), 'error');
+      return;
+    } finally {
+      btn.disabled = false;
+    }
+    input.value = url;
+    setBgPrefs({ bgSource: 'custom', bgCustom: url });
+  }
+
+  /** Image from the computer: reduced (longest side BG_FILE_MAX_SIDE) and saved as WebP. */
+  async function loadBgFile(file) {
+    if (!file) return;
+    try {
+      if (!file.type.startsWith('image/')) throw new Error('not an image');
+      const bitmap = await createImageBitmap(file);
+      const scale = Math.min(1, BG_FILE_MAX_SIDE / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      bitmap.close();
+      const dataUrl = canvas.toDataURL('image/webp', 0.86);
+      if (!isBgImageUrl(dataUrl)) throw new Error('too large');
+      setBgPrefs({ bgSource: 'custom', bgCustom: dataUrl });
+    } catch (err) {
+      console.warn('[Bookmark Control Panel] Could not use the image:', err);
+      toast(t('bg.errFile'), 'error');
+    }
+  }
+
+  /** Settings → Background → Gradient: a thumbnail of each one (texts translated by translateStatic). */
+  function buildBgPresets() {
+    $('#bg-preset-grid').replaceChildren(
+      ...BG_PRESETS.map((name) =>
+        el(
+          'label',
+          { class: 'bg-preset', dataset: { preset: name } },
+          el('input', { type: 'radio', name: 'bg-preset', value: name }),
+          el('span', { class: 'bg-preset-swatch', 'aria-hidden': 'true' }),
+          el('span', { dataset: { i18n: `bgPreset.${name}` } }, t(`bgPreset.${name}`)),
+        ),
+      ),
+    );
+  }
+
+  /** Settings → Background: values, visible options and the current photo. */
+  function syncBgControls() {
+    const p = state.prefs;
+    const form = $('#settings-form');
+    for (const radio of form.querySelectorAll('input[name="style"]')) radio.checked = radio.value === p.style;
+    for (const radio of form.querySelectorAll('input[name="bg-source"]')) radio.checked = radio.value === p.bgSource;
+    for (const radio of form.querySelectorAll('input[name="bg-preset"]'))
+      radio.checked = p.bgSource === 'preset' && radio.value === p.bgPreset;
+    for (const radio of form.querySelectorAll('input[name="bg-every"]'))
+      radio.checked = radio.value === p.unsplashEvery;
+    $('#bg-unsplash').hidden = p.bgSource !== 'unsplash';
+    $('#bg-custom').hidden = p.bgSource !== 'custom';
+    $('#bg-presets').hidden = p.bgSource !== 'preset';
+    // Blur and soften only make sense on a photo.
+    $('#bg-adjust').hidden = p.bgSource === 'none' || p.bgSource === 'preset';
+    // Fields are not touched while typing in them.
+    const keep = (input, value) => {
+      if (document.activeElement !== input) input.value = value;
+    };
+    const uploaded = p.bgCustom.startsWith('data:');
+    keep($('#bg-query'), p.unsplashQuery);
+    keep($('#bg-key'), p.unsplashKey);
+    keep($('#bg-link'), uploaded ? '' : p.bgCustom);
+    $('#bg-link').placeholder = uploaded ? t('bg.uploaded') : 'https://';
+    $('#bg-blur').value = String(p.bgBlur);
+    $('#bg-dim').value = String(p.bgDim);
+    const next = $('#bg-next');
+    next.disabled = unsplashBusy || !p.unsplashKey;
+    next.classList.toggle('is-busy', unsplashBusy);
+    const photo = p.bgSource === 'unsplash' ? p.unsplashPhoto : null;
+    $('#bg-photo-info').replaceChildren(
+      photo
+        ? el('small', {}, ...creditNodes(photo))
+        : el('small', {}, t(unsplashBusy ? 'bg.loading' : p.unsplashKey ? 'bg.noPhoto' : 'bg.needKey')),
+    );
   }
 
   /** Card color stripe: visible or hidden, general color and thickness (see CSS). */
@@ -1282,6 +1678,7 @@
     const width = state.prefs.stripe ? state.prefs.stripeWidth : 0;
     for (const radio of form.querySelectorAll('input[name="stripe-width"]'))
       radio.checked = Number(radio.value) === width;
+    syncBgControls();
   }
 
   /** Stripe thickness: 0 ("None") hides it; any other value shows it with that thickness. */
@@ -4638,6 +5035,15 @@
   const BACKUP_PREFS = {
     lang: (v) => LANGS.includes(v),
     theme: (v) => THEMES.includes(v),
+    style: (v) => STYLES.includes(v),
+    bgSource: (v) => BG_SOURCES.includes(v),
+    bgPreset: (v) => BG_PRESETS.includes(v),
+    // Only links: an uploaded image would make the backup too heavy. The Unsplash key is not exported.
+    bgCustom: (v) => v === '' || (isBgImageUrl(v) && !v.startsWith('data:')),
+    bgBlur: (v) => isIntIn(v, 0, BG_BLUR_MAX),
+    bgDim: (v) => isIntIn(v, 0, BG_DIM_MAX),
+    unsplashQuery: (v) => typeof v === 'string' && v.length <= 80,
+    unsplashEvery: (v) => Object.hasOwn(BG_EVERY, v),
     corners: (v) => CORNERS.includes(v),
     accentColor: (v) => ACCENT_COLORS.includes(v),
     folderColor: (v) => FOLDER_COLORS.includes(v),
@@ -4700,7 +5106,7 @@
       if (ref) separators[id] = ref;
     }
     const prefs = {};
-    for (const key of Object.keys(BACKUP_PREFS)) prefs[key] = state.prefs[key];
+    for (const [key, valid] of Object.entries(BACKUP_PREFS)) if (valid(state.prefs[key])) prefs[key] = state.prefs[key];
     let app = '';
     try {
       app = api.runtime?.getManifest?.().version || '';
@@ -4949,6 +5355,8 @@
     applyTheme(true);
     applyCorners();
     applyAccent();
+    applyStyle();
+    applyBackground();
     applySidebar();
     applyMinimal();
     applyStripe();
@@ -5932,6 +6340,7 @@
     buildSwatches($('#accent-colors'), 'accent-color', ACCENT_COLORS);
     buildSwatches($('#folder-colors'), 'folder-color', FOLDER_COLORS);
     buildSwatches($('#stripe-colors'), 'stripe-color', STRIPE_COLORS);
+    buildBgPresets();
     const settingsTabs = $('#settings-tabs');
     settingsTabs.addEventListener('click', (event) => {
       const tab = event.target.closest('[role="tab"]');
@@ -6034,7 +6443,27 @@
     $('#settings-form').addEventListener('change', (event) => {
       const input = event.target;
       if (input.name === 'theme') setPref('theme', input.value);
-      else if (input.name === 'lang') setPref('lang', input.value);
+      else if (input.name === 'style') setPref('style', input.value);
+      else if (input.name === 'bg-preset') setBgPrefs({ bgSource: 'preset', bgPreset: input.value });
+      else if (input.name === 'bg-source') {
+        setPref('bgSource', input.value);
+        refreshUnsplash();
+      } else if (input.name === 'bg-every') {
+        setPref('unsplashEvery', input.value);
+        refreshUnsplash();
+      } else if (input.id === 'bg-query') {
+        setPref('unsplashQuery', input.value.trim().slice(0, 80));
+        refreshUnsplash();
+      } else if (input.id === 'bg-key') {
+        setPref('unsplashKey', input.value.trim().slice(0, 200));
+        refreshUnsplash();
+      } else if (input.id === 'bg-blur') setPref('bgBlur', Number(input.value));
+      else if (input.id === 'bg-dim') setPref('bgDim', Number(input.value));
+      else if (input.id === 'bg-file') {
+        const file = input.files?.[0];
+        input.value = ''; // allows picking the same file again
+        loadBgFile(file);
+      } else if (input.name === 'lang') setPref('lang', input.value);
       else if (input.name === 'corners') setPref('corners', input.value);
       else if (input.name === 'accent-color') setPref('accentColor', input.value);
       else if (input.name === 'folder-color') setPref('folderColor', input.value);
@@ -6070,6 +6499,30 @@
       tabTitleInput.blur(); // fires "change", which saves
     });
     $('#resync-btn').addEventListener('click', () => resync({ notify: true }));
+
+    // Background: Enter in a field confirms it without closing the dialog;
+    // the sliders are previewed live and saved on release.
+    for (const id of ['bg-query', 'bg-key', 'bg-link']) {
+      $(`#${id}`).addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        if (id === 'bg-link') applyBgLink();
+        else event.target.blur(); // fires "change", which saves
+      });
+    }
+    $('#bg-link-apply').addEventListener('click', applyBgLink);
+    $('#bg-file-btn').addEventListener('click', () => $('#bg-file').click());
+    $('#bg-next').addEventListener('click', () => refreshUnsplash(true));
+    $('#bg-blur').addEventListener('input', (event) =>
+      document.documentElement.style.setProperty('--bg-blur', `${event.target.value}px`),
+    );
+    $('#bg-dim').addEventListener('input', (event) =>
+      document.documentElement.style.setProperty('--bg-dim', String(event.target.value / 100)),
+    );
+    // A tab left open for hours also renews the Unsplash photo when it is shown again.
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) refreshUnsplash();
+    });
 
     // Backup
     const importInput = $('#import-file');
@@ -6223,6 +6676,8 @@
     if (state.prefs.lang !== lang) applyLanguage();
     applyCorners();
     applyAccent();
+    applyStyle();
+    applyBackground();
     applySidebar();
     applyMinimal();
     applyStripe();
@@ -6231,6 +6686,7 @@
     applyGroupsPanel();
     applyTheme();
     syncControls();
+    refreshUnsplash();
     await start();
   }
 

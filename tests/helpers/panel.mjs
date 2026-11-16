@@ -62,6 +62,7 @@ const EXPOSE = [
   'trackStripHover',
   'setPref',
   'applyAccent',
+  'resolveBgLink',
   'docTitle',
 ];
 

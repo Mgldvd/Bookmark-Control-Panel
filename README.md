@@ -63,7 +63,9 @@ and runs **100 % locally**: no server, no dependencies, no frameworks and no dat
 | `storage`   | Store preferences and starred items locally.                                      |
 
 `tabs.create` (opening a new tab) needs no permission. No host permissions are requested and
-`data_collection_permissions` declares `none`.
+`data_collection_permissions` declares `none`. The only other connections are the ones the user
+turns on in Settings → Background: the Unsplash API (`api.unsplash.com`, which answers with CORS,
+so it needs no host permission) and the background image itself.
 
 ### Favicons and privacy
 
@@ -233,6 +235,21 @@ bookmarks/
   folder cards and board columns) can be changed to any of the ten colors, and board columns can
   have a different one ("Folder color" follows the former). Folders with their own color keep it.
   The column color no longer depends on the left border being visible.
+- **Style** (Settings → Appearance → Style): Classic (the usual one), **Glass** (translucent,
+  frosted surfaces over the background image or, without one, over a gradient made with the main
+  color), **Nord** (cool blue-gray) and **Sepia** (warm paper). Each works in light and dark and,
+  while the main color is the default one, brings its own. Applied before the first paint, synced
+  across tabs and included in the backup.
+- **Background image** (Settings → Background): none, a built-in **gradient**, a random
+  **Unsplash** photo or a **custom** one. The ten gradients (Aurora, the Glass one, which uses the
+  main color; Sunset, Ocean, Forest, Lavender, Peach, Mint, Midnight, Candy and Graphite) are pure
+  CSS, need no connection and have light and dark versions. Unsplash needs the user's own free access key (unsplash.com/developers); the photo is
+  chosen by topic and renewed every hour, every day or by hand ("Another photo"), and the panel
+  shows the "Photo by … on Unsplash" credit the API guidelines require. A custom image is a link
+  (any image, or an Unsplash photo page such as `unsplash.com/photos/…`, turned into its image)
+  or a file from the computer, reduced to 2560 px and saved as WebP inside the extension.
+  Adjustable blur and "soften" (lightens or darkens it by theme). The backup keeps these settings
+  but not the access key or an uploaded image.
 - **Corner style** (Settings → Corners): rounded, semi-rounded or square corners across the whole UI
   (cards, buttons, menus, dialogs, search box…). Applied before the first paint, like the theme,
   and synced across tabs.

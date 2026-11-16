@@ -11,6 +11,31 @@ try {
   if (localStorage.getItem('bd-sidebar') === '0') {
     document.documentElement.classList.add('sidebar-hidden');
   }
+  const style = localStorage.getItem('bd-style');
+  if (style === 'glass' || style === 'nord' || style === 'sepia') {
+    document.documentElement.dataset.style = style;
+  }
+  // Background image: { url, blur, dim } (see applyBackground in dashboard.js).
+  let bg = null;
+  try {
+    bg = JSON.parse(localStorage.getItem('bd-bg') || 'null');
+  } catch {
+    // damaged copy: the background arrives with dashboard.js
+  }
+  if (bg && typeof bg === 'object') {
+    const root = document.documentElement;
+    if (typeof bg.url === 'string' && /^(https?:|data:image\/)/.test(bg.url)) {
+      root.dataset.backdrop = 'image';
+      root.style.setProperty('--bg-image', `url("${bg.url.replace(/["\\\s]/g, encodeURIComponent)}")`);
+    }
+    // Gradient included with the extension (see BG_PRESETS in dashboard.js).
+    if (!root.dataset.backdrop && typeof bg.preset === 'string' && /^[a-z]{2,20}$/.test(bg.preset)) {
+      root.dataset.backdrop = 'preset';
+      root.dataset.bgPreset = bg.preset;
+    }
+    if (Number.isInteger(bg.blur)) root.style.setProperty('--bg-blur', `${bg.blur}px`);
+    if (Number.isFinite(bg.dim)) root.style.setProperty('--bg-dim', String(bg.dim / 100));
+  }
   const corners = localStorage.getItem('bd-corners');
   if (corners === 'round' || corners === 'semi' || corners === 'square') {
     document.documentElement.dataset.corners = corners;
