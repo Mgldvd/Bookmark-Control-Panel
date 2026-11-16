@@ -188,6 +188,18 @@ bookmarks/
   pestaña teñida cuando está activo), moverlo o eliminarlo (con «Deshacer»; siempre queda uno).
   La tira que había antes pasa a ser el perfil «Principal». Se sincronizan entre pestañas y van en
   la copia de seguridad.
+- **Mosaico** (masonry): vista especial bajo «Tira» que funciona igual que ella (casillas en el
+  árbol, «Elegir carpetas», «Añadir al mosaico» en el menú de las carpetas, subcarpetas
+  desplegables, Expandir / Contraer todo, perfiles, separadores, carpeta de inicio), pero con su
+  **propia selección**: sus carpetas, perfiles y subcarpetas abiertas no son las de la tira
+  (`masonryFolders`, `masonryProfiles`, `masonryProfile`, `masonryOpen`). Las tarjetas se reparten
+  en columnas y cada una entra en la **columna más corta**, así el orden se lee de izquierda a
+  derecha (el tablero usa columnas CSS, que se leen de arriba abajo). La página se desplaza en
+  vertical y cada tarjeta muestra todo su contenido. El número de columnas depende del ancho (mín.
+  300 px) y respeta el máximo de Ajustes → Diseño; al cambiar el ancho se recolocan, pero desplegar
+  o plegar algo no mueve las tarjetas de sitio. Arrastrar la cabecera de una tarjeta encima o
+  debajo de otra cambia su orden. Va en la copia de seguridad; una copia anterior al mosaico no lo
+  vacía al importarla.
 - **Carpeta de inicio**: cada pestaña nueva del panel empieza en la carpeta o vista marcada con
   «Usar como página de inicio», tanto en el panel normal como en el modo minimalista. Cualquier
   vista (también la **Tira**) se marca como inicio con el botón de la casa de la cabecera (se

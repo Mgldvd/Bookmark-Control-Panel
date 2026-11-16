@@ -31,12 +31,25 @@
   const VIEW_RECENT = 'view:recent';
   // Tira: las carpetas elegidas, una tarjeta del tablero al lado de otra.
   const VIEW_STRIP = 'view:strip';
+  // Mosaico (masonry): otras carpetas elegidas, en columnas que se rellenan por la más corta.
+  const VIEW_MASONRY = 'view:masonry';
   const VIEWS = {
     [VIEW_ALL]: { label: 'view.all', icon: 'layers' },
     [VIEW_FAVORITES]: { label: 'view.favorites', icon: 'star' },
     [VIEW_RECENT]: { label: 'view.recent', icon: 'clock' },
     [VIEW_STRIP]: { label: 'view.strip', icon: 'strip' },
+    [VIEW_MASONRY]: { label: 'view.masonry', icon: 'masonry' },
   };
+  // Colecciones: vistas de carpetas elegidas con las tarjetas del tablero (la tira y
+  // el mosaico). Cada una tiene su propia selección, sus perfiles y sus subcarpetas
+  // desplegadas; en el estado y en storage sus claves llevan el tipo delante
+  // (stripFolders, masonryFolders, stripOpen, masonryOpen…).
+  const COLLECTIONS = { strip: VIEW_STRIP, masonry: VIEW_MASONRY };
+  const COLLECTION_KINDS = Object.keys(COLLECTIONS);
+  const isCollection = (kind) => typeof kind === 'string' && Object.hasOwn(COLLECTIONS, kind);
+  const collectionOfView = (id) => COLLECTION_KINDS.find((kind) => COLLECTIONS[kind] === id) || null;
+  const MASONRY_MIN = 300; // ancho mínimo de una columna del mosaico (px)
+  const MASONRY_GAP = 16; // separación entre columnas (igual que en el CSS)
 
   // Carpetas raíz de Firefox (ids fijos de Places).
   const BUILTIN_FOLDERS = {
@@ -122,6 +135,10 @@
     stripOpen: [],
     stripProfiles: [],
     stripProfile: '',
+    masonryFolders: [],
+    masonryOpen: [],
+    masonryProfiles: [],
+    masonryProfile: '',
     folderColors: {},
     separatorColors: {},
     expanded: ['menu________', 'toolbar_____', 'unfiled_____'],
@@ -227,6 +244,13 @@
     treePicking: false,
     // Subcarpetas desplegadas dentro de las tarjetas de la tira.
     stripOpen: new Set(),
+    // Lo mismo para el mosaico (colección independiente de la tira).
+    masonryFolders: [],
+    masonryProfiles: [],
+    masonryProfile: '',
+    masonryOpen: new Set(),
+    // Tarjetas del mosaico en su orden (para recolocarlas si cambia el número de columnas).
+    masonryItems: [],
     folderColors: Object.create(null),
     separatorColors: Object.create(null),
   };
@@ -724,9 +748,16 @@
       state.boardCollapsed = new Set(p.boardCollapsed.filter((x) => typeof x === 'string'));
     if (Array.isArray(p.boardShowAll))
       state.boardShowAll = new Set(p.boardShowAll.filter((x) => typeof x === 'string'));
-    if (Array.isArray(p.stripOpen)) state.stripOpen = new Set(p.stripOpen.filter((x) => typeof x === 'string'));
-    if (Array.isArray(p.stripProfiles) || typeof p.stripProfile === 'string' || Array.isArray(p.stripFolders))
-      applyStripProfiles(p);
+    for (const kind of COLLECTION_KINDS) {
+      const open = p[`${kind}Open`];
+      if (Array.isArray(open)) state[`${kind}Open`] = new Set(open.filter((x) => typeof x === 'string'));
+      if (
+        Array.isArray(p[`${kind}Profiles`]) ||
+        typeof p[`${kind}Profile`] === 'string' ||
+        Array.isArray(p[`${kind}Folders`])
+      )
+        applyStripProfiles(p, kind);
+    }
     if (p.folderColors && typeof p.folderColors === 'object' && !Array.isArray(p.folderColors)) {
       const colors = Object.create(null);
       for (const [id, color] of Object.entries(p.folderColors)) if (GROUP_COLORS.includes(color)) colors[id] = color;
@@ -1030,7 +1061,9 @@
   function nameTransitionCards() {
     const names = [];
     const used = new Set();
-    for (const card of document.querySelectorAll('#cards > .board-card, #cards > .card, #folder-grid > .folder-tile')) {
+    for (const card of document.querySelectorAll(
+      '#cards > .board-card, #cards > .masonry-col > .board-card, #cards > .card, #folder-grid > .folder-tile',
+    )) {
       card.style.viewTransitionName = '';
       const id = card.dataset.folderId || card.dataset.id;
       if (!id || names.length >= VT_MAX_CARDS) continue;
@@ -1084,7 +1117,8 @@
     state.vtActive = true;
     const finish = () => {
       root.classList.remove('vt-minimal');
-      for (const node of document.querySelectorAll('#cards > *, #folder-grid > *')) node.style.viewTransitionName = '';
+      for (const node of document.querySelectorAll('#cards > *, #cards > .masonry-col > *, #folder-grid > *'))
+        node.style.viewTransitionName = '';
       $('#vt-style')?.remove();
       state.vtActive = false;
       if (state.renderPending) {
@@ -1166,12 +1200,13 @@
     else setHomeFolder(id);
   }
 
-  /** Menú contextual de las vistas de la barra lateral (Todos, Destacados, Recientes, Tira). */
+  /** Menú contextual de las vistas de la barra lateral (Todos, Destacados, Recientes, Tira, Mosaico). */
   function viewMenu(id) {
+    const kind = collectionOfView(id);
     return [
       { label: t('menu.open'), icon: VIEWS[id].icon, run: () => selectView(id) },
       homeId() !== id && { label: t('menu.setHome'), icon: 'home', run: () => setHomeFolder(id) },
-      id === VIEW_STRIP && { label: t('strip.pick'), icon: 'folder-plus', run: revealTreePicker },
+      kind && { label: t('strip.pick'), icon: 'folder-plus', run: () => revealTreePicker(kind) },
     ];
   }
 
@@ -1497,14 +1532,22 @@
 
     $('#count-all').textContent = numberFmt.format(total);
     $('#count-favorites').textContent = numberFmt.format(countFavorites());
-    $('#count-strip').textContent = numberFmt.format(stripFolderNodes().length);
+    for (const kind of COLLECTION_KINDS) {
+      $(`#count-${kind}`).textContent = numberFmt.format(stripFolderNodes(kind).length);
+    }
 
     const tree = $('#tree');
-    state.treePicking = stripPicking();
-    tree.classList.toggle('is-picking', state.treePicking);
+    // En una colección (tira o mosaico), el tipo; si no, false.
+    const picking = pickingCollection();
+    state.treePicking = picking || false;
+    tree.classList.toggle('is-picking', !!picking);
     const hint = $('#tree-pick-hint');
-    hint.hidden = !state.treePicking;
-    if (state.treePicking) $('#tree-pick-count').textContent = tn('strip.selected', stripFolderNodes().length);
+    hint.hidden = !picking;
+    if (picking) {
+      $('#tree-pick-count').textContent = tn(`${picking}.selected`, stripFolderNodes(picking).length);
+      $('#tree-pick-hint .tree-pick-text').textContent = t(`${picking}.treeHint`);
+      hint.querySelector('use')?.setAttribute('href', `#i-${picking}`);
+    }
     const active = document.activeElement;
     const focusedId = tree.contains(active) ? active.closest('.tree-row')?.dataset.id : null;
 
@@ -1555,7 +1598,8 @@
         )
       : el('span', { class: 'tree-spacer' });
 
-    const picked = state.treePicking && inStrip(folder.id);
+    const picking = state.treePicking;
+    const picked = !!picking && inStrip(folder.id, picking);
     row.classList.toggle('is-in-strip', picked);
     const label = el(
       'button',
@@ -1563,7 +1607,7 @@
         class: 'tree-label',
         type: 'button',
         title: state.treePicking
-          ? `${folderName(folder)} — ${t(picked ? 'menu.stripRemove' : 'menu.stripAdd')}`
+          ? `${folderName(folder)} — ${t(`menu.${picking}${picked ? 'Remove' : 'Add'}`)}`
           : folderName(folder),
         role: state.treePicking ? 'checkbox' : null,
         'aria-checked': state.treePicking ? String(picked) : null,
@@ -1588,8 +1632,8 @@
   }
 
   function updateSidebarSelection() {
-    // Entrar o salir de la tira cambia el árbol (casillas de selección).
-    if (state.ready && state.treePicking !== stripPicking()) {
+    // Entrar o salir de una colección (o pasar de una a otra) cambia el árbol (casillas de selección).
+    if (state.ready && state.treePicking !== (pickingCollection() || false)) {
       renderSidebar();
       return;
     }
@@ -1689,10 +1733,11 @@
       };
     }
 
-    if (sel === VIEW_STRIP) {
-      const folders = stripFolderNodes();
+    const collection = collectionOfView(sel);
+    if (collection) {
+      const folders = stripFolderNodes(collection);
       return {
-        kind: 'strip',
+        kind: collection,
         key: sel,
         title: t(VIEWS[sel].label),
         icon: VIEWS[sel].icon,
@@ -1749,8 +1794,8 @@
     }
     if (view.key === VIEW_FAVORITES) return t('favorites.subtitle', { count: tn('n.starred', view.items.length) });
     if (view.key === VIEW_RECENT) return t('recent.subtitle', { n: numberFmt.format(RECENT_LIMIT) });
-    if (view.kind === 'strip') {
-      if (!view.folders.length) return t('strip.subtitleEmpty');
+    if (isCollection(view.kind)) {
+      if (!view.folders.length) return t(`${view.kind}.subtitleEmpty`);
       return `${tn('n.folder', view.folders.length)} · ${tn('n.bookmark', view.items.length)}`;
     }
     const total = getCounts().get(view.folder.id) || 0;
@@ -1790,10 +1835,15 @@
 
     $('#sort').disabled = !!view.fixedOrder;
     $('#subfolders-chip').hidden = view.kind !== 'folder';
-    $('#strip-pick-btn').hidden = view.kind !== 'strip';
+    const pick = $('#strip-pick-btn');
+    pick.hidden = !isCollection(view.kind);
+    if (!pick.hidden) {
+      pick.title = t(`${view.kind}.pickTitle`);
+      pick.setAttribute('aria-label', pick.title);
+    }
     renderStripExpandBtn(view.kind);
     renderHomeSetBtn(view);
-    $('#view-modes').hidden = view.kind === 'strip';
+    $('#view-modes').hidden = isCollection(view.kind);
     $('#open-all-btn').hidden = !view.items.some((n) => isOpenable(n.url));
     $('#controls').hidden = false;
     document.title = docTitle(view);
@@ -1807,15 +1857,19 @@
 
     $('#content').dataset.dropId = view.kind === 'folder' ? view.folder.id : '';
     // Reordenar arrastrando solo tiene sentido si se ve el orden real de Firefox.
-    state.reorderable = (view.kind === 'folder' || view.kind === 'strip') && state.prefs.sort === 'manual';
+    state.reorderable = (view.kind === 'folder' || isCollection(view.kind)) && state.prefs.sort === 'manual';
     state.viewFolderId = view.kind === 'folder' ? view.folder.id : null;
     state.viewItemIds = view.items.map((n) => n.id);
     state.viewKind = view.kind;
 
-    // La tira siempre usa las tarjetas del tablero, pero en una sola fila.
+    // Las colecciones siempre usan las tarjetas del tablero: la tira en una sola fila
+    // y el mosaico en columnas que se rellenan por la más corta.
+    const collection = isCollection(view.kind);
     const strip = view.kind === 'strip';
-    const board = strip || viewMode() === 'board';
+    const masonry = view.kind === 'masonry';
+    const board = collection || viewMode() === 'board';
     $('#content').classList.toggle('is-strip-view', strip);
+    $('#content').classList.toggle('is-masonry-view', masonry);
     renderHomeBar(view);
     renderStripProfiles(view.kind);
 
@@ -1828,8 +1882,10 @@
     const cards = $('#cards');
     const section = $('#bookmarks-section');
     cards.classList.toggle('is-list', !board && viewMode() === 'list');
-    cards.classList.toggle('is-board', board && !strip);
+    cards.classList.toggle('is-board', board && !collection);
     cards.classList.toggle('is-strip', strip);
+    cards.classList.toggle('is-masonry', masonry);
+    if (!masonry) state.masonryItems = [];
     section.classList.toggle('is-board-section', board);
     let remaining;
 
@@ -1849,9 +1905,10 @@
         }
       }
       const cardEls = shown.map((s) => boardCard(s, view, seen));
-      // Al final de la tira, un hueco para añadir (o soltar) carpetas.
-      if (strip && shown.length === sections.length) cardEls.push(stripAddTile());
-      cards.replaceChildren(...cardEls);
+      // Al final de la colección, un hueco para añadir (o soltar) carpetas.
+      if (collection && shown.length === sections.length) cardEls.push(stripAddTile());
+      if (masonry) layoutMasonry(cards, cardEls);
+      else cards.replaceChildren(...cardEls);
       for (const card of cardEls) {
         const top = scrolls.get(card.dataset.folderId);
         if (top) card.querySelector('.board-inner').scrollTop = top;
@@ -1916,7 +1973,7 @@
   }
 
   function boardSections(view) {
-    if (view.kind === 'strip') {
+    if (isCollection(view.kind)) {
       return view.folders.map((f) => ({
         folder: f,
         rows: boardRowsOf(f),
@@ -2070,11 +2127,12 @@
     const name = folderName(f);
     const path = s.showPath ? pathText(f.id) : '';
     // La cabecera arrastra la carpeta entera (para reordenarla o moverla a otra).
-    // En la tira también las carpetas raíz: ahí solo se cambia su sitio en la tira.
-    const movable = !isBuiltin(f.id) || view.kind === 'strip';
-    // En la tira, cada columna con subcarpetas tiene su «Expandir / Contraer todo».
+    // En las colecciones también las carpetas raíz: ahí solo se cambia su sitio en ella.
+    const collection = isCollection(view.kind) ? view.kind : null;
+    const movable = !isBuiltin(f.id) || !!collection;
+    // En una colección, cada tarjeta con subcarpetas tiene su «Expandir / Contraer todo».
     let expandAll = null;
-    if (view.kind === 'strip' && stripSubfolderIds([f]).length) {
+    if (collection && stripSubfolderIds([f]).length) {
       expandAll = el(
         'button',
         {
@@ -2084,7 +2142,7 @@
         },
         icon('expand-all'),
       );
-      paintStripCardExpand(expandAll, stripCardExpanded(f.id));
+      paintStripCardExpand(expandAll, stripCardExpanded(f.id, collection), collection);
     }
     const head = el(
       'div',
@@ -2154,8 +2212,8 @@
         ),
       );
     }
-    if (s.subfolders.length && view.kind === 'strip') {
-      inner.append(stripSubList(s.subfolders, seen));
+    if (s.subfolders.length && collection) {
+      inner.append(stripSubList(s.subfolders, seen, collection));
     } else if (s.subfolders.length) {
       inner.append(
         el(
@@ -2198,7 +2256,14 @@
   // En vez de accesos sueltos, las subcarpetas forman un árbol: al desplegar una
   // se ven sus enlaces (y sus propias subcarpetas) sin salir de la tira.
 
-  const saveStripOpen = debounce(() => savePrefs({ stripOpen: [...state.stripOpen] }), 300);
+  // Subcarpetas desplegadas de todas las colecciones (stripOpen, masonryOpen…).
+  const saveStripOpen = debounce(
+    () => savePrefs(Object.fromEntries(COLLECTION_KINDS.map((kind) => [`${kind}Open`, [...state[`${kind}Open`]]]))),
+    300,
+  );
+  /** Colección a la vista (o la tira, si no hay ninguna): la de los botones y gestos sin tipo. */
+  const viewCol = () => collectionOfView(currentShown()) || 'strip';
+  const openSet = (kind) => state[`${kind}Open`];
 
   /** Recorta a BOARD_ROWS enlaces (sin dejar un separador colgando al final). */
   function trimRows(all, showAll) {
@@ -2216,20 +2281,20 @@
     return { rows, hidden: total - count, total };
   }
 
-  function stripSubList(subfolders, seen) {
+  function stripSubList(subfolders, seen, kind) {
     return el(
       'ul',
       { class: 'strip-subs' },
       ...subfolders.map((sub) => {
-        if (!isSeparator(sub)) return stripSubItem(sub, seen);
+        if (!isSeparator(sub)) return stripSubItem(sub, seen, kind);
         seen.add(sub.id);
         return boardRowEl(sub);
       }),
     );
   }
 
-  function stripSubItem(sub, seen) {
-    const open = state.stripOpen.has(sub.id);
+  function stripSubItem(sub, seen, kind) {
+    const open = openSet(kind).has(sub.id);
     const name = folderName(sub);
     const movable = !isBuiltin(sub.id);
     const label = t(open ? 'board.collapse' : 'board.expand');
@@ -2298,24 +2363,25 @@
         ),
       );
     }
-    if (subs.length) body.append(stripSubList(subs, seen));
+    if (subs.length) body.append(stripSubList(subs, seen, kind));
     if (!rows.length && !subs.length) body.append(el('p', { class: 'strip-sub-empty', text: t('board.empty') }));
     li.append(body);
     return li;
   }
 
-  /** Despliega o pliega una subcarpeta de la tira (y repinta solo esa rama). */
-  function toggleStripSub(id, li) {
-    if (state.stripOpen.has(id)) state.stripOpen.delete(id);
-    else state.stripOpen.add(id);
+  /** Despliega o pliega una subcarpeta de la colección (y repinta solo esa rama). */
+  function toggleStripSub(id, li, kind = viewCol()) {
+    const open = openSet(kind);
+    if (open.has(id)) open.delete(id);
+    else open.add(id);
     saveStripOpen();
     const sub = get(id);
-    if (li && isFolder(sub)) li.replaceWith(stripSubItem(sub, new Set()));
+    if (li && isFolder(sub)) li.replaceWith(stripSubItem(sub, new Set(), kind));
     renderStripExpandBtn();
   }
 
-  /** Todas las subcarpetas (a cualquier profundidad) de las tarjetas de la tira (o de `roots`). */
-  function stripSubfolderIds(roots = stripFolderNodes()) {
+  /** Todas las subcarpetas (a cualquier profundidad) de las carpetas `roots`. */
+  function stripSubfolderIds(roots) {
     const ids = [];
     const walk = (folder) => {
       for (const child of folder.children.map(get)) {
@@ -2329,60 +2395,63 @@
   }
 
   /** ¿Está todo a la vista? Tarjetas sin plegar y cada subcarpeta desplegada. */
-  function stripAllExpanded() {
-    const cards = stripFolderNodes();
+  function stripAllExpanded(kind = viewCol()) {
+    const cards = stripFolderNodes(kind);
     if (!cards.length) return false;
-    return (
-      cards.every((f) => !state.boardCollapsed.has(f.id)) && stripSubfolderIds().every((id) => state.stripOpen.has(id))
-    );
+    const open = openSet(kind);
+    return cards.every((f) => !state.boardCollapsed.has(f.id)) && stripSubfolderIds(cards).every((id) => open.has(id));
   }
 
   /**
    * «Expandir todo»: abre las tarjetas plegadas y despliega todas sus subcarpetas.
    * «Contraer todo»: pliega las subcarpetas (las tarjetas siguen abiertas).
    */
-  function toggleStripExpandAll() {
-    const ids = stripSubfolderIds();
-    if (stripAllExpanded()) {
-      ids.forEach((id) => state.stripOpen.delete(id));
+  function toggleStripExpandAll(kind = viewCol()) {
+    const cards = stripFolderNodes(kind);
+    const ids = stripSubfolderIds(cards);
+    const open = openSet(kind);
+    if (stripAllExpanded(kind)) {
+      ids.forEach((id) => open.delete(id));
     } else {
-      ids.forEach((id) => state.stripOpen.add(id));
-      stripFolderNodes().forEach((f) => state.boardCollapsed.delete(f.id));
+      ids.forEach((id) => open.add(id));
+      cards.forEach((f) => state.boardCollapsed.delete(f.id));
       saveBoardCollapsed();
     }
     saveStripOpen();
     renderMain();
   }
 
-  /** ¿Está toda la columna `id` de la tira a la vista? Tarjeta abierta y cada subcarpeta desplegada. */
-  function stripCardExpanded(id) {
+  /** ¿Está toda la tarjeta `id` de la colección a la vista? Abierta y con cada subcarpeta desplegada. */
+  function stripCardExpanded(id, kind = viewCol()) {
     const f = get(id);
     if (!isFolder(f) || state.boardCollapsed.has(id)) return false;
     const ids = stripSubfolderIds([f]);
-    return ids.length > 0 && ids.every((sub) => state.stripOpen.has(sub));
+    const open = openSet(kind);
+    return ids.length > 0 && ids.every((sub) => open.has(sub));
   }
 
   /**
    * «Expandir / Contraer todo» de una sola columna de la tira: lo mismo que el
    * botón general, pero solo con esa tarjeta y sus subcarpetas.
    */
-  function toggleStripCardExpand(id) {
+  function toggleStripCardExpand(id, kind = viewCol()) {
     const f = get(id);
     if (!isFolder(f)) return;
     const ids = stripSubfolderIds([f]);
-    if (stripCardExpanded(id)) {
-      ids.forEach((sub) => state.stripOpen.delete(sub));
+    const open = openSet(kind);
+    if (stripCardExpanded(id, kind)) {
+      ids.forEach((sub) => open.delete(sub));
     } else {
-      ids.forEach((sub) => state.stripOpen.add(sub));
+      ids.forEach((sub) => open.add(sub));
       if (state.boardCollapsed.delete(id)) saveBoardCollapsed();
     }
     saveStripOpen();
     renderMain();
   }
 
-  /** Icono, título y estado del botón «Expandir / Contraer todo» de una columna. */
-  function paintStripCardExpand(btn, all) {
-    const title = t(all ? 'strip.cardCollapseAllTitle' : 'strip.cardExpandAllTitle');
+  /** Icono, título y estado del botón «Expandir / Contraer todo» de una tarjeta. */
+  function paintStripCardExpand(btn, all, kind = viewCol()) {
+    const title = t(all ? `${kind}.cardCollapseAllTitle` : `${kind}.cardExpandAllTitle`);
     btn.title = title;
     btn.setAttribute('aria-label', title);
     btn.setAttribute('aria-pressed', String(all));
@@ -2391,14 +2460,17 @@
 
   function renderStripExpandBtn(kind = state.viewKind) {
     // Los botones de cada columna siguen a los cambios hechos a mano (flechas, plegar).
-    for (const btn of document.querySelectorAll('.strip-card-expand')) {
-      paintStripCardExpand(btn, stripCardExpanded(btn.dataset.target));
+    const collection = isCollection(kind) ? kind : null;
+    if (collection) {
+      for (const btn of document.querySelectorAll('.strip-card-expand')) {
+        paintStripCardExpand(btn, stripCardExpanded(btn.dataset.target, collection), collection);
+      }
     }
     // El general: en la cabecera y su copia en la barra de perfiles (la única a la
     // vista en el modo minimalista, que oculta la cabecera).
-    const show = kind === 'strip' && stripFolderNodes().length > 0;
-    const all = show && stripAllExpanded();
-    const title = t(all ? 'strip.collapseAllTitle' : 'strip.expandAllTitle');
+    const show = !!collection && stripFolderNodes(collection).length > 0;
+    const all = show && stripAllExpanded(collection);
+    const title = show ? t(all ? `${collection}.collapseAllTitle` : `${collection}.expandAllTitle`) : '';
     for (const btn of [$('#strip-expand-btn'), $('#strip-profiles .strip-expand-tool')]) {
       if (!btn) continue;
       btn.hidden = !show;
@@ -2433,24 +2505,32 @@
     renderStripExpandBtn();
   }
 
-  // ----- Tira: carpetas elegidas, una al lado de otra -----
+  // ----- Colecciones (tira y mosaico): carpetas elegidas -----
+  // Todo lo de aquí abajo recibe el tipo de colección (`kind`): 'strip' o 'masonry'.
 
-  const saveStrip = () =>
+  /** Ids elegidos de la colección (pueden quedar carpetas borradas). */
+  const colFolders = (kind) => state[`${kind}Folders`];
+  const colProfiles = (kind) => state[`${kind}Profiles`];
+  const colProfile = (kind) => state[`${kind}Profile`];
+
+  const saveStrip = (kind = 'strip') =>
     savePrefs({
-      stripFolders: [...state.stripFolders],
-      stripProfiles: serializeProfiles(),
-      stripProfile: state.stripProfile,
+      [`${kind}Folders`]: [...colFolders(kind)],
+      [`${kind}Profiles`]: serializeProfiles(kind),
+      [`${kind}Profile`]: colProfile(kind),
     });
-  const inStrip = (id) => state.stripFolders.includes(id);
+  const inStrip = (id, kind = 'strip') => colFolders(kind).includes(id);
 
-  /** Carpetas de la tira que aún existen, en su orden. */
-  function stripFolderNodes() {
-    return state.stripFolders.map(get).filter((f) => isFolder(f) && f.id !== state.rootId);
+  /** Carpetas de la colección que aún existen, en su orden. */
+  function stripFolderNodes(kind = 'strip') {
+    return colFolders(kind)
+      .map(get)
+      .filter((f) => isFolder(f) && f.id !== state.rootId);
   }
 
-  function setStripFolders(list) {
-    state.stripFolders = [...new Set(list)];
-    saveStrip();
+  function setStripFolders(list, kind = 'strip') {
+    state[`${kind}Folders`] = [...new Set(list)];
+    saveStrip(kind);
     scheduleRender();
   }
 
@@ -2477,70 +2557,77 @@
    * se crea a partir de la tira de antes de que existieran los perfiles), y si llega
    * stripFolders (otra pestaña, una copia antigua) son las carpetas del activo.
    */
-  function applyStripProfiles(p) {
-    if (Array.isArray(p.stripProfiles)) state.stripProfiles = sanitizeProfiles(p.stripProfiles);
-    if (typeof p.stripProfile === 'string') state.stripProfile = p.stripProfile;
-    if (!state.stripProfiles.length)
-      state.stripProfiles = [{ id: 'default', name: '', color: '', folders: [...state.stripFolders] }];
-    let active = state.stripProfiles.find((x) => x.id === state.stripProfile);
+  function applyStripProfiles(p, kind = 'strip') {
+    const P = `${kind}Profiles`;
+    const A = `${kind}Profile`;
+    const F = `${kind}Folders`;
+    if (Array.isArray(p[P])) state[P] = sanitizeProfiles(p[P]);
+    if (typeof p[A] === 'string') state[A] = p[A];
+    if (!state[P].length) state[P] = [{ id: 'default', name: '', color: '', folders: [...state[F]] }];
+    let active = state[P].find((x) => x.id === state[A]);
     if (!active) {
-      active = state.stripProfiles[0];
-      state.stripProfile = active.id;
+      active = state[P][0];
+      state[A] = active.id;
     }
-    if (Array.isArray(p.stripFolders)) active.folders = cleanIds(p.stripFolders);
-    state.stripFolders = [...active.folders];
+    if (Array.isArray(p[F])) active.folders = cleanIds(p[F]);
+    state[F] = [...active.folders];
   }
 
-  const activeProfile = () => state.stripProfiles.find((x) => x.id === state.stripProfile) || state.stripProfiles[0];
+  const activeProfile = (kind = viewCol()) =>
+    colProfiles(kind).find((x) => x.id === colProfile(kind)) || colProfiles(kind)[0];
   const profileName = (pr) => pr?.name || t('strip.profileDefault');
 
-  /** Copia de los perfiles para guardar (el activo, con las carpetas de la tira). */
-  function serializeProfiles() {
-    return state.stripProfiles.map((pr) => ({
+  /** Copia de los perfiles para guardar (el activo, con las carpetas de la colección). */
+  function serializeProfiles(kind = 'strip') {
+    const active = colProfile(kind);
+    return colProfiles(kind).map((pr) => ({
       id: pr.id,
       name: pr.name,
       color: pr.color || '',
-      folders: pr.id === state.stripProfile ? [...state.stripFolders] : [...pr.folders],
+      folders: pr.id === active ? [...colFolders(kind)] : [...pr.folders],
     }));
   }
 
-  /** Activa un perfil (sin guardar): su selección pasa a ser la tira. */
-  function activateProfile(pr) {
+  /** Activa un perfil (sin guardar): su selección pasa a ser la de la colección. */
+  function activateProfile(pr, kind) {
     // Solo si el activo sigue en la lista (al eliminarlo ya no está).
-    const current = state.stripProfiles.find((x) => x.id === state.stripProfile);
-    if (current) current.folders = [...state.stripFolders];
-    state.stripProfile = pr.id;
-    state.stripFolders = [...pr.folders];
+    const current = colProfiles(kind).find((x) => x.id === colProfile(kind));
+    if (current) current.folders = [...colFolders(kind)];
+    state[`${kind}Profile`] = pr.id;
+    state[`${kind}Folders`] = [...pr.folders];
     // Otra selección de carpetas: la tira empieza desde el principio.
-    if (momentum.raf) stopMomentum();
-    if (wheelScroll.raf) stopWheelScroll();
-    $('#cards').scrollLeft = 0;
+    if (kind === 'strip') {
+      if (momentum.raf) stopMomentum();
+      if (wheelScroll.raf) stopWheelScroll();
+      $('#cards').scrollLeft = 0;
+    }
   }
 
-  function commitProfiles() {
-    saveStrip();
+  function commitProfiles(kind) {
+    saveStrip(kind);
     scheduleRender();
   }
 
-  function switchStripProfile(id) {
-    const pr = state.stripProfiles.find((x) => x.id === id);
-    if (!pr || id === state.stripProfile) return;
-    activateProfile(pr);
+  function switchStripProfile(id, kind = viewCol()) {
+    const pr = colProfiles(kind).find((x) => x.id === id);
+    if (!pr || id === colProfile(kind)) return;
+    activateProfile(pr, kind);
     state.profileFocus = id;
-    commitProfiles();
+    commitProfiles(kind);
   }
 
   const newProfileId = () => `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
   /** Perfil nuevo (vacío, o copia de `fromId`) justo después del de origen; queda activo. */
-  function addStripProfile(fromId = null) {
-    const from = fromId ? state.stripProfiles.find((x) => x.id === fromId) : null;
-    if (from) activeProfile().folders = [...state.stripFolders];
-    const names = new Set(state.stripProfiles.map(profileName));
+  function addStripProfile(fromId = null, kind = viewCol()) {
+    const list = colProfiles(kind);
+    const from = fromId ? list.find((x) => x.id === fromId) : null;
+    if (from) activeProfile(kind).folders = [...colFolders(kind)];
+    const names = new Set(list.map(profileName));
     let name;
     if (from) name = t('strip.profileCopy', { name: profileName(from) });
     else {
-      let n = state.stripProfiles.length + 1;
+      let n = list.length + 1;
       while (names.has(t('strip.profileNew', { n }))) n++;
       name = t('strip.profileNew', { n });
     }
@@ -2550,93 +2637,101 @@
       color: from?.color || '',
       folders: from ? [...from.folders] : [],
     };
-    const at = from ? state.stripProfiles.indexOf(from) + 1 : state.stripProfiles.length;
-    state.stripProfiles.splice(at, 0, pr);
-    activateProfile(pr);
+    const at = from ? list.indexOf(from) + 1 : list.length;
+    list.splice(at, 0, pr);
+    activateProfile(pr, kind);
     // Se le pone nombre nada más crearlo.
     state.profileRenaming = pr.id;
-    commitProfiles();
+    commitProfiles(kind);
     return pr.id;
   }
 
-  function renameStripProfile(id, name) {
-    const pr = state.stripProfiles.find((x) => x.id === id);
+  function renameStripProfile(id, name, kind = viewCol()) {
+    const pr = colProfiles(kind).find((x) => x.id === id);
     const clean = String(name ?? '')
       .trim()
       .slice(0, PROFILE_NAME_MAX);
     // Vacío: se queda como estaba.
     if (!pr || !clean || clean === pr.name) return;
     pr.name = clean;
-    commitProfiles();
+    commitProfiles(kind);
   }
 
-  function setProfileColor(id, color) {
-    const pr = state.stripProfiles.find((x) => x.id === id);
+  function setProfileColor(id, color, kind = viewCol()) {
+    const pr = colProfiles(kind).find((x) => x.id === id);
     if (!pr) return;
     pr.color = GROUP_COLORS.includes(color) ? color : '';
-    commitProfiles();
+    commitProfiles(kind);
   }
 
-  function moveStripProfile(id, step) {
-    const list = state.stripProfiles;
+  function moveStripProfile(id, step, kind = viewCol()) {
+    const list = colProfiles(kind);
     const from = list.findIndex((x) => x.id === id);
     const to = from + step;
     if (from < 0 || to < 0 || to >= list.length) return;
     list.splice(to, 0, ...list.splice(from, 1));
     state.profileFocus = id;
-    commitProfiles();
+    commitProfiles(kind);
   }
 
-  function deleteStripProfile(id) {
-    const list = state.stripProfiles;
+  function deleteStripProfile(id, kind = viewCol()) {
+    const list = colProfiles(kind);
     const index = list.findIndex((x) => x.id === id);
     if (index < 0 || list.length < 2) return;
-    activeProfile().folders = [...state.stripFolders];
+    activeProfile(kind).folders = [...colFolders(kind)];
     const before = list.map((x) => ({ ...x, folders: [...x.folders] }));
-    const beforeActive = state.stripProfile;
+    const beforeActive = colProfile(kind);
     const [removed] = list.splice(index, 1);
-    if (id === beforeActive) activateProfile(list[Math.min(index, list.length - 1)]);
-    commitProfiles();
+    if (id === beforeActive) activateProfile(list[Math.min(index, list.length - 1)], kind);
+    commitProfiles(kind);
     toast(t('toast.profileDeleted', { name: profileName(removed) }), 'info', {
       label: t('action.undo'),
       run: () => {
-        state.stripProfiles = before;
-        state.stripProfile = '';
-        activateProfile(before.find((x) => x.id === beforeActive) || before[0]);
-        commitProfiles();
+        state[`${kind}Profiles`] = before;
+        state[`${kind}Profile`] = '';
+        activateProfile(before.find((x) => x.id === beforeActive) || before[0], kind);
+        commitProfiles(kind);
       },
     });
   }
 
-  function profileMenu(id) {
-    const list = state.stripProfiles;
+  function profileMenu(id, kind = viewCol()) {
+    const list = colProfiles(kind);
     const index = list.findIndex((x) => x.id === id);
     if (index < 0) return [];
     return [
-      id !== state.stripProfile && { label: t('strip.profileOpen'), icon: 'strip', run: () => switchStripProfile(id) },
-      { label: t('menu.rename'), icon: 'edit', run: () => startProfileRename(id) },
-      { label: t('strip.profileDuplicate'), icon: 'copy', run: () => addStripProfile(id) },
+      id !== colProfile(kind) && {
+        label: t('strip.profileOpen'),
+        icon: kind,
+        run: () => switchStripProfile(id, kind),
+      },
+      { label: t('menu.rename'), icon: 'edit', run: () => startProfileRename(id, kind) },
+      { label: t('strip.profileDuplicate'), icon: 'copy', run: () => addStripProfile(id, kind) },
       '-',
-      colorRow(list[index].color, (c) => setProfileColor(id, c)),
+      colorRow(list[index].color, (c) => setProfileColor(id, c, kind)),
       list.length > 1 && '-',
-      index > 0 && { label: t('strip.profileMoveLeft'), icon: 'arrow-left', run: () => moveStripProfile(id, -1) },
+      index > 0 && {
+        label: t('strip.profileMoveLeft'),
+        icon: 'arrow-left',
+        run: () => moveStripProfile(id, -1, kind),
+      },
       index < list.length - 1 && {
         label: t('strip.profileMoveRight'),
         icon: 'arrow-right',
-        run: () => moveStripProfile(id, 1),
+        run: () => moveStripProfile(id, 1, kind),
       },
       list.length > 1 && '-',
       list.length > 1 && {
         label: t('strip.profileDelete'),
         icon: 'trash',
         danger: true,
-        run: () => deleteStripProfile(id),
+        run: () => deleteStripProfile(id, kind),
       },
     ];
   }
 
-  function startProfileRename(id) {
-    if (!state.stripProfiles.some((x) => x.id === id)) return;
+  function startProfileRename(id, kind = viewCol()) {
+    if (!colProfiles(kind).some((x) => x.id === id)) return;
     state.profileRenaming = id;
     renderStripProfiles();
   }
@@ -2650,18 +2745,18 @@
     renderStripProfiles();
   }
 
-  /** Barra de perfiles, sobre la tira (también en el modo minimalista). */
+  /** Barra de perfiles, sobre la colección a la vista (también en el modo minimalista). */
   function renderStripProfiles(kind = state.viewKind) {
     const bar = $('#strip-profiles');
-    const show = kind === 'strip';
+    const show = isCollection(kind);
     bar.hidden = !show;
     if (!show) return;
     // No se rehace mientras se escribe un nombre (un repintado se llevaría lo escrito).
     const editing = bar.querySelector('.strip-profile-input');
     if (editing && editing.dataset.profileId === state.profileRenaming) return;
     const live = (ids) => ids.filter((id) => id !== state.rootId && isFolder(get(id))).length;
-    const chips = state.stripProfiles.map((pr) => {
-      const active = pr.id === state.stripProfile;
+    const chips = colProfiles(kind).map((pr) => {
+      const active = pr.id === colProfile(kind);
       const color = pr.color || null;
       if (pr.id === state.profileRenaming) {
         return el('input', {
@@ -2673,7 +2768,7 @@
           dataset: { profileId: pr.id, color },
         });
       }
-      const folders = tn('strip.profileFolders', live(active ? state.stripFolders : pr.folders));
+      const folders = tn('strip.profileFolders', live(active ? colFolders(kind) : pr.folders));
       return el(
         'button',
         {
@@ -2693,16 +2788,16 @@
         { class: 'strip-profile-tool', type: 'button', title: label, 'aria-label': label, dataset: { action } },
         icon(iconName),
       );
-    const more = t('strip.profileMore', { name: profileName(activeProfile()) });
-    // Expandir / contraer TODA la tira: en la cabecera ya hay un botón; aquí solo se
+    const more = t('strip.profileMore', { name: profileName(activeProfile(kind)) });
+    // Expandir / contraer TODA la colección: en la cabecera ya hay un botón; aquí solo se
     // ve en el modo minimalista (ver CSS). renderStripExpandBtn() pone icono y título.
-    const expand = tool('strip-expand-all', 'expand-all', t('strip.expandAllTitle'));
+    const expand = tool('strip-expand-all', 'expand-all', t(`${kind}.expandAllTitle`));
     expand.classList.add('strip-expand-tool');
     bar.replaceChildren(
       el(
         'div',
         { class: 'strip-profile-pill' },
-        el('div', { class: 'strip-profile-list', role: 'group', 'aria-label': t('strip.profiles') }, ...chips),
+        el('div', { class: 'strip-profile-list', role: 'group', 'aria-label': t(`${kind}.profiles`) }, ...chips),
         el('span', { class: 'strip-profile-sep', 'aria-hidden': 'true' }),
         expand,
         tool('profile-add', 'plus', t('strip.profileAddTitle')),
@@ -2749,33 +2844,37 @@
     });
   }
 
-  function toggleStrip(id) {
+  function toggleStrip(id, kind = 'strip') {
     const f = get(id);
     if (!isFolder(f)) return;
     const name = folderName(f);
-    if (inStrip(id)) {
-      const before = [...state.stripFolders];
-      setStripFolders(before.filter((x) => x !== id));
-      toast(t('toast.stripRemoved', { name }), 'info', {
+    if (inStrip(id, kind)) {
+      const before = [...colFolders(kind)];
+      setStripFolders(
+        before.filter((x) => x !== id),
+        kind,
+      );
+      toast(t(`toast.${kind}Removed`, { name }), 'info', {
         label: t('action.undo'),
-        run: () => setStripFolders(before),
+        run: () => setStripFolders(before, kind),
       });
       return;
     }
-    setStripFolders([...state.stripFolders, id]);
-    const showing = (isMinimal() ? minimalSelection() : state.selected) === VIEW_STRIP;
+    setStripFolders([...colFolders(kind), id], kind);
+    const view = COLLECTIONS[kind];
+    const showing = (isMinimal() ? minimalSelection() : state.selected) === view;
     toast(
-      t('toast.stripAdded', { name }),
+      t(`toast.${kind}Added`, { name }),
       'info',
-      showing ? null : { label: t('strip.show'), run: () => selectView(VIEW_STRIP) },
+      showing ? null : { label: t(`${kind}.show`), run: () => selectView(view) },
     );
   }
 
-  /** Coloca una carpeta en la posición `index` de la tira (sin contarla a ella). */
-  function placeInStrip(id, index) {
-    const list = state.stripFolders.filter((x) => x !== id);
+  /** Coloca una carpeta en la posición `index` de la colección (sin contarla a ella). */
+  function placeInStrip(id, index, kind = viewCol()) {
+    const list = colFolders(kind).filter((x) => x !== id);
     list.splice(clamp(index, 0, list.length), 0, id);
-    setStripFolders(list);
+    setStripFolders(list, kind);
   }
 
   /** Hueco del final de la tira: abre el selector y acepta carpetas arrastradas. */
@@ -2789,52 +2888,102 @@
   }
 
   /**
-   * Hueco de la tira para una carpeta arrastrada (desde la tira o desde el árbol):
-   * a la izquierda o a la derecha de la tarjeta bajo el puntero, o al final.
+   * Hueco de la colección para una carpeta arrastrada (desde ella o desde el árbol):
+   * en la tira, a la izquierda o a la derecha de la tarjeta bajo el puntero; en el
+   * mosaico, encima o debajo; o al final (el hueco de «Añadir»).
    */
   function stripSlot(event) {
-    if (state.viewKind !== 'strip' || state.dragFromGroup) return null;
+    const kind = state.viewKind;
+    if (!isCollection(kind) || state.dragFromGroup) return null;
     const ids = state.dragIds;
     if (ids.length !== 1 || !isFolder(get(ids[0]))) return null;
     const id = ids[0];
     const item = event.target.closest?.('#cards .board-card[data-folder-id], #cards .strip-add');
     if (!item) return null;
-    const list = state.stripFolders.filter((x) => x !== id);
+    const folders = colFolders(kind);
+    const list = folders.filter((x) => x !== id);
+    const x = kind === 'strip';
     let index;
     let after = false;
     if (item.classList.contains('strip-add')) index = list.length;
     else {
       const rect = item.getBoundingClientRect();
-      after = event.clientX > rect.left + rect.width / 2;
+      after = x ? event.clientX > rect.left + rect.width / 2 : event.clientY > rect.top + rect.height / 2;
       const target = item.dataset.folderId;
-      if (target === id) return { el: item, after, x: true, noop: true, folderId: id, index: 0 };
+      if (target === id) return { el: item, after, x, noop: true, folderId: id, index: 0 };
       index = list.indexOf(target) + (after ? 1 : 0);
     }
-    const noop = inStrip(id) && state.stripFolders.indexOf(id) === index;
-    return { el: item, after, x: true, noop, folderId: id, index };
+    const noop = folders.includes(id) && folders.indexOf(id) === index;
+    return { el: item, after, x, noop, folderId: id, index };
   }
 
-  // ----- Elegir las carpetas de la tira en el árbol lateral -----
-  // Con la tira a la vista, el árbol entra en «modo selección»: cada carpeta lleva
-  // una casilla y un clic la añade o la quita (en vez de abrirla).
+  // ----- Mosaico: columnas que se rellenan por la más corta -----
+  // A diferencia del tablero (columnas CSS, que se leen de arriba abajo), el orden
+  // va de izquierda a derecha: cada tarjeta entra en la columna que menos mide en
+  // ese momento. Al desplegar o plegar algo no se recoloca nada (las tarjetas no
+  // saltan de sitio bajo el puntero); sí al repintar la vista o al cambiar el
+  // número de columnas.
 
-  const stripPicking = () => !isMinimal() && currentShown() === VIEW_STRIP;
+  /** Columnas que caben (con el máximo de Ajustes → Diseño, como el tablero). */
+  function masonryColumns(cards) {
+    const max = state.prefs.boardColumns;
+    const min = max === 'auto' ? MASONRY_MIN : 160;
+    const fit = Math.max(1, Math.floor(((cards.clientWidth || 0) + MASONRY_GAP) / (min + MASONRY_GAP)));
+    return max === 'auto' ? fit : Math.min(fit, max);
+  }
 
-  function toggleStripPick(id) {
+  function layoutMasonry(cards, items, count = masonryColumns(cards)) {
+    state.masonryItems = items;
+    const cols = Array.from({ length: count }, () => el('div', { class: 'masonry-col' }));
+    cards.replaceChildren(...cols);
+    cards.dataset.cols = String(count);
+    const heights = cols.map(() => 0);
+    const sizes = cols.map(() => 0);
+    for (const item of items) {
+      // La más corta; si miden lo mismo (o no hay medidas), la de menos tarjetas y la de la izquierda.
+      let best = 0;
+      for (let i = 1; i < count; i++) {
+        const diff = heights[i] - heights[best];
+        if (diff < -1 || (Math.abs(diff) <= 1 && sizes[i] < sizes[best])) best = i;
+      }
+      cols[best].append(item);
+      sizes[best]++;
+      heights[best] = cols[best].offsetHeight || 0;
+    }
+  }
+
+  /** Al cambiar el ancho: si cambia el número de columnas, se recolocan las mismas tarjetas. */
+  function relayoutMasonry() {
+    const cards = $('#cards');
+    if (!cards.classList.contains('is-masonry') || !state.masonryItems.length) return;
+    const count = masonryColumns(cards);
+    if (String(count) !== cards.dataset.cols) layoutMasonry(cards, state.masonryItems, count);
+  }
+
+  // ----- Elegir las carpetas de una colección en el árbol lateral -----
+  // Con la tira o el mosaico a la vista, el árbol entra en «modo selección»: cada
+  // carpeta lleva una casilla y un clic la añade o la quita (en vez de abrirla).
+
+  /** Colección cuyas carpetas se marcan en el árbol ahora mismo (o null). */
+  const pickingCollection = () => (isMinimal() ? null : collectionOfView(currentShown()));
+
+  function toggleStripPick(id, kind = pickingCollection() || 'strip') {
     if (!isFolder(get(id)) || id === state.rootId) return;
-    setStripFolders(inStrip(id) ? state.stripFolders.filter((x) => x !== id) : [...state.stripFolders, id]);
+    const list = colFolders(kind);
+    setStripFolders(inStrip(id, kind) ? list.filter((x) => x !== id) : [...list, id], kind);
   }
 
   /** «Elegir carpetas»: muestra el árbol (cajón en móvil) y señala dónde marcar. */
-  function revealTreePicker() {
+  function revealTreePicker(kind = viewCol()) {
     closeMenu();
-    // El modo minimalista no tiene árbol: se sale de él (y se queda en la tira).
+    const view = COLLECTIONS[isCollection(kind) ? kind : 'strip'];
+    // El modo minimalista no tiene árbol: se sale de él (y se queda en la colección).
     if (isMinimal()) {
-      if (minimalSelection() !== VIEW_STRIP) selectView(VIEW_STRIP);
+      if (minimalSelection() !== view) selectView(view);
       exitMinimal();
       return;
     }
-    if (!stripPicking()) selectView(VIEW_STRIP);
+    if (currentShown() !== view) selectView(view);
     if (window.matchMedia('(max-width: 900px)').matches) openDrawer();
     else if (!state.prefs.sidebarPanel) setPref('sidebarPanel', true);
     const hint = $('#tree-pick-hint');
@@ -3115,13 +3264,18 @@
     content.addEventListener('pointercancel', stripPointerUp);
     $('#cards').addEventListener('scroll', updateStripEdges, { passive: true });
     window.addEventListener('resize', debounce(updateStripEdges, 100));
+    // El ancho del contenido también cambia al abrir o cerrar los paneles laterales.
+    if (typeof ResizeObserver === 'function') new ResizeObserver(debounce(relayoutMasonry, 60)).observe($('#cards'));
+    else window.addEventListener('resize', debounce(relayoutMasonry, 100));
   }
 
   function animateEntering(container) {
     container.classList.remove('is-entering');
     void container.offsetWidth;
     let i = 0;
-    for (const child of container.children) {
+    // En el mosaico se escalonan las tarjetas (en su orden), no las columnas.
+    const masonry = container.classList.contains('is-masonry');
+    for (const child of masonry ? state.masonryItems : container.children) {
       child.style.setProperty('--i', Math.min(i++, 24));
     }
     container.classList.add('is-entering');
@@ -3401,12 +3555,13 @@
           text: t('empty.search.text', { q: state.query }),
           action: { label: t('empty.search.action'), run: clearSearch },
         };
-      } else if (view.kind === 'strip') {
+      } else if (isCollection(view.kind)) {
+        const kind = view.kind;
         spec = {
-          icon: 'strip',
-          title: t('empty.strip.title'),
-          text: t('empty.strip.text'),
-          action: { label: t('strip.pick'), run: revealTreePicker },
+          icon: kind,
+          title: t(`empty.${kind}.title`),
+          text: t(`empty.${kind}.text`),
+          action: { label: t('strip.pick'), run: () => revealTreePicker(kind) },
         };
       } else if (view.key === VIEW_FAVORITES) {
         spec = {
@@ -3723,14 +3878,14 @@
     state.separatorColors = sepColors;
     state.boardCollapsed = swapAll(state.boardCollapsed);
     state.boardShowAll = swapAll(state.boardShowAll);
-    state.stripFolders = [...new Set(state.stripFolders.map(swap))];
-    for (const pr of state.stripProfiles) pr.folders = [...new Set(pr.folders.map(swap))];
-    state.stripOpen = swapAll(state.stripOpen);
+    for (const kind of COLLECTION_KINDS) {
+      state[`${kind}Folders`] = [...new Set(colFolders(kind).map(swap))];
+      for (const pr of colProfiles(kind)) pr.folders = [...new Set(pr.folders.map(swap))];
+      state[`${kind}Open`] = swapAll(openSet(kind));
+    }
     state.expanded = swapAll(state.expanded);
     const patch = {
-      stripFolders: [...state.stripFolders],
-      stripProfiles: serializeProfiles(),
-      stripOpen: [...state.stripOpen],
+      ...collectionPrefs(false),
       favorites: [...state.favorites],
       groups: serializeGroups(),
       folderColors: { ...state.folderColors },
@@ -4517,9 +4672,11 @@
       ...Object.keys(state.folderColors),
       ...state.boardCollapsed,
       ...state.boardShowAll,
-      ...state.stripFolders,
-      ...state.stripProfiles.flatMap((pr) => pr.folders),
-      ...state.stripOpen,
+      ...COLLECTION_KINDS.flatMap((kind) => [
+        ...colFolders(kind),
+        ...colProfiles(kind).flatMap((pr) => pr.folders),
+        ...openSet(kind),
+      ]),
       ...state.expanded,
       state.prefs.homeFolder,
     ]);
@@ -4563,13 +4720,25 @@
       separatorColors: Object.fromEntries(Object.entries(state.separatorColors).filter(([id]) => separators[id])),
       boardCollapsed: [...state.boardCollapsed],
       boardShowAll: [...state.boardShowAll],
-      stripFolders: [...state.stripFolders],
-      stripProfiles: serializeProfiles(),
-      stripProfile: state.stripProfile,
-      stripOpen: [...state.stripOpen],
+      ...collectionPrefs(),
       expanded: [...state.expanded],
       refs: { bookmarks, folders, separators },
     };
+  }
+
+  /**
+   * Selección, perfiles y subcarpetas desplegadas de cada colección, con sus claves
+   * de storage (stripFolders, stripProfiles, stripProfile, stripOpen, masonry…).
+   */
+  function collectionPrefs(withActive = true) {
+    const out = {};
+    for (const kind of COLLECTION_KINDS) {
+      out[`${kind}Folders`] = [...colFolders(kind)];
+      out[`${kind}Profiles`] = serializeProfiles(kind);
+      if (withActive) out[`${kind}Profile`] = colProfile(kind);
+      out[`${kind}Open`] = [...openSet(kind)];
+    }
+    return out;
   }
 
   function exportBackup() {
@@ -4707,6 +4876,18 @@
           ...(typeof data.stripProfile === 'string' && { stripProfile: data.stripProfile }),
         }),
         stripOpen: mapFolders(data.stripOpen),
+        // El mosaico solo si la copia lo trae (una anterior a él no lo vacía).
+        ...((Array.isArray(data.masonryFolders) || Array.isArray(data.masonryProfiles)) && {
+          masonryFolders: mapFolders(data.masonryFolders),
+          ...(Array.isArray(data.masonryProfiles) && {
+            masonryProfiles: sanitizeProfiles(data.masonryProfiles).map((pr) => ({
+              ...pr,
+              folders: mapFolders(pr.folders),
+            })),
+            ...(typeof data.masonryProfile === 'string' && { masonryProfile: data.masonryProfile }),
+          }),
+          masonryOpen: mapFolders(data.masonryOpen),
+        }),
         expanded: mapFolders(data.expanded),
       },
       missing: missing.size,
@@ -4889,11 +5070,11 @@
         run: () => openEditor({ mode: 'new-folder', parentId: f.id }),
       },
       homeId() !== f.id && { label: t('menu.setHome'), icon: 'home', run: () => setHomeFolder(f.id) },
-      {
-        label: t(inStrip(f.id) ? 'menu.stripRemove' : 'menu.stripAdd'),
-        icon: 'strip',
-        run: () => toggleStrip(f.id),
-      },
+      ...COLLECTION_KINDS.map((kind) => ({
+        label: t(`menu.${kind}${inStrip(f.id, kind) ? 'Remove' : 'Add'}`),
+        icon: kind,
+        run: () => toggleStrip(f.id, kind),
+      })),
       '-',
       colorRow(state.folderColors[f.id], (c) => setFolderColor(f.id, c)),
       !builtin && '-',
@@ -5200,7 +5381,7 @@
       const source = event.target.closest?.('[data-drag-id]');
       if (!source) return;
       const n = get(source.dataset.dragId);
-      const stripHead = state.viewKind === 'strip' && source.classList.contains('board-head');
+      const stripHead = isCollection(state.viewKind) && source.classList.contains('board-head');
       if (!n || n.id === state.rootId || (isBuiltin(n.id) && !stripHead)) {
         event.preventDefault();
         return;
@@ -5263,7 +5444,7 @@
       const strip = stripSlot(event);
       if (strip) {
         event.preventDefault();
-        event.dataTransfer.dropEffect = inStrip(strip.folderId) ? 'move' : 'copy';
+        event.dataTransfer.dropEffect = inStrip(strip.folderId, state.viewKind) ? 'move' : 'copy';
         setDropTarget(null);
         setDropSlot(strip.noop ? null : strip);
         return;
@@ -5315,7 +5496,7 @@
       if (strip) {
         event.preventDefault();
         endDrag();
-        if (!strip.noop) placeInStrip(strip.folderId, strip.index);
+        if (!strip.noop) placeInStrip(strip.folderId, strip.index, state.viewKind);
         return;
       }
       const slot = reorderSlot(event);
@@ -5692,7 +5873,7 @@
           break;
         }
         case 'strip-pick':
-          revealTreePicker();
+          revealTreePicker(viewCol());
           break;
         case 'profile':
           switchStripProfile(actionEl.dataset.profileId);
@@ -5712,7 +5893,7 @@
           break;
         }
         case 'profile-more':
-          openMenu(profileMenu(state.stripProfile), actionEl);
+          openMenu(profileMenu(colProfile(viewCol())), actionEl);
           break;
         default:
           break;
@@ -5720,8 +5901,8 @@
     });
 
     // Tira: elegir carpetas (en el árbol) y desplazamiento (rueda, arrastre del fondo)
-    $('#strip-pick-btn').addEventListener('click', revealTreePicker);
-    $('#strip-expand-btn').addEventListener('click', toggleStripExpandAll);
+    $('#strip-pick-btn').addEventListener('click', () => revealTreePicker(viewCol()));
+    $('#strip-expand-btn').addEventListener('click', () => toggleStripExpandAll(viewCol()));
     $('#home-set-btn').addEventListener('click', setHomeHere);
     bindStripScroll();
     bindStripProfiles();

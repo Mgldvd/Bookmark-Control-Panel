@@ -653,7 +653,8 @@ code {
 .cards.is-strip > .board-card.is-drop-after {
   box-shadow: 6px 0 0 -2px var(--accent) !important;
 }
-.cards.is-strip > .strip-add.is-drop-before {
+.cards.is-strip > .strip-add.is-drop-before,
+.cards.is-masonry .strip-add.is-drop-before {
   border-color: var(--accent);
   background: var(--accent-soft);
   color: var(--accent);
@@ -1553,9 +1554,13 @@ h1 {
   }
 }
 
-.is-entering > * {
+.is-entering > *,
+.is-entering > .masonry-col > * {
   animation: card-in 0.32s var(--ease) backwards;
   animation-delay: calc(var(--i, 0) * 16ms);
+}
+.is-entering > .masonry-col {
+  animation: none;
 }
 .card.is-new,
 .folder-tile.is-new {
@@ -2500,7 +2505,26 @@ label.set-row {
   scrollbar-width: thin;
 }
 
-/* Subcarpetas de la tira: árbol desplegable con sus enlaces */
+/* ---------- Mosaico: las carpetas elegidas en columnas (masonry) ----------
+   dashboard.js reparte las tarjetas en .masonry-col (cada una entra en la columna
+   más corta), así el orden se lee de izquierda a derecha y no de arriba abajo. */
+.cards.is-masonry {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+.masonry-col {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.cards.is-masonry .strip-add {
+  min-height: 96px;
+}
+
+/* Subcarpetas de la tira (y del mosaico): árbol desplegable con sus enlaces */
 .strip-subs {
   list-style: none;
   margin: 4px 0 0;
@@ -3680,7 +3704,8 @@ label.set-row {
 }
 /* La tira en el modo minimalista: la barra de perfiles sube a la altura del botón
    de salida (centrada, no lo tapa) y las tarjetas empiezan justo debajo. */
-.minimal .content.is-strip-view .content-inner {
+.minimal .content.is-strip-view .content-inner,
+.minimal .content.is-masonry-view .content-inner {
   padding-top: 12px;
 }
 

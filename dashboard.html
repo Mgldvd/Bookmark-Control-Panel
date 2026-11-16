@@ -151,6 +151,12 @@
         <rect x="9.25" y="4" width="5.5" height="11" rx="1.5" />
         <rect x="16" y="4" width="5.5" height="13.5" rx="1.5" />
       </symbol>
+      <symbol id="i-masonry" viewBox="0 0 24 24">
+        <rect x="3" y="3" width="8" height="10" rx="1.5" />
+        <rect x="3" y="15.5" width="8" height="5.5" rx="1.5" />
+        <rect x="13" y="3" width="8" height="5.5" rx="1.5" />
+        <rect x="13" y="11" width="8" height="10" rx="1.5" />
+      </symbol>
       <symbol id="i-palette" viewBox="0 0 24 24">
         <path
           d="M12 2.5a9.5 9.5 0 1 0 0 19c1.3 0 2-.9 2-1.9 0-1.2-.9-1.5-.9-2.6 0-1 .8-1.8 1.9-1.8H17a4.5 4.5 0 0 0 4.5-4.5C21.5 6.2 17.3 2.5 12 2.5Z"
@@ -240,6 +246,13 @@
                 <span class="count" id="count-strip"></span>
               </button>
             </li>
+            <li>
+              <button class="nav-item" type="button" data-view="view:masonry">
+                <svg class="icon"><use href="#i-masonry" /></svg>
+                <span class="nav-label" data-i18n="view.masonry">Masonry</span>
+                <span class="count" id="count-masonry"></span>
+              </button>
+            </li>
           </ul>
 
           <div class="nav-heading">
@@ -257,7 +270,8 @@
           </div>
           <p class="tree-pick-hint" id="tree-pick-hint" hidden>
             <svg class="icon"><use href="#i-strip" /></svg>
-            <span class="tree-pick-text" data-i18n="strip.treeHint">Check the folders for the strip</span>
+            <!-- El texto depende de la colección a la vista (lo pone dashboard.js) -->
+            <span class="tree-pick-text">Check the folders for the strip</span>
             <span class="tree-pick-count" id="tree-pick-count"></span>
           </p>
           <ul class="tree" id="tree"></ul>
@@ -485,7 +499,7 @@
               <span class="home-here" id="home-here"></span>
             </div>
 
-            <!-- Perfiles de la tira: distintas selecciones de carpetas (los pinta dashboard.js) -->
+            <!-- Perfiles de la tira o del mosaico: distintas selecciones de carpetas (los pinta dashboard.js) -->
             <div class="strip-profiles" id="strip-profiles" hidden></div>
 
             <section class="section" id="folders-section" hidden>

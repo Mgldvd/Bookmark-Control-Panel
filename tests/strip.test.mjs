@@ -122,7 +122,7 @@ test('la casa de la cabecera deja la tira como página de inicio', async () => {
 test('con la tira abierta, el árbol marca y desmarca carpetas sin navegar', async () => {
   const stored = { homeFolder: 'view:strip', stripFolders: ['F'] };
   const env = await openPanel({ stored });
-  assert.equal(env.panel.stripPicking(), true);
+  assert.equal(env.panel.pickingCollection(), 'strip');
 
   env.panel.toggleStripPick('H');
   env.panel.toggleStripPick('toolbar_____');
@@ -135,9 +135,9 @@ test('con la tira abierta, el árbol marca y desmarca carpetas sin navegar', asy
   assert.equal(env.toasts.length, 0, 'sin avisos por cada casilla');
 
   env.panel.selectView('F');
-  assert.equal(env.panel.stripPicking(), false, 'fuera de la tira el árbol vuelve a navegar');
+  assert.equal(env.panel.pickingCollection(), null, 'fuera de la tira el árbol vuelve a navegar');
   const minimal = await openPanel({ stored: { ...stored, minimal: true } });
-  assert.equal(minimal.panel.stripPicking(), false, 'el modo minimalista no tiene árbol');
+  assert.equal(minimal.panel.pickingCollection(), null, 'el modo minimalista no tiene árbol');
 });
 
 test('las subcarpetas desplegadas en la tira se recuerdan y van en la copia de seguridad', async () => {

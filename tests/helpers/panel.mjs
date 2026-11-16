@@ -41,7 +41,7 @@ const EXPOSE = [
   'placeInStrip',
   'stripSlot',
   'setHomeHere',
-  'stripPicking',
+  'pickingCollection',
   'toggleStripPick',
   'toggleStripSub',
   'toggleStripExpandAll',
