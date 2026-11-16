@@ -1,0 +1,80 @@
+name: Publish package
+
+# Publishes the unpacked extension as @mgldvd/bookmark-control-panel on GitHub Packages (npm)
+# and attaches the AMO-ready .zip to the release. The signed .xpi comes from Mozilla.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://npm.pkg.github.com
+          scope: '@mgldvd'
+
+      - name: Test
+        run: npm ci && npm run check
+
+      - name: Build package
+        run: |
+          ./package.sh
+          VERSION=$(node -p "require('./manifest.json').version")
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          mkdir -p pkg
+          unzip -q "dist/bookmark-control-panel-$VERSION.zip" -d pkg/extension
+          cp "dist/bookmark-control-panel-$VERSION.zip" pkg/
+          cp store/privacy-en.md pkg/PRIVACY.md
+          cat > pkg/README.md <<EOF
+          # Bookmark Control Panel $VERSION
+
+          Firefox extension (Manifest V3, Firefox 142+). Install it from
+          [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/bookmark-control-panel/).
+
+          - \`extension/\`: unpacked files, loadable from \`about:debugging\`.
+          - \`bookmark-control-panel-$VERSION.zip\`: the package submitted to Mozilla for signing.
+
+          Source, guide and issues: https://github.com/Mgldvd/Bookmark-Control-Panel
+          EOF
+          node -e "
+            const fs = require('fs');
+            fs.writeFileSync('pkg/package.json', JSON.stringify({
+              name: '@mgldvd/bookmark-control-panel',
+              version: process.env.VERSION,
+              description: 'Firefox new tab extension: your real bookmarks in Grid, List, Board, Strip and Masonry views.',
+              keywords: ['firefox-extension', 'webextension', 'bookmarks', 'new-tab'],
+              homepage: 'https://addons.mozilla.org/en-US/firefox/addon/bookmark-control-panel/',
+              bugs: 'https://github.com/Mgldvd/Bookmark-Control-Panel/issues',
+              repository: { type: 'git', url: 'git+https://github.com/Mgldvd/Bookmark-Control-Panel.git' },
+              license: 'UNLICENSED',
+              files: ['extension', '*.zip', 'PRIVACY.md'],
+              publishConfig: { registry: 'https://npm.pkg.github.com' },
+            }, null, 2) + '\n');
+          "
+
+      - name: Publish to GitHub Packages
+        working-directory: pkg
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if npm view "@mgldvd/bookmark-control-panel@$VERSION" version >/dev/null 2>&1; then
+            echo "Version $VERSION already published."
+          else
+            npm publish
+          fi
+
+      - name: Attach package to the release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" "dist/bookmark-control-panel-$VERSION.zip" --clobber
