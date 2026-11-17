@@ -22,10 +22,10 @@ Para no reiniciar la cola de revisión, no se retira ni se reenvía. La próxima
 
 Administración: https://addons.mozilla.org/en-US/developers/addon/bookmark-control-panel/versions/6718719
 
-Estado comprobado por API el 17 de noviembre de 2026 a las 12:18 de Colombia: 1.16.1 sigue `unreviewed`.
-Las **11 capturas** ya están en la ficha, todas de 1280×800; **6 de 11** tienen ya su leyenda bilingüe. El resto se
+Estado comprobado por API el 17 de noviembre de 2026 a las 12:55 de Colombia: 1.16.1 sigue `unreviewed`.
+Las **11 capturas** ya están en la ficha, todas de 1280×800; **8 de 11** tienen ya su leyenda bilingüe. El resto se
 escribe una a una por el límite de modificaciones de AMO. La siguiente continuación automática está programada para
-el **17 de noviembre de 2026 a las 12:55:21 de Colombia (17:55:21 UTC)**: completará las leyendas y comprobará
+el **17 de noviembre de 2026 a las 13:15:14 de Colombia (18:15:14 UTC)**: completará las leyendas y comprobará
 la revisión, sin reenviar ninguna versión.
 
 URL de la ficha: https://addons.mozilla.org/en-US/firefox/addon/bookmark-control-panel/
