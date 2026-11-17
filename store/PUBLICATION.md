@@ -13,10 +13,10 @@ de su archivo es `unreviewed`; la firma y la publicación efectiva todavía no e
 Recibo de AMO: versión **6718719**, archivo **5262802**.
 Administración de la versión: https://addons.mozilla.org/en-US/developers/addon/bookmark-control-panel/versions/6718719
 
-Estado comprobado por API el 16 de noviembre de 2026 a las 16:42 de Colombia: el archivo sigue `unreviewed`.
-Hay **7 de 11 capturas** subidas, todas de 1280×800; AMO volvió a aplicar el límite tras la séptima.
-La siguiente continuación automática está programada para el **17 de noviembre de 2026 a las 10:32:30 de Colombia
-(15:32:30 UTC)**. Subirá las capturas pendientes y volverá a comprobar la revisión y la firma, sin reenviar esta versión.
+Estado comprobado por API el 17 de noviembre de 2026 a las 10:32 de Colombia: el archivo sigue `unreviewed`.
+Hay **7 de 11 capturas** subidas, todas de 1280×800; AMO mantuvo el límite horario en este intento.
+La siguiente continuación automática está programada para el **17 de noviembre de 2026 a las 11:17:31 de Colombia
+(16:17:31 UTC)**. Subirá las capturas pendientes y volverá a comprobar la revisión y la firma, sin reenviar esta versión.
 
 GitHub: [v1.16.0](https://github.com/Mgldvd/Bookmark-Control-Panel/releases/tag/v1.16.0) contiene el XPI firmado
 (canal no listado). [v1.16.1](https://github.com/Mgldvd/Bookmark-Control-Panel/releases/tag/v1.16.1) es un pre-release con
