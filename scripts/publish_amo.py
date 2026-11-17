@@ -50,6 +50,21 @@ def prepare(images_only=False):
     return result
 
 
+def captions():
+    """Write the bilingual caption of each uploaded preview that lacks it on AMO (one write per preview)."""
+    wanted = {p['file']: p['caption'] for p in read('previews.json')}
+    ids = read('publication-result.json')['previews']
+    by_id = {p['id']: p for p in request(ENDPOINT)['previews']}
+    for name, caption in wanted.items():
+        current = by_id.get(ids.get(name))
+        if current is None:
+            raise RuntimeError(f'{name} is not uploaded yet.')
+        if all((current.get('caption') or {}).get(lang) == text for lang, text in caption.items()):
+            continue
+        request(ENDPOINT + f'previews/{current["id"]}/', 'PATCH', {'caption': caption})
+        print('Captioned ' + name, flush=True)
+
+
 def submit():
     versions = request(ENDPOINT + 'versions/?filter=all_with_unlisted')
     for version in versions.get('results', []):
@@ -82,7 +97,7 @@ def submit():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['prepare', 'prepare-images', 'submit', 'continue', 'status'])
+    parser.add_argument('action', choices=['prepare', 'prepare-images', 'captions', 'submit', 'continue', 'status'])
     args = parser.parse_args()
     try:
         if args.action in ('prepare', 'prepare-images'):
@@ -93,7 +108,10 @@ if __name__ == '__main__':
             # Submit first: rate limits must not leave a complete listing unpublished.
             submit()
             prepare(images_only=True)
-            print('All screenshot images uploaded; optional translated captions remain in previews.json.')
+            captions()
+            print('All screenshot images and bilingual captions are on AMO.')
+        elif args.action == 'captions':
+            captions()
         else:
             addon = request(ENDPOINT)
             print(json.dumps({k: addon.get(k) for k in ['id', 'slug', 'status', 'url', 'current_version', 'latest_unlisted_version', 'previews']}, indent=2))
