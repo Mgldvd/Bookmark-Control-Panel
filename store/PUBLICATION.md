@@ -1,33 +1,38 @@
 # Estado de la publicación
 
-Versión preparada: **1.16.1**, Firefox de escritorio desde 142.
+Versión actual: **1.17.0**, Firefox de escritorio desde 142.
 
-El 16 de noviembre de 2026 se preparó la ficha de Mozilla con nombre, descripción bilingüe,
-política de privacidad, categoría, enlaces de soporte e icono. Se subieron las dos primeras capturas.
-El paquete final pasó la validación de AMO sin errores, advertencias ni avisos; las 71 pruebas pasan.
+## GitHub
 
-**La versión pública fue enviada y está pendiente de revisión.** Mozilla aceptó la versión 1.16.1 en el canal
-`listed` el 16 de noviembre de 2026 a las **12:54:25 de Colombia (17:54:25 UTC)**. El último estado confirmado
-de su archivo es `unreviewed`; la firma y la publicación efectiva todavía no están confirmadas.
+[v1.17.0](https://github.com/Mgldvd/Bookmark-Control-Panel/releases/tag/v1.17.0) es la versión vigente:
+XPI firmado por Mozilla (canal no listado, instalable directamente), código fuente, capturas y video.
+También está publicada como paquete npm `@mgldvd/bookmark-control-panel` en GitHub Packages.
 
-Recibo de AMO: versión **6718719**, archivo **5262802**.
-Administración de la versión: https://addons.mozilla.org/en-US/developers/addon/bookmark-control-panel/versions/6718719
+El XPI `dist/bookmark-control-panel-1.17.0-signed.xpi` está verificado: versión 1.17.0,
+GUID `bookmark-dashboard@local-extension`, firma en `META-INF/` y SHA-256
+`fe6656c32b794aab851aa0d5a973e0a9d56810f0ca30bc36cdddeef5aeb255ed`, igual al hash de AMO (versión 6723000).
 
-Estado comprobado por API el 17 de noviembre de 2026 a las 10:32 de Colombia: el archivo sigue `unreviewed`.
-Hay **7 de 11 capturas** subidas, todas de 1280×800; AMO mantuvo el límite horario en este intento.
-La siguiente continuación automática está programada para el **17 de noviembre de 2026 a las 11:17:31 de Colombia
-(16:17:31 UTC)**. Subirá las capturas pendientes y volverá a comprobar la revisión y la firma, sin reenviar esta versión.
+## Mozilla Add-ons (ficha pública)
 
-GitHub: [v1.16.0](https://github.com/Mgldvd/Bookmark-Control-Panel/releases/tag/v1.16.0) contiene el XPI firmado
-(canal no listado). [v1.16.1](https://github.com/Mgldvd/Bookmark-Control-Panel/releases/tag/v1.16.1) es un pre-release con
-el paquete enviado, las fuentes, las capturas y el video; el XPI firmado se añadirá cuando Mozilla lo apruebe.
-También está publicado como paquete npm `@mgldvd/bookmark-control-panel` en GitHub Packages.
+El código de 1.17.0 es idéntico al de 1.16.1; solo cambia el número de versión.
+AMO no permite repetir un número de versión entre canales, así que 1.17.0 no puede enviarse a la ficha pública.
+La versión **1.16.1** sigue en revisión en el canal `listed`: se envió el 16 de noviembre de 2026 a las
+**12:54:25 de Colombia (17:54:25 UTC)** (versión **6718719**, archivo **5262802**). Último estado: `unreviewed`.
+Para no reiniciar la cola de revisión, no se retira ni se reenvía. La próxima versión pública debe ser **1.17.1 o superior**.
 
-URL reservada para la ficha: https://addons.mozilla.org/en-US/firefox/addon/bookmark-control-panel/
-Esta URL puede no estar disponible públicamente hasta que Mozilla apruebe la versión.
+Administración: https://addons.mozilla.org/en-US/developers/addon/bookmark-control-panel/versions/6718719
 
-Los recibos de API y la hora exacta del próximo intento se guardan localmente en archivos ignorados.
-No contienen credenciales. El código fuente, las once capturas y el video están en este repositorio.
+Estado comprobado por API el 17 de noviembre de 2026 a las 11:17 de Colombia. Hay **8 de 11 capturas** subidas,
+todas de 1280×800. AMO aplica un límite horario de modificaciones. La siguiente continuación automática está
+programada para el **17 de noviembre de 2026 a las 11:54:11 de Colombia (16:54:11 UTC)**: subirá las capturas
+pendientes y comprobará la revisión, sin reenviar ninguna versión.
+
+URL de la ficha: https://addons.mozilla.org/en-US/firefox/addon/bookmark-control-panel/
+Puede no estar disponible públicamente hasta que Mozilla apruebe la versión.
+
+## Material
+
+Los recibos de API se guardan localmente en archivos ignorados y no contienen credenciales.
 
 - Video: [presentación de 15 segundos](media/presentation-es.mp4).
 - Capturas y leyendas: [previews.json](previews.json).

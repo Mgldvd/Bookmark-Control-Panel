@@ -1,6 +1,6 @@
 # Publicación en Mozilla Add-ons
 
-Material de la versión 1.16.1 para Firefox de escritorio, desde Firefox 142.
+Material de la versión 1.17.0 para Firefox de escritorio, desde Firefox 142.
 
 - `listing.json`: nombre, descripción, resumen, categoría y enlaces en español e inglés.
 - `privacy-en.md` y `privacy-es.md`: políticas de privacidad; `privacy.json` es el contenido para AMO.
