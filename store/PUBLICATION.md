@@ -25,9 +25,9 @@ Administración: https://addons.mozilla.org/en-US/developers/addon/bookmark-cont
 **Galería completa** el 17 de noviembre de 2026 a las 13:15 de Colombia: 11 capturas de 1280×800, todas con
 leyenda en inglés y español.
 
-Estado comprobado por API el 17 de noviembre de 2026 a las 17:15 de Colombia: 1.16.1 sigue `unreviewed`.
+Estado comprobado por API el 17 de noviembre de 2026 a las 19:15 de Colombia: 1.16.1 sigue `unreviewed`.
 La siguiente comprobación automática (solo lectura) está programada para el **17 de noviembre de 2026 a las
-19:15 de Colombia (00:15 UTC del 18)** y se repetirá cada ~2 horas hasta que Mozilla resuelva la revisión.
+21:15 de Colombia (02:15 UTC del 18)** y se repetirá cada ~2 horas hasta que Mozilla resuelva la revisión.
 
 URL de la ficha: https://addons.mozilla.org/en-US/firefox/addon/bookmark-control-panel/
 Puede no estar disponible públicamente hasta que Mozilla apruebe la versión.
